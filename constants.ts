@@ -1,16 +1,16 @@
 import { Match, MatchStatus, Team, User, TournamentPredictions, Group } from './types';
 
 export const TEAMS: Record<string, Team> = {
-  bra: { id: 'bra', name: 'Brasil', code: 'BRA', flag: 'https://flagcdn.com/w160/br.png' },
-  arg: { id: 'arg', name: 'Argentina', code: 'ARG', flag: 'https://flagcdn.com/w160/ar.png' },
-  fra: { id: 'fra', name: 'França', code: 'FRA', flag: 'https://flagcdn.com/w160/fr.png' },
-  ger: { id: 'ger', name: 'Alemanha', code: 'GER', flag: 'https://flagcdn.com/w160/de.png' },
-  usa: { id: 'usa', name: 'EUA', code: 'USA', flag: 'https://flagcdn.com/w160/us.png' },
-  mex: { id: 'mex', name: 'México', code: 'MEX', flag: 'https://flagcdn.com/w160/mx.png' },
-  eng: { id: 'eng', name: 'Inglaterra', code: 'ENG', flag: 'https://flagcdn.com/w160/gb-eng.png' },
-  esp: { id: 'esp', name: 'Espanha', code: 'ESP', flag: 'https://flagcdn.com/w160/es.png' },
-  por: { id: 'por', name: 'Portugal', code: 'POR', flag: 'https://flagcdn.com/w160/pt.png' },
-  jpn: { id: 'jpn', name: 'Japão', code: 'JPN', flag: 'https://flagcdn.com/w160/jp.png' },
+  bra: { id: 'bra', name: 'Brasil', code: 'BRA', flag: 'https://flagcdn.com/w160/br.png', ranking: 1 },
+  arg: { id: 'arg', name: 'Argentina', code: 'ARG', flag: 'https://flagcdn.com/w160/ar.png', ranking: 2 },
+  fra: { id: 'fra', name: 'França', code: 'FRA', flag: 'https://flagcdn.com/w160/fr.png', ranking: 3 },
+  eng: { id: 'eng', name: 'Inglaterra', code: 'ENG', flag: 'https://flagcdn.com/w160/gb-eng.png', ranking: 4 },
+  esp: { id: 'esp', name: 'Espanha', code: 'ESP', flag: 'https://flagcdn.com/w160/es.png', ranking: 5 },
+  por: { id: 'por', name: 'Portugal', code: 'POR', flag: 'https://flagcdn.com/w160/pt.png', ranking: 7 },
+  ger: { id: 'ger', name: 'Alemanha', code: 'GER', flag: 'https://flagcdn.com/w160/de.png', ranking: 10 },
+  usa: { id: 'usa', name: 'EUA', code: 'USA', flag: 'https://flagcdn.com/w160/us.png', ranking: 11 },
+  mex: { id: 'mex', name: 'México', code: 'MEX', flag: 'https://flagcdn.com/w160/mx.png', ranking: 15 },
+  jpn: { id: 'jpn', name: 'Japão', code: 'JPN', flag: 'https://flagcdn.com/w160/jp.png', ranking: 18 },
 };
 
 export const INITIAL_MATCHES: Match[] = [

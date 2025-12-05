@@ -75,7 +75,14 @@ const App: React.FC = () => {
       matches.forEach(match => {
         if (match.status === MatchStatus.FINISHED && match.result && user.predictions[match.id]) {
           const pred = user.predictions[match.id];
-          total += calculatePoints(pred.home, pred.away, match.result.home, match.result.away);
+          total += calculatePoints(
+              pred.home, 
+              pred.away, 
+              match.result.home, 
+              match.result.away,
+              match.homeTeam.ranking,
+              match.awayTeam.ranking
+          );
         }
       });
 

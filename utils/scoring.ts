@@ -5,45 +5,80 @@ export const POINTS_GOAL_DIFF = 7;
 export const POINTS_OUTCOME = 5;
 export const POINTS_WRONG = 0;
 
+// Factor for underdog bonus: (DiffInRank * FACTOR). 
+// Example: Rank 15 vs Rank 1. Diff 14 * 0.25 = 3.5 -> 4 points bonus.
+const UNDERDOG_BONUS_FACTOR = 0.25; 
+
 export const POINTS_TOP_SCORER_NAME = 100;
 export const POINTS_TOP_SCORER_GOALS = 100;
 export const POINTS_CHAMPION = 100;
 export const POINTS_BEST_PLAYER = 100;
 export const POINTS_BEST_GOALKEEPER = 100;
 
+/**
+ * Calculates the potential bonus points if the underdog wins.
+ * Returns 0 if the winner is the favorite or ranks are missing.
+ */
+export const calculateUnderdogBonus = (
+    winnerRank: number | undefined, 
+    loserRank: number | undefined
+): number => {
+    if (!winnerRank || !loserRank) return 0;
+    
+    // If the winner has a worse ranking (higher number) than the loser, it's an underdog win.
+    if (winnerRank > loserRank) {
+        const diff = winnerRank - loserRank;
+        return Math.ceil(diff * UNDERDOG_BONUS_FACTOR);
+    }
+    
+    return 0;
+};
+
 export const calculatePoints = (
   predHome: number,
   predAway: number,
   realHome: number,
-  realAway: number
+  realAway: number,
+  homeRank?: number,
+  awayRank?: number
 ): number => {
+  let points = 0;
+
   // 1. Exact score
   if (predHome === realHome && predAway === realAway) {
-    return POINTS_EXACT;
+    points = POINTS_EXACT;
   }
-
   // 2. Determine outcomes
-  const predOutcome =
-    predHome > predAway ? 'home' : predHome < predAway ? 'away' : 'draw';
-  
-  const realOutcome =
-    realHome > realAway ? 'home' : realHome < realAway ? 'away' : 'draw';
+  else {
+      const predOutcome = predHome > predAway ? 'home' : predHome < predAway ? 'away' : 'draw';
+      const realOutcome = realHome > realAway ? 'home' : realHome < realAway ? 'away' : 'draw';
 
-  // 3. Correct Outcome (Winner or Draw)
-  if (predOutcome === realOutcome) {
-    // Check Goal Difference (New Rule)
-    const predDiff = predHome - predAway;
-    const realDiff = realHome - realAway;
+      // 3. Correct Outcome (Winner or Draw)
+      if (predOutcome === realOutcome) {
+        // Check Goal Difference
+        const predDiff = predHome - predAway;
+        const realDiff = realHome - realAway;
 
-    if (predDiff === realDiff) {
-        return POINTS_GOAL_DIFF;
-    }
-
-    return POINTS_OUTCOME;
+        if (predDiff === realDiff) {
+            points = POINTS_GOAL_DIFF;
+        } else {
+            points = POINTS_OUTCOME;
+        }
+      }
   }
 
-  // 4. Incorrect
-  return POINTS_WRONG;
+  // 4. Apply Underdog Bonus
+  // Only applies if the user got ANY points (meaning they predicted the winner/draw correctly)
+  // And it wasn't a draw (usually bonus implies picking a WINNER who is an underdog)
+  if (points > 0 && homeRank && awayRank && realHome !== realAway) {
+      const winnerRank = realHome > realAway ? homeRank : awayRank;
+      const loserRank = realHome > realAway ? awayRank : homeRank;
+      
+      const bonus = calculateUnderdogBonus(winnerRank, loserRank);
+      points += bonus;
+  }
+
+  return points;
 };
 
 export const calculateTournamentPoints = (

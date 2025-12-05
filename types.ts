@@ -9,6 +9,7 @@ export interface Team {
   name: string;
   code: string;
   flag: string; // Emoji or URL
+  ranking: number; // FIFA Ranking position
 }
 
 export interface Score {

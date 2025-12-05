@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Match, MatchStatus, Prediction, Friend, AIPredictionResult } from '../types';
-import { calculatePoints, POINTS_EXACT, POINTS_GOAL_DIFF, POINTS_OUTCOME } from '../utils/scoring';
-import { Users, Bot, ChevronDown, ChevronUp, Save, Trophy, Lock, Clock, Settings, CheckCircle } from 'lucide-react';
+import { calculatePoints, calculateUnderdogBonus, POINTS_EXACT, POINTS_GOAL_DIFF, POINTS_OUTCOME } from '../utils/scoring';
+import { Users, Bot, ChevronDown, ChevronUp, Save, Trophy, Lock, Clock, Settings, CheckCircle, Zap, EyeOff } from 'lucide-react';
 import { getAIPrediction } from '../services/geminiService';
 
 interface MatchCardProps {
@@ -61,10 +61,34 @@ const MatchCard: React.FC<MatchCardProps> = ({
     return () => clearInterval(timer);
   }, [match.date, match.status]);
 
+  // Logic: Can view other people's predictions?
+  // Only if Admin OR Match is Locked/Live/Finished
+  const canViewOthers = isAdmin || isLocked || isFinished || match.status === MatchStatus.LIVE;
+
   // Calculate points for user if match is finished
   const userPoints = (isFinished && hasUserPredicted && match.result && !isAdmin)
-    ? calculatePoints(userPrediction.homeScore, userPrediction.awayScore, match.result.home, match.result.away)
+    ? calculatePoints(
+        userPrediction.homeScore, 
+        userPrediction.awayScore, 
+        match.result.home, 
+        match.result.away,
+        match.homeTeam.ranking,
+        match.awayTeam.ranking
+      )
     : null;
+
+  // Calculate Potential Bonus (for display while predicting)
+  const potentialBonus = (() => {
+      if (isFinished || isAdmin || homeInput === '' || awayInput === '') return 0;
+      const h = parseInt(homeInput);
+      const a = parseInt(awayInput);
+      if (isNaN(h) || isNaN(a) || h === a) return 0; // No bonus for draws usually
+
+      const predictedWinnerRank = h > a ? match.homeTeam.ranking : match.awayTeam.ranking;
+      const predictedLoserRank = h > a ? match.awayTeam.ranking : match.homeTeam.ranking;
+
+      return calculateUnderdogBonus(predictedWinnerRank, predictedLoserRank);
+  })();
 
   const handleSave = () => {
     if (homeInput === '' || awayInput === '') return;
@@ -91,22 +115,24 @@ const MatchCard: React.FC<MatchCardProps> = ({
   };
 
   const getPointsBadgeColor = (pts: number) => {
-    if (pts === POINTS_EXACT) return 'bg-yellow-500 text-black border border-yellow-600';
-    if (pts === POINTS_GOAL_DIFF) return 'bg-teal-600 text-white border border-teal-400';
-    if (pts === POINTS_OUTCOME) return 'bg-blue-600 text-white border border-blue-400';
+    // Logic needs adjustment because points can now be weird numbers (e.g. 13)
+    if (pts >= POINTS_EXACT) return 'bg-yellow-500 text-black border border-yellow-600'; // Exact + potentially bonus
+    if (pts >= POINTS_GOAL_DIFF) return 'bg-teal-600 text-white border border-teal-400';
+    if (pts >= POINTS_OUTCOME) return 'bg-blue-600 text-white border border-blue-400';
     return 'bg-red-500/80 text-white';
   };
 
   const getPointsLabel = (pts: number) => {
-    if (pts === POINTS_EXACT) return ' (Cravou!)';
-    if (pts === POINTS_GOAL_DIFF) return ' (Saldo)';
-    if (pts === POINTS_OUTCOME) {
-        if (match.result && match.result.home === match.result.away) {
-            return ' (Empate)';
-        }
-        return ' (Vencedor)';
-    }
-    return '';
+    // We check against the base constants to guess what happened
+    // This is approximate for display purposes
+    const isBonusLikely = (pts % 1 !== 0) || (pts > POINTS_EXACT && pts !== POINTS_EXACT) || (pts > POINTS_GOAL_DIFF && pts < POINTS_EXACT);
+
+    let baseLabel = '';
+    if (pts >= POINTS_EXACT) baseLabel = 'Cravou';
+    else if (pts >= POINTS_GOAL_DIFF) baseLabel = 'Saldo';
+    else if (pts >= POINTS_OUTCOME) baseLabel = 'Vencedor';
+    
+    return baseLabel ? ` (${baseLabel}${isBonusLikely ? ' + Zebra!' : '!'})` : '';
   };
 
   const inputsDisabled = isFinished || isLocked;
@@ -140,22 +166,27 @@ const MatchCard: React.FC<MatchCardProps> = ({
 
       {/* Teams & Score Input */}
       <div className="p-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-2 md:gap-4">
           
           {/* Home Team */}
-          <div className="flex flex-col items-center w-1/3">
-            <img 
-                src={match.homeTeam.flag} 
-                alt={match.homeTeam.name} 
-                className="w-14 h-9 object-cover rounded shadow-md mb-2" 
-            />
-            <span className="font-bold text-center text-sm md:text-base text-white">{match.homeTeam.name}</span>
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <div className="relative">
+                <img 
+                    src={match.homeTeam.flag} 
+                    alt={match.homeTeam.name} 
+                    className="w-14 h-9 object-cover rounded shadow-md mb-2" 
+                />
+                <span className="absolute -top-2 -left-2 bg-slate-700 text-slate-300 text-[9px] w-5 h-5 flex items-center justify-center rounded-full border border-slate-600" title={`Ranking FIFA: ${match.homeTeam.ranking}`}>
+                    {match.homeTeam.ranking}
+                </span>
+            </div>
+            <span className="font-bold text-center text-sm md:text-base text-white truncate w-full px-1">{match.homeTeam.name}</span>
           </div>
 
           {/* Score Board / Inputs */}
-          <div className="flex flex-col items-center w-1/3">
+          <div className="flex flex-col items-center shrink-0 min-w-[100px] px-1">
             
-            <div className="text-xs text-slate-400 mb-1 uppercase tracking-widest flex items-center gap-1">
+            <div className="text-xs text-slate-400 mb-1 uppercase tracking-widest flex items-center gap-1 justify-center whitespace-nowrap">
                 {isAdmin ? (
                     <span className="text-red-400 font-bold">Placar Oficial</span>
                 ) : (
@@ -163,7 +194,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
                 )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center gap-2">
               {isAdmin ? (
                   // ADMIN VIEW: Always Editable Official Score
                   <>
@@ -186,7 +217,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
               ) : (
                   // USER VIEW: Prediction Inputs OR Static Result
                   (isFinished && match.result) ? (
-                    <div className="text-3xl font-mono font-bold text-white tracking-widest mb-2">
+                    <div className="text-2xl md:text-3xl font-mono font-bold text-white tracking-widest mb-2 whitespace-nowrap">
                       {match.result.home} - {match.result.away}
                     </div>
                   ) : (
@@ -217,15 +248,30 @@ const MatchCard: React.FC<MatchCardProps> = ({
           </div>
 
           {/* Away Team */}
-          <div className="flex flex-col items-center w-1/3">
-            <img 
-                src={match.awayTeam.flag} 
-                alt={match.awayTeam.name} 
-                className="w-14 h-9 object-cover rounded shadow-md mb-2" 
-            />
-            <span className="font-bold text-center text-sm md:text-base text-white">{match.awayTeam.name}</span>
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <div className="relative">
+                <img 
+                    src={match.awayTeam.flag} 
+                    alt={match.awayTeam.name} 
+                    className="w-14 h-9 object-cover rounded shadow-md mb-2" 
+                />
+                <span className="absolute -top-2 -right-2 bg-slate-700 text-slate-300 text-[9px] w-5 h-5 flex items-center justify-center rounded-full border border-slate-600" title={`Ranking FIFA: ${match.awayTeam.ranking}`}>
+                    {match.awayTeam.ranking}
+                </span>
+            </div>
+            <span className="font-bold text-center text-sm md:text-base text-white truncate w-full px-1">{match.awayTeam.name}</span>
           </div>
         </div>
+
+        {/* Potential Bonus Indicator */}
+        {!isFinished && potentialBonus > 0 && !isAdmin && (
+            <div className="flex justify-center mt-2 animate-pulse">
+                <div className="text-[10px] font-bold text-amber-400 flex items-center gap-1 bg-amber-950/40 px-2 py-0.5 rounded-full border border-amber-500/30">
+                    <Zap size={10} fill="currentColor" />
+                    Bônus Zebra Ativo: +{potentialBonus} pts se acertar
+                </div>
+            </div>
+        )}
 
         {/* User Points Badge (Hide for Admin) */}
         {!isAdmin && userPoints !== null && (
@@ -305,37 +351,59 @@ const MatchCard: React.FC<MatchCardProps> = ({
 
             {showFriends && (
             <div className="px-4 pb-4 space-y-2 bg-slate-900/30">
-                {visibleFriends.length === 0 ? (
-                    <div className="text-center text-xs text-slate-500 py-2">Ninguém palpitou ainda.</div>
+                {!canViewOthers ? (
+                    <div className="flex flex-col items-center justify-center py-4 text-slate-500 gap-2 text-center animate-fadeIn">
+                        <EyeOff size={24} className="opacity-50" />
+                        <div>
+                            <p className="text-sm font-semibold text-slate-400">Palpites Ocultos</p>
+                            <p className="text-xs max-w-[250px] mx-auto opacity-70">
+                                Para garantir a emoção, os palpites dos outros participantes só serão revelados quando o jogo começar.
+                            </p>
+                        </div>
+                        <span className="text-xs bg-slate-800 px-2 py-1 rounded-full mt-1 border border-slate-700">
+                            {visibleFriends.length} pessoas já palpitaram
+                        </span>
+                    </div>
                 ) : (
-                    visibleFriends.map(friend => {
-                        const isMe = friend.id === 'me';
-                        const friendPred = friend.predictions[match.id];
-                        const friendPoints = (match.result && friendPred) 
-                            ? calculatePoints(friendPred.home, friendPred.away, match.result.home, match.result.away)
-                            : null;
+                    visibleFriends.length === 0 ? (
+                        <div className="text-center text-xs text-slate-500 py-2">Ninguém palpitou ainda.</div>
+                    ) : (
+                        visibleFriends.map(friend => {
+                            const isMe = friend.id === 'me';
+                            const friendPred = friend.predictions[match.id];
+                            const friendPoints = (match.result && friendPred) 
+                                ? calculatePoints(
+                                    friendPred.home, 
+                                    friendPred.away, 
+                                    match.result.home, 
+                                    match.result.away,
+                                    match.homeTeam.ranking,
+                                    match.awayTeam.ranking
+                                )
+                                : null;
 
-                        return (
-                            <div key={friend.id} className={`flex items-center justify-between py-2 border-b border-slate-700/50 last:border-0 ${isMe ? 'bg-indigo-500/10 -mx-4 px-4 border-indigo-500/30' : ''}`}>
-                                <div className="flex items-center gap-2">
-                                <img src={friend.avatar} alt={friend.name} className={`w-6 h-6 rounded-full ${isMe ? 'ring-1 ring-brand-green' : ''}`} />
-                                <span className={`text-sm ${isMe ? 'text-brand-green font-semibold' : 'text-slate-300'}`}>
-                                    {friend.name} {isMe && '(Você)'}
-                                </span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <span className={`font-mono font-bold ${isMe ? 'text-white' : 'text-slate-200'}`}>
-                                        {friendPred ? `${friendPred.home} - ${friendPred.away}` : '-'}
+                            return (
+                                <div key={friend.id} className={`flex items-center justify-between py-2 border-b border-slate-700/50 last:border-0 ${isMe ? 'bg-indigo-500/10 -mx-4 px-4 border-indigo-500/30' : ''}`}>
+                                    <div className="flex items-center gap-2">
+                                    <img src={friend.avatar} alt={friend.name} className={`w-6 h-6 rounded-full ${isMe ? 'ring-1 ring-brand-green' : ''}`} />
+                                    <span className={`text-sm ${isMe ? 'text-brand-green font-semibold' : 'text-slate-300'}`}>
+                                        {friend.name} {isMe && '(Você)'}
                                     </span>
-                                    {friendPoints !== null && isFinished && (
-                                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${getPointsBadgeColor(friendPoints)}`}>
-                                            {friendPoints}pts
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className={`font-mono font-bold ${isMe ? 'text-white' : 'text-slate-200'}`}>
+                                            {friendPred ? `${friendPred.home} - ${friendPred.away}` : '-'}
                                         </span>
-                                    )}
+                                        {friendPoints !== null && isFinished && (
+                                            <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${getPointsBadgeColor(friendPoints)}`}>
+                                                {friendPoints}pts
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })
+                            );
+                        })
+                    )
                 )}
             </div>
             )}
