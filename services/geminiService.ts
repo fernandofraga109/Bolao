@@ -21,7 +21,7 @@ export const getAIPrediction = async (
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: `Predict the score for a soccer match between ${homeTeam} and ${awayTeam}. Provide a realistic score and a very brief tactical reason (max 20 words).`,
+      contents: `Predict the score for a soccer match between ${homeTeam} and ${awayTeam}. Provide a realistic score and a very brief tactical reason in Brazilian Portuguese (max 30 words).`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {

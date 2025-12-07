@@ -26,9 +26,17 @@ export const useUserSystem = () => {
   }, [users]);
 
   const login = (user: User) => {
-    // Sync current user data from the source of truth
-    const freshUser = users.find(u => u.id === user.id) || user;
-    setCurrentUser(freshUser);
+    // Check if user exists
+    const existingUser = users.find(u => u.email === user.email);
+    
+    if (existingUser) {
+        setCurrentUser(existingUser);
+    } else {
+        // New User from Google: Register them
+        const newUser = { ...user }; // Ensure we are not mutating the passed object
+        setUsers(prev => [...prev, newUser]);
+        setCurrentUser(newUser);
+    }
   };
 
   const logout = () => {

@@ -138,7 +138,10 @@ const MatchCard: React.FC<MatchCardProps> = ({
   const inputsDisabled = isFinished || isLocked;
 
   // Filter out friends without predictions for this specific match to keep UI clean
-  const visibleFriends = friends.filter(f => f.predictions[match.id]);
+  // SORT by totalPoints (descending) so leaders appear first
+  const visibleFriends = friends
+    .filter(f => f.predictions[match.id])
+    .sort((a, b) => b.totalPoints - a.totalPoints);
 
   return (
     <div className="bg-slate-800 rounded-xl overflow-hidden shadow-lg border border-slate-700 mb-6 relative group/card">
@@ -386,9 +389,12 @@ const MatchCard: React.FC<MatchCardProps> = ({
                                 <div key={friend.id} className={`flex items-center justify-between py-2 border-b border-slate-700/50 last:border-0 ${isMe ? 'bg-indigo-500/10 -mx-4 px-4 border-indigo-500/30' : ''}`}>
                                     <div className="flex items-center gap-2">
                                     <img src={friend.avatar} alt={friend.name} className={`w-6 h-6 rounded-full ${isMe ? 'ring-1 ring-brand-green' : ''}`} />
-                                    <span className={`text-sm ${isMe ? 'text-brand-green font-semibold' : 'text-slate-300'}`}>
-                                        {friend.name} {isMe && '(Você)'}
-                                    </span>
+                                    <div className="flex flex-col">
+                                        <span className={`text-sm leading-none ${isMe ? 'text-brand-green font-semibold' : 'text-slate-300'}`}>
+                                            {friend.name} {isMe && '(Você)'}
+                                        </span>
+                                        <span className="text-[10px] text-slate-500 mt-0.5">{friend.totalPoints} pts no ranking</span>
+                                    </div>
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <span className={`font-mono font-bold ${isMe ? 'text-white' : 'text-slate-200'}`}>

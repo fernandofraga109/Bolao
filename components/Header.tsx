@@ -28,14 +28,16 @@ const Header: React.FC<HeaderProps> = ({ currentUser, onLogout, onSimulate }) =>
             <img src={currentUser.avatar} alt="Me" className={`w-8 h-8 rounded-full border ${currentUser.role === 'ADMIN' ? 'border-brand-blue' : 'border-slate-600'}`} />
             <button onClick={onLogout} className="text-xs text-red-400 hover:text-red-300 ml-2">Sair</button>
             
-            {/* Sim Button */}
-            <button 
-              onClick={onSimulate}
-              className="ml-2 text-slate-600 hover:text-brand-green"
-              title="Simular"
-            >
-              <Zap size={14} />
-            </button>
+            {/* Sim Button - Admin Only */}
+            {currentUser.role === 'ADMIN' && (
+              <button 
+                onClick={onSimulate}
+                className="ml-2 text-slate-600 hover:text-brand-green"
+                title="Simular Resultados"
+              >
+                <Zap size={14} />
+              </button>
+            )}
         </div>
       </div>
     </header>
