@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tab, UserRole } from '../types';
-import { Calendar, Trophy, ShieldCheck } from 'lucide-react';
+import { Calendar, Trophy, ShieldCheck, Table2 } from 'lucide-react';
 
 interface BottomNavProps {
   activeTab: Tab;
@@ -20,6 +20,14 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, userRole
           <span className="text-[10px] font-medium">Jogos</span>
         </button>
         
+        <button 
+          onClick={() => setActiveTab('tournament')}
+          className={`flex flex-col items-center justify-center w-full py-3 gap-1 transition-colors ${activeTab === 'tournament' ? 'text-brand-green' : 'text-slate-500 hover:text-slate-300'}`}
+        >
+          <Table2 size={20} strokeWidth={activeTab === 'tournament' ? 2.5 : 2} />
+          <span className="text-[10px] font-medium">Tabela</span>
+        </button>
+
         {userRole !== 'ADMIN' && (
           <button 
             onClick={() => setActiveTab('leaderboard')}

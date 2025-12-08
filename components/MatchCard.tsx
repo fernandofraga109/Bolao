@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Match, MatchStatus, Prediction, Friend, AIPredictionResult } from '../types';
 import { calculatePoints, calculateUnderdogBonus, POINTS_EXACT, POINTS_GOAL_DIFF, POINTS_OUTCOME } from '../utils/scoring';
-import { Users, Bot, ChevronDown, ChevronUp, Save, Trophy, Lock, Clock, Settings, CheckCircle, Zap, EyeOff } from 'lucide-react';
+import { Users, Bot, ChevronDown, ChevronUp, Save, Trophy, Lock, Clock, Settings, CheckCircle, Zap, EyeOff, MapPin } from 'lucide-react';
 import { getAIPrediction } from '../services/geminiService';
 
 interface MatchCardProps {
@@ -147,7 +147,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
     <div className="bg-slate-800 rounded-xl overflow-hidden shadow-lg border border-slate-700 mb-6 relative group/card">
       
       {/* Header: Date & Status & Group Name */}
-      <div className="bg-slate-900/50 px-4 py-2 flex justify-between items-center text-xs text-slate-400">
+      <div className="bg-slate-900/50 px-4 py-2 flex justify-between items-center text-xs text-slate-400 border-b border-slate-700/50">
         <div className="flex items-center gap-2">
           <span>{new Date(match.date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
           {!isAdmin && isLocked && !isFinished && (
@@ -166,6 +166,14 @@ const MatchCard: React.FC<MatchCardProps> = ({
             <span className="uppercase tracking-wider font-semibold">{match.group}</span>
         </div>
       </div>
+      
+      {/* Stadium/Location Sub-header */}
+      {match.location && (
+        <div className="bg-slate-900/30 px-4 py-1.5 flex items-center justify-center text-[10px] text-slate-500 gap-1 border-b border-slate-700/30">
+            <MapPin size={10} />
+            <span className="uppercase tracking-wide">{match.location}</span>
+        </div>
+      )}
 
       {/* Teams & Score Input */}
       <div className="p-4">

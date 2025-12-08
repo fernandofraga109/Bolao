@@ -23,6 +23,7 @@ export interface Match {
   awayTeam: Team;
   date: string;
   group: string;
+  location: string; // Stadium / City
   status: MatchStatus;
   result?: { home: number; away: number }; // The actual result (for finished games)
 }
@@ -73,7 +74,7 @@ export interface Group {
 // though we will migrate to using User everywhere.
 export type Friend = User;
 
-export type Tab = 'matches' | 'leaderboard' | 'admin';
+export type Tab = 'matches' | 'leaderboard' | 'tournament' | 'admin';
 
 export interface AIPredictionResult {
   homeScore: number;

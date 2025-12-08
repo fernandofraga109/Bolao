@@ -20,6 +20,7 @@ import Login from './components/Login';
 import GroupSelection from './components/GroupSelection';
 import AdminDashboard from './components/AdminDashboard';
 import GroupSwitcher from './components/GroupSwitcher';
+import TournamentStandings from './components/TournamentStandings';
 import { ChevronsUpDown } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -241,6 +242,11 @@ const App: React.FC = () => {
               />
             ))}
           </div>
+        )}
+
+        {/* Tournament Standings Tab */}
+        {activeTab === 'tournament' && (
+          <TournamentStandings matches={matches} />
         )}
 
         {/* Leaderboard Tab */}
