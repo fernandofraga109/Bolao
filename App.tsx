@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Tab, MatchStatus, Match } from './types';
 import { calculatePoints, calculateTournamentPoints } from './utils/scoring';
@@ -17,11 +18,10 @@ import MatchCard from './components/MatchCard';
 import Leaderboard from './components/Leaderboard';
 import TopScorerCard from './components/TopScorerCard';
 import Login from './components/Login';
-import GroupSelection from './components/GroupSelection';
 import AdminDashboard from './components/AdminDashboard';
 import GroupSwitcher from './components/GroupSwitcher';
 import TournamentStandings from './components/TournamentStandings';
-import { ChevronsUpDown, ChevronDown, ChevronUp, CalendarDays, History } from 'lucide-react';
+import { ChevronsUpDown, ChevronDown, ChevronUp, CalendarDays, History, PlusCircle } from 'lucide-react';
 
 // --- Helper Component for Date Groups ---
 interface MatchGroupProps {
@@ -33,12 +33,16 @@ interface MatchGroupProps {
   leaderboardData: any[];
   onPredict: (id: string, h: number, a: number) => void;
   isAdmin: boolean;
-  onUpdateScore: (id: string, h: number, a: number) => void;
+  // Admin props
+  onStartMatch: (id: string) => void;
+  onUpdateLiveScore: (id: string, h: number, a: number) => void;
+  onFinishMatch: (id: string, h: number, a: number) => void;
   isToday?: boolean;
 }
 
 const MatchGroup: React.FC<MatchGroupProps> = ({ 
-  title, matches, isOpenDefault = false, icon, userPredictions, leaderboardData, onPredict, isAdmin, onUpdateScore, isToday 
+  title, matches, isOpenDefault = false, icon, userPredictions, leaderboardData, onPredict, isAdmin, 
+  onStartMatch, onUpdateLiveScore, onFinishMatch, isToday 
 }) => {
   const [isOpen, setIsOpen] = useState(isOpenDefault);
 
@@ -74,7 +78,9 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
               friends={leaderboardData}
               onPredict={onPredict}
               isAdmin={isAdmin}
-              onUpdateScore={onUpdateScore}
+              onStartMatch={onStartMatch}
+              onUpdateLiveScore={onUpdateLiveScore}
+              onFinishMatch={onFinishMatch}
             />
           ))}
         </div>
@@ -88,7 +94,9 @@ const App: React.FC = () => {
   const { 
     users, 
     currentUser, 
-    login, 
+    login,
+    loginWithCredentials,
+    register,
     logout, 
     joinGroup,
     switchGroup,
@@ -102,12 +110,13 @@ const App: React.FC = () => {
     tournamentResults, 
     lockDate, 
     simulateLiveGame,
-    updateMatchResult
+    adminControls
   } = useMatchSystem();
 
   const {
     groups,
     createGroup,
+    deleteGroup,
     getGroupByCode,
     getGroupById,
     getGroupsByIds
@@ -206,34 +215,12 @@ const App: React.FC = () => {
             onLogin={(user) => {
                 login(user);
                 setActiveTab(user.role === 'ADMIN' ? 'admin' : 'matches'); 
-            }} 
+            }}
+            onRegister={(name, email, pass, code) => register(name, email, pass, code, groups)}
+            onAuth={loginWithCredentials}
             availableUsers={users} 
         />
     );
-  }
-
-  // --- Render Initial Group Selection ---
-  if (currentUser.groupIds.length === 0 && currentUser.role !== 'ADMIN') {
-      return (
-          <GroupSelection 
-              user={currentUser}
-              error={groupError}
-              onCreateGroup={(name) => {
-                  const newGroup = createGroup(name, currentUser.id);
-                  joinGroup(currentUser.id, newGroup.id);
-                  setGroupError(null);
-              }}
-              onJoinGroup={(code) => {
-                  const group = getGroupByCode(code);
-                  if (group) {
-                      joinGroup(currentUser.id, group.id);
-                      setGroupError(null);
-                  } else {
-                      setGroupError('Código de grupo inválido. Tente "COPA26" para o grupo de exemplo.');
-                  }
-              }}
-          />
-      );
   }
 
   // --- Helpers for Group Switching ---
@@ -271,26 +258,35 @@ const App: React.FC = () => {
         onSimulate={simulateLiveGame} 
       />
       
-      {/* Group Info Bar */}
-      {currentGroup && (
-          <div className="max-w-2xl mx-auto px-4 mt-4">
-            <div 
-                onClick={() => setIsGroupSwitcherOpen(true)}
-                className="bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 flex justify-between items-center text-xs cursor-pointer hover:bg-slate-700/80 hover:border-slate-600 transition-all group shadow-sm"
-            >
-                <div className="flex items-center gap-3">
-                    <span className="text-slate-400 uppercase tracking-wider font-semibold text-[10px]">Grupo</span>
-                    <div className="flex items-center gap-2">
-                        <strong className="text-white text-sm">{currentGroup.name}</strong>
-                        <ChevronsUpDown size={14} className="text-brand-green opacity-70 group-hover:opacity-100 transition-opacity" />
+      {/* Group Info Bar OR Call to Action */}
+      <div className="max-w-2xl mx-auto px-4 mt-4">
+        <div 
+            onClick={() => setIsGroupSwitcherOpen(true)}
+            className="bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 flex justify-between items-center text-xs cursor-pointer hover:bg-slate-700/80 hover:border-slate-600 transition-all group shadow-sm"
+        >
+            {currentGroup ? (
+                <>
+                    <div className="flex items-center gap-3">
+                        <span className="text-slate-400 uppercase tracking-wider font-semibold text-[10px]">Grupo</span>
+                        <div className="flex items-center gap-2">
+                            <strong className="text-white text-sm">{currentGroup.name}</strong>
+                            <ChevronsUpDown size={14} className="text-brand-green opacity-70 group-hover:opacity-100 transition-opacity" />
+                        </div>
                     </div>
+                    <span className="text-slate-500 font-mono bg-slate-900 px-2 py-1 rounded text-[10px] border border-slate-700/50">
+                        #{currentGroup.code}
+                    </span>
+                </>
+            ) : (
+                <div className="flex items-center gap-2 w-full justify-center text-brand-green py-1">
+                    <PlusCircle size={16} />
+                    <span className="font-bold">
+                        {currentUser.role === 'ADMIN' ? 'Entrar ou Criar um Grupo' : 'Entrar em um Grupo'}
+                    </span>
                 </div>
-                <span className="text-slate-500 font-mono bg-slate-900 px-2 py-1 rounded text-[10px] border border-slate-700/50">
-                    #{currentGroup.code}
-                </span>
-            </div>
-          </div>
-      )}
+            )}
+        </div>
+      </div>
 
       {/* Group Switcher Modal */}
       {isGroupSwitcherOpen && (
@@ -308,6 +304,7 @@ const App: React.FC = () => {
                   setGroupError(null);
               }}
               error={groupError}
+              userRole={currentUser.role}
           />
       )}
 
@@ -337,7 +334,9 @@ const App: React.FC = () => {
                     leaderboardData={leaderboardData}
                     onPredict={predictMatch}
                     isAdmin={currentUser.role === 'ADMIN'}
-                    onUpdateScore={updateMatchResult}
+                    onStartMatch={adminControls.startMatch}
+                    onUpdateLiveScore={adminControls.updateLiveScore}
+                    onFinishMatch={adminControls.finishMatch}
                 />
              )}
 
@@ -352,7 +351,9 @@ const App: React.FC = () => {
                 leaderboardData={leaderboardData}
                 onPredict={predictMatch}
                 isAdmin={currentUser.role === 'ADMIN'}
-                onUpdateScore={updateMatchResult}
+                onStartMatch={adminControls.startMatch}
+                onUpdateLiveScore={adminControls.updateLiveScore}
+                onFinishMatch={adminControls.finishMatch}
              />
              
              {/* Fallback if todayMatches is empty (e.g. rest day) */}
@@ -374,7 +375,9 @@ const App: React.FC = () => {
                     leaderboardData={leaderboardData}
                     onPredict={predictMatch}
                     isAdmin={currentUser.role === 'ADMIN'}
-                    onUpdateScore={updateMatchResult}
+                    onStartMatch={adminControls.startMatch}
+                    onUpdateLiveScore={adminControls.updateLiveScore}
+                    onFinishMatch={adminControls.finishMatch}
                  />
              ))}
           </div>
@@ -399,6 +402,10 @@ const App: React.FC = () => {
                 onInvite={adminActions.inviteUser}
                 onUpdateRole={adminActions.updateUserRole}
                 onRemoveUser={adminActions.removeUser}
+                onCreateGroup={(name: string) => createGroup(name, currentUser.id)}
+                onDeleteGroup={deleteGroup}
+                onAddUserToGroup={adminActions.adminAddUserToGroup}
+                onRemoveUserFromGroup={adminActions.adminRemoveUserFromGroup}
             />
         )}
       </main>

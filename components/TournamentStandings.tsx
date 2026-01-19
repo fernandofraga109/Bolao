@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Match, MatchStatus, Team } from '../types';
 import { Table2, GitMerge } from 'lucide-react';
@@ -180,7 +181,7 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({ matches }) =>
         </div>
       )}
 
-      {/* Knockout View - Simplified Visualizer */}
+      {/* Knockout View - Updated for 2026 Format */}
       {view === 'knockout' && (
         <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 text-center">
             <h3 className="text-white font-bold mb-4 flex items-center justify-center gap-2">
@@ -188,26 +189,41 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({ matches }) =>
                 Caminho para a Glória
             </h3>
             
-            <div className="flex flex-col gap-6 relative">
-                 {/* Example Round of 16 */}
+            <div className="flex flex-col gap-5 relative">
+                 
+                 {/* NOVIDADE: 16-avos de Final */}
+                 <div className="space-y-2 relative">
+                     <div className="absolute -left-2 top-1/2 -translate-y-1/2 -rotate-90 text-[9px] font-bold text-brand-green tracking-widest whitespace-nowrap hidden sm:block opacity-50">NOVIDADE 2026</div>
+                     <p className="text-xs uppercase text-brand-green font-bold mb-2 tracking-wide">16-avos de Final (32 Times)</p>
+                     <BracketPair t1="1º Grupo A" t2="3º Grupo C/D/E" />
+                     <BracketPair t1="2º Grupo B" t2="2º Grupo F" />
+                     <div className="text-[10px] text-slate-500 py-1.5 bg-slate-900/30 rounded border border-slate-700/50 mx-auto max-w-xs italic">
+                        + 14 jogos eliminatórios
+                     </div>
+                 </div>
+
+                 <div className="flex justify-center text-slate-600">
+                    <div className="h-4 w-0.5 bg-slate-700"></div>
+                 </div>
+
+                 {/* Oitavas */}
                  <div className="space-y-2">
                      <p className="text-xs uppercase text-slate-500 font-bold mb-2">Oitavas de Final</p>
-                     <BracketPair t1="1º Grupo A" t2="2º Grupo B" />
-                     <BracketPair t1="1º Grupo C" t2="2º Grupo D" />
+                     <BracketPair t1="Vencedor Jogo 1" t2="Vencedor Jogo 2" />
                  </div>
 
                  <div className="flex justify-center text-slate-600">
-                    <div className="h-6 w-0.5 bg-slate-700"></div>
+                    <div className="h-4 w-0.5 bg-slate-700"></div>
                  </div>
 
-                 {/* Quarters */}
+                 {/* Quartas */}
                  <div className="space-y-2">
                      <p className="text-xs uppercase text-slate-500 font-bold mb-2">Quartas de Final</p>
-                     <BracketPair t1="Vencedor J1" t2="Vencedor J2" />
+                     <BracketPair t1="Vencedor Oitavas 1" t2="Vencedor Oitavas 2" />
                  </div>
 
                  <div className="flex justify-center text-slate-600">
-                    <div className="h-6 w-0.5 bg-slate-700"></div>
+                    <div className="h-4 w-0.5 bg-slate-700"></div>
                  </div>
 
                  {/* Semis */}
@@ -216,15 +232,17 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({ matches }) =>
                      <BracketPair t1="Vencedor QF1" t2="Vencedor QF2" />
                  </div>
                  
-                 <div className="mt-4 p-4 bg-gradient-to-t from-slate-900 to-slate-800 rounded-lg border border-yellow-500/20">
-                     <p className="text-yellow-500 font-bold text-lg mb-1">Grande Final</p>
-                     <div className="text-slate-400 text-sm">19 de Julho de 2026</div>
+                 <div className="mt-4 p-4 bg-gradient-to-t from-slate-900 to-slate-800 rounded-lg border border-yellow-500/20 shadow-lg shadow-black/40">
+                     <p className="text-yellow-500 font-bold text-lg mb-1 flex items-center justify-center gap-2">
+                        <span className="text-2xl">🏆</span> Grande Final
+                     </p>
+                     <div className="text-slate-300 font-bold text-sm">19 de Julho de 2026</div>
                      <div className="text-slate-500 text-xs mt-1">New York / New Jersey Stadium</div>
                  </div>
             </div>
 
-            <p className="text-xs text-slate-500 mt-6 italic">
-                O chaveamento será atualizado automaticamente conforme os resultados da fase de grupos forem confirmados.
+            <p className="text-xs text-slate-500 mt-6 italic px-4">
+                O chaveamento será atualizado automaticamente. Os 8 melhores 3º colocados se juntam aos 1º e 2º de cada grupo nos 16-avos.
             </p>
         </div>
       )}
@@ -233,8 +251,8 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({ matches }) =>
 };
 
 const BracketPair: React.FC<{t1: string, t2: string}> = ({ t1, t2 }) => (
-    <div className="flex flex-col bg-slate-900/50 rounded-lg border border-slate-700 overflow-hidden w-full max-w-xs mx-auto">
-        <div className="px-3 py-2 border-b border-slate-700/50 flex justify-between items-center bg-slate-700/20">
+    <div className="flex flex-col bg-slate-900/50 rounded-lg border border-slate-700 overflow-hidden w-full max-w-xs mx-auto shadow-sm">
+        <div className="px-3 py-2 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/30">
             <span className="text-sm font-medium text-slate-300">{t1}</span>
             <span className="text-xs text-slate-500">-</span>
         </div>

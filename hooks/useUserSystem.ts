@@ -1,153 +1,178 @@
-import { useState, useEffect } from 'react';
-import { User, UserRole, TournamentPredictions } from '../types';
-import { INITIAL_USERS } from '../constants';
+
+import { useState, useMemo } from 'react';
+import { User, UserRole, TournamentPredictions, Group } from '../types';
+import { useDatabase } from '../contexts/DatabaseContext';
 
 export const useUserSystem = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  
-  // Initialize users from localStorage or constants
-  const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem('bolao_users');
-    // Migration: ensure old users have the new array structure if loaded from localstorage
-    if (saved) {
-        const parsed = JSON.parse(saved);
-        return parsed.map((u: any) => ({
-            ...u,
-            groupIds: u.groupIds || (u.groupId ? [u.groupId] : []),
-            activeGroupId: u.activeGroupId || u.groupId
-        }));
-    }
-    return INITIAL_USERS;
+  const db = useDatabase();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
+      return localStorage.getItem('bolao_current_user_id');
   });
 
-  // Persist Users whenever they change
-  useEffect(() => {
-    localStorage.setItem('bolao_users', JSON.stringify(users));
-  }, [users]);
+  // --- HYDRATION: Convert DB Normalized Data to UI User Objects ---
+  // This performs the "SQL JOIN" logic
+  const hydratedUsers: User[] = useMemo(() => {
+      return db.users.map(user => {
+          // Join UserGroups
+          const myGroups = db.userGroups.filter(ug => ug.userId === user.id).map(ug => ug.groupId);
+          
+          // Join Predictions
+          const myPredictionsMap: Record<string, { home: number; away: number }> = {};
+          db.predictions.filter(p => p.userId === user.id).forEach(p => {
+              myPredictionsMap[p.matchId] = { home: p.homeScore, away: p.awayScore };
+          });
+
+          // Join Tournament Predictions
+          const tpDb = db.tournamentPredictions.find(tp => tp.userId === user.id);
+          const tp: TournamentPredictions | undefined = tpDb ? {
+              championTeamId: tpDb.championTeamId,
+              topScorer: (tpDb.topScorerPlayer || tpDb.topScorerGoals) ? {
+                  player: tpDb.topScorerPlayer || '',
+                  goals: tpDb.topScorerGoals || 0
+              } : undefined,
+              bestPlayer: tpDb.bestPlayer,
+              bestGoalkeeper: tpDb.bestGoalkeeper
+          } : undefined;
+
+          return {
+              ...user,
+              groupIds: myGroups,
+              predictions: myPredictionsMap,
+              tournamentPredictions: tp
+          };
+      });
+  }, [db.users, db.userGroups, db.predictions, db.tournamentPredictions]);
+
+  const currentUser = useMemo(() => {
+      if (!currentUserId) return null;
+      return hydratedUsers.find(u => u.id === currentUserId) || null;
+  }, [currentUserId, hydratedUsers]);
+
+  // --- ACTIONS ---
 
   const login = (user: User) => {
-    // Check if user exists
-    const existingUser = users.find(u => u.email === user.email);
-    
-    if (existingUser) {
-        setCurrentUser(existingUser);
-    } else {
-        // New User from Google: Register them
-        const newUser = { ...user }; // Ensure we are not mutating the passed object
-        setUsers(prev => [...prev, newUser]);
-        setCurrentUser(newUser);
-    }
+    setCurrentUserId(user.id);
+    localStorage.setItem('bolao_current_user_id', user.id);
+  };
+
+  const loginWithCredentials = (email: string, password: string) => {
+      const user = hydratedUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+      if (!user) return { success: false, message: 'Usuário não encontrado.' };
+      if (user.password !== password) return { success: false, message: 'Senha incorreta.' };
+      login(user);
+      return { success: true, user };
+  };
+
+  const register = (name: string, email: string, password: string, groupCode: string, groupsList: Group[]) => {
+      if (db.users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
+          return { success: false, message: 'E-mail já cadastrado.' };
+      }
+      const group = groupsList.find(g => g.code.toUpperCase() === groupCode.toUpperCase());
+      if (!group) return { success: false, message: 'Código de grupo inválido.' };
+
+      const newId = `u_${Date.now()}`;
+      
+      // 1. Insert into User Table
+      db.addUser({
+          id: newId,
+          name,
+          email,
+          password,
+          avatar: `https://ui-avatars.com/api/?name=${name.replace(' ', '+')}&background=random`,
+          role: 'USER',
+          status: 'ACTIVE',
+          activeGroupId: group.id,
+          totalPoints: 0
+      });
+
+      // 2. Insert into UserGroup Table
+      db.addUserToGroup({
+          userId: newId,
+          groupId: group.id,
+          joinedAt: new Date().toISOString()
+      });
+
+      // Login will happen via effect when hydratedUsers updates, but we set ID now
+      setCurrentUserId(newId);
+      localStorage.setItem('bolao_current_user_id', newId);
+      
+      return { success: true };
   };
 
   const logout = () => {
-    setCurrentUser(null);
+    setCurrentUserId(null);
+    localStorage.removeItem('bolao_current_user_id');
   };
 
   const joinGroup = (userId: string, groupId: string) => {
-    const updatedUsers = users.map(u => {
-      if (u.id === userId) {
-        // Add to groupIds if not present
-        const newGroupIds = u.groupIds.includes(groupId) ? u.groupIds : [...u.groupIds, groupId];
-        return { 
-            ...u, 
-            groupIds: newGroupIds,
-            activeGroupId: groupId // Automatically switch to the new group
-        };
-      }
-      return u;
-    });
-    setUsers(updatedUsers);
-    if (currentUser && currentUser.id === userId) {
-        const updated = updatedUsers.find(u => u.id === userId);
-        if (updated) setCurrentUser(updated);
-    }
+      db.addUserToGroup({
+          userId,
+          groupId,
+          joinedAt: new Date().toISOString()
+      });
+      // Switch active group automatically
+      db.updateUser(userId, { activeGroupId: groupId });
   };
 
   const switchGroup = (userId: string, groupId: string) => {
-    const updatedUsers = users.map(u => {
-      if (u.id === userId) {
-        if (!u.groupIds.includes(groupId)) return u; // Security check
-        return { 
-            ...u, 
-            activeGroupId: groupId
-        };
-      }
-      return u;
-    });
-    setUsers(updatedUsers);
-    if (currentUser && currentUser.id === userId) {
-        const updated = updatedUsers.find(u => u.id === userId);
-        if (updated) setCurrentUser(updated);
-    }
+      db.updateUser(userId, { activeGroupId: groupId });
   };
 
   const predictMatch = (matchId: string, home: number, away: number) => {
     if (!currentUser) return;
-
-    const updatedUsers = users.map(u => {
-      if (u.id === currentUser.id) {
-        return {
-          ...u,
-          predictions: {
-            ...u.predictions,
-            [matchId]: { home, away }
-          }
-        };
-      }
-      return u;
+    db.upsertPrediction({
+        userId: currentUser.id,
+        matchId,
+        homeScore: home,
+        awayScore: away,
+        timestamp: new Date().toISOString()
     });
-
-    setUsers(updatedUsers);
-    // Update local current user ref immediately
-    setCurrentUser(updatedUsers.find(u => u.id === currentUser.id) || null);
   };
 
   const predictTournament = (data: TournamentPredictions) => {
     if (!currentUser) return;
-
-    const updatedUsers = users.map(u => {
-      if (u.id === currentUser.id) {
-        return {
-          ...u,
-          tournamentPredictions: data
-        };
-      }
-      return u;
+    db.upsertTournamentPrediction({
+        userId: currentUser.id,
+        championTeamId: data.championTeamId,
+        topScorerPlayer: data.topScorer?.player,
+        topScorerGoals: data.topScorer?.goals,
+        bestPlayer: data.bestPlayer,
+        bestGoalkeeper: data.bestGoalkeeper
     });
-
-    setUsers(updatedUsers);
-    setCurrentUser(updatedUsers.find(u => u.id === currentUser.id) || null);
   };
 
   // --- Admin Actions ---
-
-  const inviteUser = (email: string) => {
-     const newUser: User = {
-         id: `u_${Date.now()}`,
-         name: email.split('@')[0],
-         email: email,
-         avatar: `https://ui-avatars.com/api/?name=${email.split('@')[0]}&background=random`,
-         role: 'USER',
-         status: 'INVITED',
-         groupIds: [],
-         predictions: {},
-         totalPoints: 0
-     };
-     setUsers(prev => [...prev, newUser]);
+  const inviteUser = (email: string) => console.log("Inviting", email);
+  const updateUserRole = (userId: string, newRole: UserRole) => db.updateUser(userId, { role: newRole });
+  
+  const removeUser = async (userId: string) => {
+      console.log(`🗑️ useUserSystem: Solicitando exclusão do usuário ${userId}`);
+      await db.deleteUser(userId);
+  };
+  
+  // Fix: made adminAddUserToGroup async to match db operations and expected return type in AdminDashboard
+  const adminAddUserToGroup = async (userId: string, groupId: string) => {
+      await db.addUserToGroup({ userId, groupId, joinedAt: new Date().toISOString() });
   };
 
-  const updateUserRole = (userId: string, newRole: UserRole) => {
-     setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
-  };
-
-  const removeUser = (userId: string) => {
-     setUsers(users.filter(u => u.id !== userId));
+  // Fix: made adminRemoveUserFromGroup async and added awaits to ensure proper execution of db operations
+  const adminRemoveUserFromGroup = async (userId: string, groupId: string) => {
+      await db.removeUserFromGroup(userId, groupId);
+      // If user was viewing this group, reset their active group preference
+      const user = hydratedUsers.find(u => u.id === userId);
+      if (user && user.activeGroupId === groupId) {
+          // Find another group they are in
+          const otherGroup = user.groupIds.find(gid => gid !== groupId);
+          await db.updateUser(userId, { activeGroupId: otherGroup });
+      }
   };
 
   return {
-    users,
+    users: hydratedUsers,
     currentUser,
     login,
+    loginWithCredentials,
+    register,
     logout,
     joinGroup,
     switchGroup,
@@ -156,7 +181,9 @@ export const useUserSystem = () => {
     adminActions: {
         inviteUser,
         updateUserRole,
-        removeUser
+        removeUser,
+        adminAddUserToGroup,
+        adminRemoveUserFromGroup
     }
   };
 };

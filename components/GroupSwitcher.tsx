@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Group } from '../types';
+import { Group, UserRole } from '../types';
 import { Check, PlusCircle, Hash, X, ArrowRight, Copy } from 'lucide-react';
 
 interface GroupSwitcherProps {
@@ -10,6 +11,7 @@ interface GroupSwitcherProps {
   onJoin: (code: string) => void;
   onClose: () => void;
   error?: string | null;
+  userRole: UserRole;
 }
 
 type ViewMode = 'list' | 'create' | 'join';
@@ -21,7 +23,8 @@ const GroupSwitcher: React.FC<GroupSwitcherProps> = ({
     onCreate, 
     onJoin, 
     onClose,
-    error 
+    error,
+    userRole
 }) => {
   const [mode, setMode] = useState<ViewMode>('list');
   const [inputVal, setInputVal] = useState('');
@@ -115,16 +118,18 @@ const GroupSwitcher: React.FC<GroupSwitcherProps> = ({
                     </div>
 
                     <div className="border-t border-slate-700 pt-4 grid grid-cols-2 gap-3">
-                        <button 
-                            onClick={() => setMode('create')}
-                            className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
-                        >
-                            <PlusCircle size={24} />
-                            <span className="text-xs font-bold">Criar Novo</span>
-                        </button>
+                        {userRole === 'ADMIN' && (
+                            <button 
+                                onClick={() => setMode('create')}
+                                className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+                            >
+                                <PlusCircle size={24} />
+                                <span className="text-xs font-bold">Criar Novo</span>
+                            </button>
+                        )}
                         <button 
                              onClick={() => setMode('join')}
-                             className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl bg-slate-700 hover:bg-slate-600 text-white transition-colors"
+                             className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl bg-slate-700 hover:bg-slate-600 text-white transition-colors ${userRole !== 'ADMIN' ? 'col-span-2' : ''}`}
                         >
                             <Hash size={24} />
                             <span className="text-xs font-bold">Entrar c/ Código</span>

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { Match, MatchStatus, Prediction, Friend, AIPredictionResult } from '../types';
 import { calculatePoints, calculateUnderdogBonus, POINTS_EXACT, POINTS_GOAL_DIFF, POINTS_OUTCOME } from '../utils/scoring';
-import { Users, Bot, ChevronDown, ChevronUp, Save, Trophy, Lock, Clock, Settings, CheckCircle, Zap, EyeOff, MapPin } from 'lucide-react';
+import { Users, Bot, Save, Trophy, Lock, Clock, Play, Zap, EyeOff, MapPin, CheckCircle } from 'lucide-react';
 import { getAIPrediction } from '../services/geminiService';
 
 interface MatchCardProps {
@@ -10,7 +11,10 @@ interface MatchCardProps {
   friends: Friend[];
   onPredict: (matchId: string, home: number, away: number) => void;
   isAdmin?: boolean;
-  onUpdateScore?: (matchId: string, home: number, away: number) => void;
+  // Admin Controls
+  onStartMatch?: (matchId: string) => void;
+  onUpdateLiveScore?: (matchId: string, home: number, away: number) => void;
+  onFinishMatch?: (matchId: string, home: number, away: number) => void;
 }
 
 const MatchCard: React.FC<MatchCardProps> = ({
@@ -19,410 +23,406 @@ const MatchCard: React.FC<MatchCardProps> = ({
   friends,
   onPredict,
   isAdmin = false,
-  onUpdateScore
+  onStartMatch,
+  onUpdateLiveScore,
+  onFinishMatch
 }) => {
   const [showFriends, setShowFriends] = useState(false);
-  const [homeInput, setHomeInput] = useState<string>(userPrediction?.homeScore.toString() || '');
-  const [awayInput, setAwayInput] = useState<string>(userPrediction?.awayScore.toString() || '');
+  const [homeInput, setHomeInput] = useState<string>('');
+  const [awayInput, setAwayInput] = useState<string>('');
+  
   const [isPredictingAI, setIsPredictingAI] = useState(false);
-  const [aiResult, setAiResult] = useState<AIPredictionResult | null>(null);
-  const [isLocked, setIsLocked] = useState(false);
+  const [aiPrediction, setAiPrediction] = useState<AIPredictionResult | null>(null);
 
-  // Admin State
-  const [adminHome, setAdminHome] = useState<string>(match.result?.home.toString() || '');
-  const [adminAway, setAdminAway] = useState<string>(match.result?.away.toString() || '');
-
-  const isFinished = match.status === MatchStatus.FINISHED;
-  const hasUserPredicted = userPrediction !== undefined;
-
-  // Sync admin state with props
+  // Initialize inputs based on state
   useEffect(() => {
-    if (match.result) {
-        setAdminHome(match.result.home.toString());
-        setAdminAway(match.result.away.toString());
+    if (isAdmin) {
+        if (match.result) {
+            setHomeInput(match.result.home.toString());
+            setAwayInput(match.result.away.toString());
+        } else {
+            setHomeInput('');
+            setAwayInput('');
+        }
+    } else {
+        if (userPrediction) {
+            setHomeInput(userPrediction.homeScore.toString());
+            setAwayInput(userPrediction.awayScore.toString());
+        }
     }
-  }, [match.result]);
+  }, [userPrediction, match.result, isAdmin, match.id]);
 
-  // Check for lock condition (5 minutes before match)
-  useEffect(() => {
-    const checkLock = () => {
-      const matchDate = new Date(match.date);
-      const now = new Date();
-      // Lock if match status is not scheduled OR current time is past (match time - 5 minutes)
-      const lockTime = new Date(matchDate.getTime() - 5 * 60000); // 5 minutes in ms
-      
-      const locked = match.status !== MatchStatus.SCHEDULED || now >= lockTime;
-      setIsLocked(locked);
-    };
-
-    checkLock();
-    // Re-check every minute
-    const timer = setInterval(checkLock, 60000);
-    return () => clearInterval(timer);
-  }, [match.date, match.status]);
-
-  // Logic: Can view other people's predictions?
-  // Only if Admin OR Match is Locked/Live/Finished
-  const canViewOthers = isAdmin || isLocked || isFinished || match.status === MatchStatus.LIVE;
-
-  // Calculate points for user if match is finished
-  const userPoints = (isFinished && hasUserPredicted && match.result && !isAdmin)
-    ? calculatePoints(
-        userPrediction.homeScore, 
-        userPrediction.awayScore, 
-        match.result.home, 
-        match.result.away,
-        match.homeTeam.ranking,
-        match.awayTeam.ranking
-      )
-    : null;
-
-  // Calculate Potential Bonus (for display while predicting)
-  const potentialBonus = (() => {
-      if (isFinished || isAdmin || homeInput === '' || awayInput === '') return 0;
-      const h = parseInt(homeInput);
-      const a = parseInt(awayInput);
-      if (isNaN(h) || isNaN(a) || h === a) return 0; // No bonus for draws usually
-
-      const predictedWinnerRank = h > a ? match.homeTeam.ranking : match.awayTeam.ranking;
-      const predictedLoserRank = h > a ? match.awayTeam.ranking : match.homeTeam.ranking;
-
-      return calculateUnderdogBonus(predictedWinnerRank, predictedLoserRank);
-  })();
-
-  const handleSave = () => {
+  const handlePredict = () => {
     if (homeInput === '' || awayInput === '') return;
-    onPredict(match.id, parseInt(homeInput), parseInt(awayInput));
-    if (!showFriends) setShowFriends(true);
+    const h = parseInt(homeInput);
+    const a = parseInt(awayInput);
+    if (!isNaN(h) && !isNaN(a)) {
+      onPredict(match.id, h, a);
+    }
   };
 
-  const handleAdminSave = () => {
-      if (adminHome === '' || adminAway === '') return;
-      if (onUpdateScore) {
-          onUpdateScore(match.id, parseInt(adminHome), parseInt(adminAway));
+  const handleAdminStart = () => {
+      if (onStartMatch) onStartMatch(match.id);
+  };
+
+  const handleAdminUpdateLive = () => {
+      if (homeInput === '' || awayInput === '' || !onUpdateLiveScore) return;
+      const h = parseInt(homeInput);
+      const a = parseInt(awayInput);
+      onUpdateLiveScore(match.id, h, a);
+  };
+
+  const handleAdminFinish = () => {
+      if (homeInput === '' || awayInput === '' || !onFinishMatch) return;
+      if (window.confirm("Tem certeza que deseja encerrar o jogo? Isso calculará os pontos.")) {
+          const h = parseInt(homeInput);
+          const a = parseInt(awayInput);
+          onFinishMatch(match.id, h, a);
       }
   };
 
-  const handleAIHelp = async () => {
+  const handleAIPredict = async () => {
     setIsPredictingAI(true);
+    setAiPrediction(null);
     const result = await getAIPrediction(match.homeTeam.name, match.awayTeam.name);
-    if (result) {
-        setAiResult(result);
-        setHomeInput(result.homeScore.toString());
-        setAwayInput(result.awayScore.toString());
-    }
+    setAiPrediction(result);
     setIsPredictingAI(false);
   };
 
-  const getPointsBadgeColor = (pts: number) => {
-    // Logic needs adjustment because points can now be weird numbers (e.g. 13)
-    if (pts >= POINTS_EXACT) return 'bg-yellow-500 text-black border border-yellow-600'; // Exact + potentially bonus
-    if (pts >= POINTS_GOAL_DIFF) return 'bg-teal-600 text-white border border-teal-400';
-    if (pts >= POINTS_OUTCOME) return 'bg-blue-600 text-white border border-blue-400';
-    return 'bg-red-500/80 text-white';
+  const applyAIPrediction = () => {
+    if (aiPrediction) {
+      setHomeInput(aiPrediction.homeScore.toString());
+      setAwayInput(aiPrediction.awayScore.toString());
+    }
   };
 
-  const getPointsLabel = (pts: number) => {
-    // We check against the base constants to guess what happened
-    // This is approximate for display purposes
-    const isBonusLikely = (pts % 1 !== 0) || (pts > POINTS_EXACT && pts !== POINTS_EXACT) || (pts > POINTS_GOAL_DIFF && pts < POINTS_EXACT);
-
-    let baseLabel = '';
-    if (pts >= POINTS_EXACT) baseLabel = 'Cravou';
-    else if (pts >= POINTS_GOAL_DIFF) baseLabel = 'Saldo';
-    else if (pts >= POINTS_OUTCOME) baseLabel = 'Vencedor';
-    
-    return baseLabel ? ` (${baseLabel}${isBonusLikely ? ' + Zebra!' : '!'})` : '';
+  const matchDate = new Date(match.date);
+  const isLocked = new Date() > matchDate || match.status !== MatchStatus.SCHEDULED;
+  const isLive = match.status === MatchStatus.LIVE;
+  const isFinished = match.status === MatchStatus.FINISHED;
+  
+  const getPointsStyle = (points: number) => {
+      if (points >= POINTS_EXACT) return 'bg-yellow-500 text-black border-yellow-400'; 
+      if (points >= POINTS_GOAL_DIFF) return 'bg-teal-600 text-white border-teal-500'; 
+      if (points >= POINTS_OUTCOME) return 'bg-blue-600 text-white border-blue-500'; 
+      if (points > 0) return 'bg-indigo-600 text-white border-indigo-500'; 
+      return 'bg-slate-700 text-slate-400 border-slate-600'; 
   };
 
-  const inputsDisabled = isFinished || isLocked;
+  // Calculate user's points
+  let pointsEarned = 0;
+  let bonusEarned = 0;
+  let pointsClass = '';
+  
+  if ((isFinished || isLive) && match.result && userPrediction) {
+      pointsEarned = calculatePoints(
+          userPrediction.homeScore, 
+          userPrediction.awayScore, 
+          match.result.home, 
+          match.result.away,
+          match.homeTeam.ranking,
+          match.awayTeam.ranking
+      );
 
-  // Filter out friends without predictions for this specific match to keep UI clean
-  // SORT by totalPoints (descending) so leaders appear first
-  const visibleFriends = friends
-    .filter(f => f.predictions[match.id])
-    .sort((a, b) => b.totalPoints - a.totalPoints);
+      // Extract bonus for display
+      if (pointsEarned > 0 && match.homeTeam.ranking && match.awayTeam.ranking && match.result.home !== match.result.away) {
+          const winnerRank = match.result.home > match.result.away ? match.homeTeam.ranking : match.awayTeam.ranking;
+          const loserRank = match.result.home > match.result.away ? match.awayTeam.ranking : match.homeTeam.ranking;
+          bonusEarned = calculateUnderdogBonus(winnerRank, loserRank);
+      }
+
+      pointsClass = getPointsStyle(pointsEarned);
+  }
+
+  const basePoints = pointsEarned - bonusEarned;
+
+  // --- FRIENDS LIST LOGIC ---
+  const sortedFriends = useMemo(() => {
+      const predictedFriends = friends.filter(f => f.predictions[match.id]);
+      const withPoints = predictedFriends.map(friend => {
+          const pred = friend.predictions[match.id];
+          let currentPoints = 0;
+          let friendBonus = 0;
+
+          if ((isLive || isFinished) && match.result) {
+              currentPoints = calculatePoints(
+                  pred.home,
+                  pred.away,
+                  match.result.home,
+                  match.result.away,
+                  match.homeTeam.ranking,
+                  match.awayTeam.ranking
+              );
+               if (currentPoints > 0 && match.homeTeam.ranking && match.awayTeam.ranking && match.result.home !== match.result.away) {
+                  const winnerRank = match.result.home > match.result.away ? match.homeTeam.ranking : match.awayTeam.ranking;
+                  const loserRank = match.result.home > match.result.away ? match.awayTeam.ranking : match.homeTeam.ranking;
+                  friendBonus = calculateUnderdogBonus(winnerRank, loserRank);
+               }
+          }
+          return { ...friend, currentMatchPoints: currentPoints, friendBonus };
+      });
+
+      return withPoints.sort((a, b) => {
+          if (b.currentMatchPoints !== a.currentMatchPoints) {
+              return b.currentMatchPoints - a.currentMatchPoints;
+          }
+          return a.name.localeCompare(b.name);
+      });
+  }, [friends, match.id, match.result, isLive, isFinished, match.homeTeam.ranking, match.awayTeam.ranking]);
+
+
+  const renderScoreInputs = () => {
+      if (!isAdmin && (isLive || isFinished)) {
+          return (
+             <div className="flex items-center gap-3 text-3xl font-bold font-mono animate-fadeIn">
+                 <span className={isLive ? "text-white" : "text-slate-300"}>{match.result?.home ?? 0}</span>
+                 <span className="text-slate-600 text-xl">x</span>
+                 <span className={isLive ? "text-white" : "text-slate-300"}>{match.result?.away ?? 0}</span>
+             </div>
+          );
+      }
+      return (
+        <>
+            <input 
+                type="number" 
+                value={homeInput}
+                onChange={(e) => setHomeInput(e.target.value)}
+                disabled={!isAdmin && isLocked}
+                placeholder={isAdmin ? (match.result?.home?.toString() || '0') : '-'}
+                className={`w-12 h-10 text-center font-bold text-lg rounded-lg outline-none focus:ring-2 transition-all ${
+                    isAdmin && isLive ? 'bg-red-900/30 border-red-500 text-white' :
+                    isLocked && !isAdmin 
+                        ? 'bg-slate-700 text-slate-400 border-transparent' 
+                        : 'bg-slate-900 border border-slate-600 focus:border-brand-green focus:ring-brand-green/20'
+                }`} 
+            />
+            <span className="text-slate-500 font-bold">x</span>
+            <input 
+                type="number" 
+                value={awayInput}
+                onChange={(e) => setAwayInput(e.target.value)}
+                disabled={!isAdmin && isLocked}
+                placeholder={isAdmin ? (match.result?.away?.toString() || '0') : '-'}
+                className={`w-12 h-10 text-center font-bold text-lg rounded-lg outline-none focus:ring-2 transition-all ${
+                    isAdmin && isLive ? 'bg-red-900/30 border-red-500 text-white' :
+                    isLocked && !isAdmin
+                        ? 'bg-slate-700 text-slate-400 border-transparent' 
+                        : 'bg-slate-900 border border-slate-600 focus:border-brand-green focus:ring-brand-green/20'
+                }`} 
+            />
+        </>
+      );
+  };
 
   return (
-    <div className="bg-slate-800 rounded-xl overflow-hidden shadow-lg border border-slate-700 mb-6 relative group/card">
+    <div className={`bg-slate-800 rounded-xl shadow-lg border overflow-hidden relative transition-colors ${isLive ? 'border-red-500/40 shadow-red-900/20' : 'border-slate-700'}`}>
       
-      {/* Header: Date & Status & Group Name */}
-      <div className="bg-slate-900/50 px-4 py-2 flex justify-between items-center text-xs text-slate-400 border-b border-slate-700/50">
-        <div className="flex items-center gap-2">
-          <span>{new Date(match.date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-          {!isAdmin && isLocked && !isFinished && (
-            <span className="flex items-center gap-1 text-orange-400 font-bold ml-2">
-              <Lock size={10} /> Palpites Encerrados
-            </span>
-          )}
-          {isAdmin && isFinished && (
-            <span className="flex items-center gap-1 text-green-400 font-bold ml-2">
-               Finalizado
-            </span>
-          )}
+      <div className={`px-4 py-2 flex justify-between items-center border-b ${isLive ? 'bg-red-900/20 border-red-500/30' : 'bg-slate-900/50 border-slate-700'}`}>
+        <div className="flex items-center gap-2 text-xs">
+           {isLive ? (
+               <div className="flex items-center gap-2 text-red-400 font-bold animate-pulse">
+                   <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                   AO VIVO
+               </div>
+           ) : (
+               <div className="flex items-center gap-2 text-slate-400">
+                    <Clock size={12} />
+                    <span>{matchDate.toLocaleDateString('pt-BR')} • {matchDate.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</span>
+               </div>
+           )}
+           <span className="hidden sm:inline text-slate-500">• {match.group}</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-slate-400">
+            <MapPin size={12} />
+            <span className="truncate max-w-[100px]">{match.location}</span>
+        </div>
+      </div>
+
+      <div className="p-4">
+        <div className="flex items-center justify-between gap-2 mb-4">
+            <div className="flex-1 flex flex-col items-center gap-2">
+                <img src={match.homeTeam.flag} alt={match.homeTeam.name} className="w-12 h-8 object-cover rounded shadow-md" />
+                <span className="text-xs font-bold text-center leading-tight">{match.homeTeam.name}</span>
+            </div>
+
+            <div className="flex items-center gap-3">
+                 {renderScoreInputs()}
+            </div>
+
+             <div className="flex-1 flex flex-col items-center gap-2">
+                <img src={match.awayTeam.flag} alt={match.awayTeam.name} className="w-12 h-8 object-cover rounded shadow-md" />
+                <span className="text-xs font-bold text-center leading-tight">{match.awayTeam.name}</span>
+            </div>
         </div>
         
-        <div className="flex items-center gap-3">
-            <span className="uppercase tracking-wider font-semibold">{match.group}</span>
-        </div>
-      </div>
-      
-      {/* Stadium/Location Sub-header */}
-      {match.location && (
-        <div className="bg-slate-900/30 px-4 py-1.5 flex items-center justify-center text-[10px] text-slate-500 gap-1 border-b border-slate-700/30">
-            <MapPin size={10} />
-            <span className="uppercase tracking-wide">{match.location}</span>
-        </div>
-      )}
-
-      {/* Teams & Score Input */}
-      <div className="p-4">
-        <div className="flex items-center justify-between gap-2 md:gap-4">
-          
-          {/* Home Team */}
-          <div className="flex flex-col items-center flex-1 min-w-0">
-            <div className="relative">
-                <img 
-                    src={match.homeTeam.flag} 
-                    alt={match.homeTeam.name} 
-                    className="w-14 h-9 object-cover rounded shadow-md mb-2" 
-                />
-                <span className="absolute -top-2 -left-2 bg-slate-700 text-slate-300 text-[9px] w-5 h-5 flex items-center justify-center rounded-full border border-slate-600" title={`Ranking FIFA: ${match.homeTeam.ranking}`}>
-                    {match.homeTeam.ranking}
-                </span>
-            </div>
-            <span className="font-bold text-center text-sm md:text-base text-white truncate w-full px-1">{match.homeTeam.name}</span>
-          </div>
-
-          {/* Score Board / Inputs */}
-          <div className="flex flex-col items-center shrink-0 min-w-[100px] px-1">
+        <div className="flex flex-wrap justify-between items-center mt-2 gap-2">
             
-            <div className="text-xs text-slate-400 mb-1 uppercase tracking-widest flex items-center gap-1 justify-center whitespace-nowrap">
-                {isAdmin ? (
-                    <span className="text-red-400 font-bold">Placar Oficial</span>
-                ) : (
-                    (isFinished && match.result) ? 'Placar Final' : (isLocked ? <><Lock size={10} /> Palpite</> : 'Palpite')
-                )}
-            </div>
-
-            <div className="flex items-center justify-center gap-2">
-              {isAdmin ? (
-                  // ADMIN VIEW: Always Editable Official Score
-                  <>
-                    <input 
-                        type="number" 
-                        min="0"
-                        value={adminHome}
-                        onChange={(e) => setAdminHome(e.target.value)}
-                        className="w-12 h-10 text-center rounded bg-slate-900 border border-red-500/50 text-white font-bold text-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                    />
-                    <span className="text-red-500 font-bold">x</span>
-                    <input 
-                        type="number" 
-                        min="0"
-                        value={adminAway}
-                        onChange={(e) => setAdminAway(e.target.value)}
-                        className="w-12 h-10 text-center rounded bg-slate-900 border border-red-500/50 text-white font-bold text-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                    />
-                  </>
-              ) : (
-                  // USER VIEW: Prediction Inputs OR Static Result
-                  (isFinished && match.result) ? (
-                    <div className="text-2xl md:text-3xl font-mono font-bold text-white tracking-widest mb-2 whitespace-nowrap">
-                      {match.result.home} - {match.result.away}
-                    </div>
-                  ) : (
-                    <>
-                        <input 
-                            type="number" 
-                            min="0"
-                            value={homeInput}
-                            onChange={(e) => setHomeInput(e.target.value)}
-                            disabled={inputsDisabled}
-                            className={`w-12 h-10 text-center rounded-lg font-bold text-lg focus:outline-none focus:ring-2 focus:ring-brand-green 
-                            ${inputsDisabled ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed' : 'bg-slate-700 text-white'}`}
-                        />
-                        <span className="text-slate-500">x</span>
-                        <input 
-                            type="number" 
-                            min="0"
-                            value={awayInput}
-                            onChange={(e) => setAwayInput(e.target.value)}
-                            disabled={inputsDisabled}
-                            className={`w-12 h-10 text-center rounded-lg font-bold text-lg focus:outline-none focus:ring-2 focus:ring-brand-green 
-                            ${inputsDisabled ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed' : 'bg-slate-700 text-white'}`}
-                        />
-                    </>
-                  )
-              )}
-            </div>
-          </div>
-
-          {/* Away Team */}
-          <div className="flex flex-col items-center flex-1 min-w-0">
-            <div className="relative">
-                <img 
-                    src={match.awayTeam.flag} 
-                    alt={match.awayTeam.name} 
-                    className="w-14 h-9 object-cover rounded shadow-md mb-2" 
-                />
-                <span className="absolute -top-2 -right-2 bg-slate-700 text-slate-300 text-[9px] w-5 h-5 flex items-center justify-center rounded-full border border-slate-600" title={`Ranking FIFA: ${match.awayTeam.ranking}`}>
-                    {match.awayTeam.ranking}
-                </span>
-            </div>
-            <span className="font-bold text-center text-sm md:text-base text-white truncate w-full px-1">{match.awayTeam.name}</span>
-          </div>
-        </div>
-
-        {/* Potential Bonus Indicator */}
-        {!isFinished && potentialBonus > 0 && !isAdmin && (
-            <div className="flex justify-center mt-2 animate-pulse">
-                <div className="text-[10px] font-bold text-amber-400 flex items-center gap-1 bg-amber-950/40 px-2 py-0.5 rounded-full border border-amber-500/30">
-                    <Zap size={10} fill="currentColor" />
-                    Bônus Zebra Ativo: +{potentialBonus} pts se acertar
-                </div>
-            </div>
-        )}
-
-        {/* User Points Badge (Hide for Admin) */}
-        {!isAdmin && userPoints !== null && (
-            <div className="flex justify-center mt-3">
-                <div className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm ${getPointsBadgeColor(userPoints)}`}>
-                    <Trophy size={12} />
-                    {userPoints} Pontos
-                    {getPointsLabel(userPoints)}
-                </div>
-            </div>
-        )}
-
-        {/* Actions */}
-        {isAdmin ? (
-            <div className="flex justify-center mt-4">
+            <div className="flex gap-2">
+                 {(!isLocked || isAdmin) && (
+                     <button 
+                        onClick={handleAIPredict}
+                        disabled={isPredictingAI}
+                        className="p-2 rounded-lg bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 transition-colors border border-indigo-500/30"
+                        title="Perguntar à IA"
+                     >
+                         {isPredictingAI ? <Zap size={18} className="animate-pulse" /> : <Bot size={18} />}
+                     </button>
+                 )}
                  <button 
-                    onClick={handleAdminSave}
-                    className="flex items-center gap-2 px-6 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-bold transition-colors shadow-lg shadow-red-900/20"
+                    onClick={() => setShowFriends(!showFriends)}
+                    className={`p-2 rounded-lg transition-colors border ${showFriends ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'}`}
+                    title="Ver palpites da galera"
                  >
-                    <CheckCircle size={16} />
-                    {isFinished ? 'Atualizar Placar' : 'Finalizar Jogo'}
+                     <Users size={18} />
                  </button>
             </div>
-        ) : (
-            !isFinished && !isLocked && (
-                <div className="flex justify-center gap-3 mt-4">
-                    <button 
-                        onClick={handleAIHelp}
-                        disabled={isPredictingAI}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors"
-                    >
-                        <Bot size={14} />
-                        {isPredictingAI ? 'Pensando...' : 'Pedir ao Gemini'}
-                    </button>
-                    <button 
-                        onClick={handleSave}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-green hover:bg-emerald-400 text-slate-900 text-xs font-bold transition-colors"
-                    >
-                        <Save size={14} />
-                        Salvar Palpite
-                    </button>
-                </div>
-            )
-        )}
 
-        {/* Locked State Message (Hide for Admin) */}
-        {!isAdmin && isLocked && !isFinished && (
-             <div className="flex justify-center mt-4">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600 text-slate-400 text-xs font-medium">
-                    <Clock size={14} />
-                    Palpites encerrados (menos de 5 min)
-                </div>
-             </div>
-        )}
+            <div className="flex items-center justify-end gap-2 flex-1">
+                 
+                 {isAdmin ? (
+                     <div className="flex items-center gap-2">
+                         {!isLive && !isFinished && (
+                            <button 
+                                onClick={handleAdminStart}
+                                className="flex items-center gap-1 bg-green-600 hover:bg-green-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                            >
+                                <Play size={12} fill="currentColor" /> Iniciar
+                            </button>
+                         )}
 
-        {/* AI Reasoning Text (Hide for Admin) */}
-        {!isAdmin && aiResult && !isFinished && (
-            <div className="mt-3 p-2 bg-indigo-900/30 border border-indigo-500/30 rounded text-xs text-indigo-200 text-center italic">
-                "{aiResult.reasoning}"
+                         {isLive && (
+                             <button 
+                                onClick={handleAdminUpdateLive}
+                                className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-blue-400 animate-pulse"
+                            >
+                                <Zap size={12} fill="currentColor" /> Atualizar
+                            </button>
+                         )}
+
+                         {(isLive || isFinished) && (
+                             <button 
+                                onClick={handleAdminFinish}
+                                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${isFinished ? 'bg-slate-700 text-slate-400' : 'bg-red-600 hover:bg-red-500 text-white'}`}
+                            >
+                                <CheckCircle size={12} /> {isFinished ? 'Reabrir / Corrigir' : 'Apito Final'}
+                            </button>
+                         )}
+                     </div>
+                 ) : (
+                     <>
+                        {(isFinished || (isLive && match.result)) ? (
+                             <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm ${pointsClass} transition-all`}>
+                                 <Trophy size={14} />
+                                 
+                                 {bonusEarned > 0 ? (
+                                    <span className="flex items-center gap-1">
+                                        <span>{basePoints}</span>
+                                        <span className="text-yellow-300 font-extrabold">+ {bonusEarned}</span>
+                                    </span>
+                                 ) : (
+                                    <span>{pointsEarned} pts</span>
+                                 )}
+                                 
+                                 {bonusEarned > 0 && (
+                                     <span 
+                                        className="flex items-center gap-0.5 text-[9px] leading-tight bg-yellow-400 text-black px-1.5 py-0.5 rounded ml-1 font-extrabold shadow-sm" 
+                                        title={`Zebra! Bônus de ${bonusEarned} pontos pelo ranking`}
+                                     >
+                                         <Zap size={8} fill="currentColor" />
+                                         ZEBRA
+                                     </span>
+                                 )}
+                             </div>
+                        ) : isLocked ? (
+                             <div className="flex items-center gap-1 text-xs text-orange-400 font-bold bg-orange-900/20 px-3 py-1.5 rounded-full border border-orange-500/20">
+                                 <Lock size={12} /> Palpites Encerrados
+                             </div>
+                        ) : (
+                             <button 
+                                onClick={handlePredict}
+                                className="flex items-center gap-2 bg-brand-green hover:bg-emerald-400 text-slate-900 px-4 py-2 rounded-lg text-xs font-bold transition-colors shadow-lg shadow-brand-green/20"
+                             >
+                                <Save size={14} /> Salvar Palpite
+                             </button>
+                        )}
+                     </>
+                 )}
             </div>
-        )}
-      </div>
+        </div>
 
-      {/* Footer: Friends Accordion */}
-      {friends.length > 0 && (
-          <div className="border-t border-slate-700">
-            <button 
-            onClick={() => setShowFriends(!showFriends)}
-            className="w-full flex items-center justify-between px-4 py-3 text-slate-400 hover:bg-slate-700/50 transition-colors text-sm"
-            >
-            <div className="flex items-center gap-2">
-                <Users size={16} />
-                <span>Palpites da Galera ({friends.length})</span>
-            </div>
-            {showFriends ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
-
-            {showFriends && (
-            <div className="px-4 pb-4 space-y-2 bg-slate-900/30">
-                {!canViewOthers ? (
-                    <div className="flex flex-col items-center justify-center py-4 text-slate-500 gap-2 text-center animate-fadeIn">
-                        <EyeOff size={24} className="opacity-50" />
-                        <div>
-                            <p className="text-sm font-semibold text-slate-400">Palpites Ocultos</p>
-                            <p className="text-xs max-w-[250px] mx-auto opacity-70">
-                                Para garantir a emoção, os palpites dos outros participantes só serão revelados quando o jogo começar.
-                            </p>
-                        </div>
-                        <span className="text-xs bg-slate-800 px-2 py-1 rounded-full mt-1 border border-slate-700">
-                            {visibleFriends.length} pessoas já palpitaram
-                        </span>
+        {aiPrediction && (
+            <div className="mt-3 bg-indigo-900/30 border border-indigo-500/30 rounded-lg p-3 text-sm animate-fadeIn">
+                <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-2 text-indigo-300 font-bold">
+                        <Bot size={16} />
+                        Sugestão do Gemini
                     </div>
-                ) : (
-                    visibleFriends.length === 0 ? (
-                        <div className="text-center text-xs text-slate-500 py-2">Ninguém palpitou ainda.</div>
+                    {!isLocked && (
+                        <button onClick={applyAIPrediction} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded">
+                            Usar Placar
+                        </button>
+                    )}
+                </div>
+                <div className="text-center font-mono text-xl text-white font-bold mb-1">
+                    {aiPrediction.homeScore} x {aiPrediction.awayScore}
+                </div>
+                <p className="text-indigo-200 text-xs italic">"{aiPrediction.reasoning}"</p>
+            </div>
+        )}
+
+        {showFriends && (
+            <div className="mt-4 pt-4 border-t border-slate-700 animate-fadeIn">
+                <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Palpites do Grupo {isLive && "(Ao Vivo)"}</h4>
+                <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
+                    {sortedFriends.length === 0 ? (
+                        <p className="text-xs text-slate-500 italic">Ninguém palpitou ainda.</p>
                     ) : (
-                        visibleFriends.map(friend => {
-                            const isMe = friend.id === 'me';
-                            const friendPred = friend.predictions[match.id];
-                            const friendPoints = (match.result && friendPred) 
-                                ? calculatePoints(
-                                    friendPred.home, 
-                                    friendPred.away, 
-                                    match.result.home, 
-                                    match.result.away,
-                                    match.homeTeam.ranking,
-                                    match.awayTeam.ranking
-                                )
-                                : null;
+                        sortedFriends.map(friend => {
+                            const pred = friend.predictions[match.id];
+                            const canSee = isLocked || isLive || isFinished || isAdmin || friend.id === 'me'; 
+                            
+                            const friendPointsStyle = getPointsStyle(friend.currentMatchPoints);
 
                             return (
-                                <div key={friend.id} className={`flex items-center justify-between py-2 border-b border-slate-700/50 last:border-0 ${isMe ? 'bg-indigo-500/10 -mx-4 px-4 border-indigo-500/30' : ''}`}>
-                                    <div className="flex items-center gap-2">
-                                    <img src={friend.avatar} alt={friend.name} className={`w-6 h-6 rounded-full ${isMe ? 'ring-1 ring-brand-green' : ''}`} />
-                                    <div className="flex flex-col">
-                                        <span className={`text-sm leading-none ${isMe ? 'text-brand-green font-semibold' : 'text-slate-300'}`}>
-                                            {friend.name} {isMe && '(Você)'}
-                                        </span>
-                                        <span className="text-[10px] text-slate-500 mt-0.5">{friend.totalPoints} pts no ranking</span>
-                                    </div>
-                                    </div>
+                                <div key={friend.id} className="flex justify-between items-center text-sm p-2 rounded bg-slate-900/50 hover:bg-slate-900 transition-colors border border-transparent hover:border-slate-700">
                                     <div className="flex items-center gap-3">
-                                        <span className={`font-mono font-bold ${isMe ? 'text-white' : 'text-slate-200'}`}>
-                                            {friendPred ? `${friendPred.home} - ${friendPred.away}` : '-'}
-                                        </span>
-                                        {friendPoints !== null && isFinished && (
-                                            <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${getPointsBadgeColor(friendPoints)}`}>
-                                                {friendPoints}pts
+                                        <div className="relative">
+                                            <img src={friend.avatar} alt={friend.name} className="w-6 h-6 rounded-full" />
+                                            {friend.id === 'me' && <div className="absolute -bottom-1 -right-1 bg-brand-green w-2 h-2 rounded-full border border-slate-900"></div>}
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className={`text-xs ${friend.id === 'me' ? 'text-brand-green font-bold' : 'text-slate-300 font-medium'}`}>
+                                                {friend.name}
                                             </span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-3">
+                                        <div className="font-mono font-bold text-slate-200 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+                                            {canSee ? (
+                                                `${pred.home} - ${pred.away}`
+                                            ) : (
+                                                <span className="flex items-center gap-1 text-slate-500 text-xs">
+                                                    <EyeOff size={10} />
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {(isLive || isFinished) && match.result && (
+                                            <div className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${friendPointsStyle} min-w-[30px] text-center flex items-center gap-1`}>
+                                                {friend.currentMatchPoints}
+                                                {friend.friendBonus > 0 && <span className="text-yellow-300 text-[8px]">+Z</span>}
+                                            </div>
                                         )}
                                     </div>
                                 </div>
                             );
                         })
-                    )
-                )}
+                    )}
+                </div>
             </div>
-            )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

@@ -1,15 +1,17 @@
+
 import React, { useState } from 'react';
-import { Users, PlusCircle, ArrowRight, Hash } from 'lucide-react';
+import { Users, PlusCircle, ArrowRight, Hash, LogOut } from 'lucide-react';
 import { User } from '../types';
 
 interface GroupSelectionProps {
   user: User;
   onCreateGroup: (name: string) => void;
   onJoinGroup: (code: string) => void;
+  onLogout: () => void;
   error?: string | null;
 }
 
-const GroupSelection: React.FC<GroupSelectionProps> = ({ user, onCreateGroup, onJoinGroup, error }) => {
+const GroupSelection: React.FC<GroupSelectionProps> = ({ user, onCreateGroup, onJoinGroup, onLogout, error }) => {
   const [mode, setMode] = useState<'menu' | 'create' | 'join'>('menu');
   const [inputVal, setInputVal] = useState('');
 
@@ -25,8 +27,17 @@ const GroupSelection: React.FC<GroupSelectionProps> = ({ user, onCreateGroup, on
 
   return (
     <div className="min-h-screen bg-brand-dark flex flex-col items-center justify-center p-4">
-      <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700 text-center animate-fadeIn">
+      <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700 text-center animate-fadeIn relative">
         
+        {/* Logout Button */}
+        <button 
+            onClick={onLogout}
+            className="absolute top-4 right-4 p-2 text-slate-500 hover:text-red-400 hover:bg-red-950/30 rounded-full transition-colors"
+            title="Sair / Logout"
+        >
+            <LogOut size={20} />
+        </button>
+
         <div className="flex justify-center mb-6">
           <div className="relative">
             <img src={user.avatar} alt={user.name} className="w-16 h-16 rounded-full border-2 border-brand-green" />

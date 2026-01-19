@@ -1,3 +1,4 @@
+
 import { TournamentPredictions } from '../types';
 
 export const POINTS_EXACT = 10;
@@ -8,6 +9,8 @@ export const POINTS_WRONG = 0;
 // Factor for underdog bonus: (DiffInRank * FACTOR). 
 // Example: Rank 15 vs Rank 1. Diff 14 * 0.25 = 3.5 -> 4 points bonus.
 const UNDERDOG_BONUS_FACTOR = 0.25; 
+// Maximum bonus points allowed for an underdog win
+const MAX_UNDERDOG_BONUS = 5;
 
 export const POINTS_TOP_SCORER_NAME = 100;
 export const POINTS_TOP_SCORER_GOALS = 100;
@@ -18,6 +21,7 @@ export const POINTS_BEST_GOALKEEPER = 100;
 /**
  * Calculates the potential bonus points if the underdog wins.
  * Returns 0 if the winner is the favorite or ranks are missing.
+ * Capped at MAX_UNDERDOG_BONUS (5).
  */
 export const calculateUnderdogBonus = (
     winnerRank: number | undefined, 
@@ -28,7 +32,9 @@ export const calculateUnderdogBonus = (
     // If the winner has a worse ranking (higher number) than the loser, it's an underdog win.
     if (winnerRank > loserRank) {
         const diff = winnerRank - loserRank;
-        return Math.ceil(diff * UNDERDOG_BONUS_FACTOR);
+        const calculatedBonus = Math.ceil(diff * UNDERDOG_BONUS_FACTOR);
+        // Apply the cap
+        return Math.min(calculatedBonus, MAX_UNDERDOG_BONUS);
     }
     
     return 0;

@@ -1,38 +1,105 @@
+
 export enum MatchStatus {
   SCHEDULED = 'SCHEDULED',
   LIVE = 'LIVE',
   FINISHED = 'FINISHED'
 }
 
-export interface Team {
+// --- DATABASE SCHEMAS (Normalized Data) ---
+
+export interface SystemConfigDB {
+  id: string; // Sempre 'GLOBAL'
+  is_auto_sync_enabled: boolean;
+  sync_interval_ms: number;
+}
+
+export interface StadiumDB {
+  id: string;
+  name: string;
+  city: string;
+  country: 'USA' | 'MEX' | 'CAN';
+  capacity?: number;
+}
+
+export interface TeamDB {
   id: string;
   name: string;
   code: string;
-  flag: string; // Emoji or URL
-  ranking: number; // FIFA Ranking position
+  flag: string;
+  ranking: number;
+  pot?: 1 | 2 | 3 | 4;
 }
 
-export interface Score {
-  home: number | '';
-  away: number | '';
-}
-
-export interface Match {
+export interface MatchDB {
   id: string;
-  homeTeam: Team;
-  awayTeam: Team;
+  homeTeamId: string;
+  awayTeamId: string;
   date: string;
-  group: string;
-  location: string; // Stadium / City
+  group: string; // "Grupo A", "Oitavas", etc.
+  stadiumId: string;
   status: MatchStatus;
-  result?: { home: number; away: number }; // The actual result (for finished games)
+  resultHome?: number;
+  resultAway?: number;
 }
+
+export interface PredictionDB {
+  userId: string;
+  matchId: string;
+  homeScore: number;
+  awayScore: number;
+  timestamp: string;
+}
+
+export interface TournamentPredictionDB {
+  userId: string;
+  championTeamId?: string;
+  topScorerPlayer?: string;
+  topScorerGoals?: number;
+  bestPlayer?: string;
+  bestGoalkeeper?: string;
+}
+
+export interface UserDB {
+  id: string;
+  name: string;
+  email: string;
+  password?: string;
+  avatar: string;
+  role: 'ADMIN' | 'USER';
+  status: 'ACTIVE' | 'INVITED';
+  activeGroupId?: string; // Persists user preference
+  totalPoints: number; // Cache for performance, or calculated on fly
+}
+
+export interface GroupDB {
+  id: string;
+  name: string;
+  code: string;
+  adminId: string;
+  createdAt: string;
+}
+
+export interface UserGroupDB {
+  userId: string;
+  groupId: string;
+  joinedAt: string;
+  role?: 'MEMBER' | 'ADMIN';
+}
+
+// --- UI MODELS (Hydrated Data for Components) ---
+
+// Alias Team to TeamDB for UI simplicity as they are mostly same
+export type Team = TeamDB;
+export type Stadium = StadiumDB;
+export type UserRole = UserDB['role'];
+export type UserStatus = UserDB['status'];
+export type SystemConfig = SystemConfigDB;
 
 export interface Prediction {
   matchId: string;
   homeScore: number;
   awayScore: number;
-  points?: number; // Calculated points
+  points?: number;
 }
 
 export interface TournamentPredictions {
@@ -45,34 +112,36 @@ export interface TournamentPredictions {
   bestGoalkeeper?: string;
 }
 
-export type UserRole = 'ADMIN' | 'USER';
-export type UserStatus = 'ACTIVE' | 'INVITED';
-
+// "Hydrated" User with nested data for easy UI consumption
 export interface User {
   id: string;
   name: string;
   email: string;
+  password?: string;
   avatar: string;
   role: UserRole;
   status: UserStatus;
-  groupIds: string[]; // List of all groups the user belongs to
-  activeGroupId?: string; // The group context currently being viewed
-  predictions: Record<string, { home: number; away: number }>; // map matchId to score
+  groupIds: string[]; 
+  activeGroupId?: string;
+  predictions: Record<string, { home: number; away: number }>; // matchId -> score
   tournamentPredictions?: TournamentPredictions;
   totalPoints: number;
 }
 
-export interface Group {
+export interface Match {
   id: string;
-  name: string;
-  code: string; // The unique code to join
-  adminId: string; // Creator of the group
-  createdAt: string;
+  homeTeam: Team;
+  awayTeam: Team;
+  date: string;
+  group: string;
+  location: string;
+  stadiumId?: string;
+  status: MatchStatus;
+  result?: { home: number; away: number };
 }
 
-// Alias Friend to User for backward compatibility if needed, 
-// though we will migrate to using User everywhere.
-export type Friend = User;
+export type Group = GroupDB;
+export type Friend = User; // Legacy alias
 
 export type Tab = 'matches' | 'leaderboard' | 'tournament' | 'admin';
 
