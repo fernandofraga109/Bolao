@@ -1,26 +1,45 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// --- CONFIGURAÇÃO DO SUPABASE ---
+/**
+ * CONFIGURAÇÃO DO SUPABASE (PROTEGIDA)
+ * -----------------------------------
+ * Não deixamos mais as chaves expostas no código-fonte.
+ * Elas agora são lidas das variáveis de ambiente do Vite.
+ * 
+ * NO DESENVOLVIMENTO LOCAL:
+ * Crie um arquivo chamado ".env" na raiz do projeto e adicione:
+ * VITE_SUPABASE_URL=sua_url_aqui
+ * VITE_SUPABASE_ANON_KEY=sua_chave_anon_aqui
+ * 
+ * NA VERCEL:
+ * Adicione essas mesmas chaves em Settings > Environment Variables.
+ */
 
-// 1. URL DO PROJETO (Extraída da sua string de conexão)
-// Esta URL aponta para a API do seu projeto Supabase
-const SUPABASE_URL = 'https://lhqrnlxjokwcwfrrqzhx.supabase.co'; 
+// Fix: Use process.env instead of import.meta.env to resolve Property 'env' does not exist on type 'ImportMeta' errors
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || '';
 
-// 2. CHAVE PÚBLICA (ANON KEY)
-// ATENÇÃO: Você precisa pegar esta chave no painel do Supabase:
-// Vá em: Project Settings (Engrenagem) -> API -> Project API keys -> anon / public
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxocXJubHhqb2t3Y3dmcnJxemh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUyNDA2MTAsImV4cCI6MjA4MDgxNjYxMH0.bncbC9V8EOY_Lq2YAOU61N8QOp_6ypRLBOsz5wCNIjo';
-
-// Verificação simples para garantir que a chave foi configurada
+// Verificação de configuração
 const isConfigured = 
-    SUPABASE_URL.includes('supabase.co') && 
-    SUPABASE_ANON_KEY.length > 20 && 
-    !SUPABASE_ANON_KEY.includes('COLE_SUA_CHAVE');
+    SUPABASE_URL.startsWith('https://') && 
+    SUPABASE_ANON_KEY.length > 20;
+
+if (!isConfigured && typeof window !== 'undefined') {
+  console.warn(
+    "⚠️ Supabase: URL ou Anon Key não configuradas.\n" +
+    "Certifique-se de definir VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no seu ambiente."
+  );
+}
 
 export const supabase = isConfigured 
   ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
   : null;
 
-// Helper para verificar se está ativo
+/**
+ * Por que não usamos um Proxy no Servidor para o Supabase?
+ * 1. O Supabase usa a anon key no front-end para habilitar o Realtime (WebSockets).
+ *    Se passarmos por um proxy de servidor comum, perdemos as atualizações ao vivo.
+ * 2. A segurança é garantida pelas RLS (Row Level Security) que já aplicamos no seu SQL.
+ */
 export const isSupabaseEnabled = () => !!supabase;
