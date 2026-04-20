@@ -1,27 +1,37 @@
-
-import React, { useState, useMemo } from 'react';
-import { Tab, MatchStatus, Match } from './types';
-import { calculatePoints, calculateTournamentPoints } from './utils/scoring';
+import React, { useState, useMemo } from "react";
+import { Tab, MatchStatus, Match } from "./types";
+import { calculatePoints, calculateTournamentPoints } from "./utils/scoring";
 
 // Custom Hooks
-import { useUserSystem } from './hooks/useUserSystem';
-import { useMatchSystem } from './hooks/useMatchSystem';
-import { useGroupSystem } from './hooks/useGroupSystem';
+import { useUserSystem } from "./hooks/useUserSystem";
+import { useMatchSystem } from "./hooks/useMatchSystem";
+import { useGroupSystem } from "./hooks/useGroupSystem";
+import { useDatabase } from "./contexts/DatabaseContext";
 
 // Layout Components
-import Header from './components/Header';
-import BottomNav from './components/BottomNav';
-import RulesSection from './components/RulesSection';
+import Header from "./components/Header";
+import BottomNav from "./components/BottomNav";
+import RulesSection from "./components/RulesSection";
 
 // Feature Components
-import MatchCard from './components/MatchCard';
-import Leaderboard from './components/Leaderboard';
-import TopScorerCard from './components/TopScorerCard';
-import Login from './components/Login';
-import AdminDashboard from './components/AdminDashboard';
-import GroupSwitcher from './components/GroupSwitcher';
-import TournamentStandings from './components/TournamentStandings';
-import { ChevronsUpDown, ChevronDown, ChevronUp, CalendarDays, History, PlusCircle } from 'lucide-react';
+import MatchCard from "./components/MatchCard";
+import Leaderboard from "./components/Leaderboard";
+import TopScorerCard from "./components/TopScorerCard";
+import Login from "./components/Login";
+import AdminDashboard from "./components/AdminDashboard";
+import GroupSwitcher from "./components/GroupSwitcher";
+import TournamentStandings from "./components/TournamentStandings";
+import ModalShell from "./components/ui/ModalShell";
+import {
+  ChevronsUpDown,
+  ChevronDown,
+  ChevronUp,
+  CalendarDays,
+  History,
+  PlusCircle,
+  CheckCircle2,
+  AlertTriangle,
+} from "lucide-react";
 
 // --- Helper Component for Date Groups ---
 interface MatchGroupProps {
@@ -31,18 +41,23 @@ interface MatchGroupProps {
   icon?: React.ReactNode;
   userPredictions: Record<string, any>;
   leaderboardData: any[];
-  onPredict: (id: string, h: number, a: number) => void;
+  onPredict: (id: string, h: number, a: number) => Promise<void>;
   isAdmin: boolean;
-  // Admin props
-  onStartMatch: (id: string) => void;
-  onUpdateLiveScore: (id: string, h: number, a: number) => void;
   onFinishMatch: (id: string, h: number, a: number) => void;
   isToday?: boolean;
 }
 
-const MatchGroup: React.FC<MatchGroupProps> = ({ 
-  title, matches, isOpenDefault = false, icon, userPredictions, leaderboardData, onPredict, isAdmin, 
-  onStartMatch, onUpdateLiveScore, onFinishMatch, isToday 
+const MatchGroup: React.FC<MatchGroupProps> = ({
+  title,
+  matches,
+  isOpenDefault = false,
+  icon,
+  userPredictions,
+  leaderboardData,
+  onPredict,
+  isAdmin,
+  onFinishMatch,
+  isToday,
 }) => {
   const [isOpen, setIsOpen] = useState(isOpenDefault);
 
@@ -50,36 +65,52 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
 
   return (
     <div className="mb-4">
-      <button 
+      <button
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${
-          isToday 
-            ? 'bg-brand-green/10 border-brand-green/30 text-white mb-3 shadow-lg shadow-brand-green/5' 
-            : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700/80'
+          isToday
+            ? "bg-brand-green/10 border-brand-green/30 text-white mb-3 shadow-lg shadow-brand-green/5"
+            : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700/80"
         }`}
       >
         <div className="flex items-center gap-3">
           {icon}
           <div className="text-left">
-            <h3 className={`font-bold ${isToday ? 'text-lg' : 'text-sm'}`}>{title}</h3>
-            {!isOpen && <span className="text-[10px] opacity-70">{matches.length} jogos</span>}
+            <h3 className={`font-bold ${isToday ? "text-lg" : "text-sm"}`}>
+              {title}
+            </h3>
+            {!isOpen && (
+              <span className="text-[10px] opacity-70">
+                {matches.length} jogos
+              </span>
+            )}
           </div>
         </div>
-        {isOpen ? <ChevronUp size={isToday ? 20 : 16} /> : <ChevronDown size={isToday ? 20 : 16} />}
+        {isOpen ? (
+          <ChevronUp size={isToday ? 20 : 16} />
+        ) : (
+          <ChevronDown size={isToday ? 20 : 16} />
+        )}
       </button>
 
       {isOpen && (
         <div className="mt-3 space-y-6 animate-fadeIn">
-          {matches.map(match => (
-            <MatchCard 
+          {matches.map((match) => (
+            <MatchCard
               key={match.id}
               match={match}
-              userPrediction={userPredictions[match.id] ? { matchId: match.id, homeScore: userPredictions[match.id].home, awayScore: userPredictions[match.id].away } : undefined}
+              userPrediction={
+                userPredictions[match.id]
+                  ? {
+                      matchId: match.id,
+                      homeScore: userPredictions[match.id].home,
+                      awayScore: userPredictions[match.id].away,
+                    }
+                  : undefined
+              }
               friends={leaderboardData}
               onPredict={onPredict}
               isAdmin={isAdmin}
-              onStartMatch={onStartMatch}
-              onUpdateLiveScore={onUpdateLiveScore}
               onFinishMatch={onFinishMatch}
             />
           ))}
@@ -90,27 +121,34 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
 };
 
 const App: React.FC = () => {
+  const db = useDatabase();
+
   // --- Custom Hooks (Modularized State) ---
-  const { 
-    users, 
-    currentUser, 
+  const {
+    users,
+    currentUser,
+    authReady,
     login,
     loginWithCredentials,
     register,
-    logout, 
+    logout,
     joinGroup,
     switchGroup,
-    predictMatch, 
-    predictTournament, 
-    adminActions 
+    predictMatch,
+    predictTournament,
+    adminActions,
   } = useUserSystem();
 
-  const { 
-    matches, 
-    tournamentResults, 
-    lockDate, 
-    simulateLiveGame,
-    adminControls
+  const {
+    matches,
+    tournamentResults,
+    lockDate,
+    syncWithExternalApi,
+    syncMatchesAndStandings,
+    isSyncing,
+    isAutoSyncEnabled,
+    toggleAutoSync,
+    adminControls,
   } = useMatchSystem();
 
   const {
@@ -119,131 +157,247 @@ const App: React.FC = () => {
     deleteGroup,
     getGroupByCode,
     getGroupById,
-    getGroupsByIds
+    getGroupsByIds,
   } = useGroupSystem();
 
-  const [activeTab, setActiveTab] = useState<Tab>('matches');
+  const [activeTab, setActiveTab] = useState<Tab>("matches");
   const [groupError, setGroupError] = useState<string | null>(null);
   const [isGroupSwitcherOpen, setIsGroupSwitcherOpen] = useState(false);
+  const [isAdminSyncingAll, setIsAdminSyncingAll] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    isError: boolean;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    isError: false,
+  });
+
+  const handleAdminSyncAll = async () => {
+    if (isAdminSyncingAll) return;
+
+    setIsAdminSyncingAll(true);
+    try {
+      const result = await syncMatchesAndStandings();
+      setSyncFeedback({
+        isOpen: true,
+        title: result.success
+          ? "Sincronização concluída"
+          : "Falha na sincronização",
+        message: result.message,
+        isError: !result.success,
+      });
+    } finally {
+      setIsAdminSyncingAll(false);
+    }
+  };
 
   // --- Calculations (Leaderboard) ---
-  const leaderboardData = useMemo(() => {
-    if (!currentUser || !currentUser.activeGroupId) return [];
-
-    const groupUsers = users.filter(u => 
-        u.groupIds.includes(currentUser.activeGroupId!) && 
-        u.role !== 'ADMIN'
-    );
-
-    return groupUsers.map(user => {
-      let total = 0;
-      matches.forEach(match => {
-        if (match.status === MatchStatus.FINISHED && match.result && user.predictions[match.id]) {
-          const pred = user.predictions[match.id];
-          total += calculatePoints(
-              pred.home, 
-              pred.away, 
-              match.result.home, 
+  const usersWithCalculatedPoints = useMemo(() => {
+    return users
+      .filter((user) => user.role !== "ADMIN")
+      .map((user) => {
+        let total = 0;
+        matches.forEach((match) => {
+          if (
+            match.status === MatchStatus.FINISHED &&
+            match.result &&
+            user.predictions[match.id]
+          ) {
+            const pred = user.predictions[match.id];
+            total += calculatePoints(
+              pred.home,
+              pred.away,
+              match.result.home,
               match.result.away,
               match.homeTeam.ranking,
-              match.awayTeam.ranking
+              match.awayTeam.ranking,
+            );
+          }
+        });
+
+        if (tournamentResults) {
+          total += calculateTournamentPoints(
+            user.tournamentPredictions,
+            tournamentResults,
           );
         }
+
+        return { ...user, totalPoints: total };
       });
+  }, [matches, users, tournamentResults]);
 
-      if (tournamentResults) {
-        total += calculateTournamentPoints(user.tournamentPredictions, tournamentResults);
+  const leaderboardData = useMemo(() => {
+    if (!currentUser) return [];
+
+    const activeGroupId =
+      currentUser.activeGroupId || currentUser.groupIds[0] || undefined;
+    if (!activeGroupId) return [];
+
+    return usersWithCalculatedPoints.filter((u) =>
+      u.groupIds.includes(activeGroupId),
+    );
+  }, [currentUser, usersWithCalculatedPoints]);
+
+  const leaderboardSections = useMemo(() => {
+    if (!currentUser) return [];
+
+    const groupPointsMap = new Map<string, number>();
+    db.userGroups.forEach((relation) => {
+      if (typeof relation.points === "number") {
+        groupPointsMap.set(
+          `${relation.userId}:${relation.groupId}`,
+          relation.points,
+        );
       }
-
-      return { ...user, totalPoints: total };
     });
-  }, [matches, users, tournamentResults, currentUser]);
 
-  const currentGroup = currentUser?.activeGroupId ? getGroupById(currentUser.activeGroupId) : undefined;
+    const groupNameMap = new Map<string, string>();
+    groups.forEach((group) => {
+      groupNameMap.set(group.id, group.name);
+    });
+
+    return currentUser.groupIds
+      .map((groupId) => {
+        const groupUsers = usersWithCalculatedPoints
+          .filter((u) => u.groupIds.includes(groupId))
+          .map((user) => {
+            const key = `${user.id}:${groupId}`;
+            const groupPoints = groupPointsMap.get(key);
+
+            return {
+              ...user,
+              totalPoints:
+                typeof groupPoints === "number"
+                  ? groupPoints
+                  : user.totalPoints,
+            };
+          });
+
+        const fallbackGroupName =
+          currentUser.groupIds.length === 1
+            ? "Meu Grupo"
+            : `Grupo ${currentUser.groupIds.indexOf(groupId) + 1}`;
+
+        return {
+          groupId,
+          groupName: groupNameMap.get(groupId) || fallbackGroupName,
+          users: groupUsers,
+        };
+      })
+      .filter((section) => section.users.length > 0);
+  }, [currentUser, usersWithCalculatedPoints, db.userGroups, groups]);
+
+  const resolvedActiveGroupId =
+    currentUser?.activeGroupId || currentUser?.groupIds?.[0];
+
+  const currentGroup = resolvedActiveGroupId
+    ? getGroupById(resolvedActiveGroupId)
+    : undefined;
 
   // --- Date Grouping Logic ---
   const { pastMatches, todayMatches, futureGroups } = useMemo(() => {
     // 1. Determine "Today" (Reference Date)
     // If real date is before the first match (June 11, 2026), simulate that today IS June 11.
     const now = new Date();
-    const firstMatchDate = new Date('2026-06-11T00:00:00'); // Use fixed string to compare just date part logic
-    
+    const firstMatchDate = new Date("2026-06-11T00:00:00"); // Use fixed string to compare just date part logic
+
     // Check if we are really before the cup
     const isPreCup = now < firstMatchDate;
-    
+
     // Normalize dates to YYYY-MM-DD for comparison
-    const getDayString = (d: Date) => d.toISOString().split('T')[0];
+    const getDayString = (d: Date) => d.toISOString().split("T")[0];
     const todayStr = getDayString(isPreCup ? firstMatchDate : now);
 
     const past: Match[] = [];
     const today: Match[] = [];
     const future: Record<string, Match[]> = {};
 
-    matches.forEach(match => {
-        const mDate = new Date(match.date);
-        const mDateStr = getDayString(mDate);
+    matches.forEach((match) => {
+      const mDate = new Date(match.date);
+      const mDateStr = getDayString(mDate);
 
-        if (mDateStr < todayStr) {
-            past.push(match);
-        } else if (mDateStr === todayStr) {
-            today.push(match);
-        } else {
-            if (!future[mDateStr]) future[mDateStr] = [];
-            future[mDateStr].push(match);
-        }
+      if (mDateStr < todayStr) {
+        past.push(match);
+      } else if (mDateStr === todayStr) {
+        today.push(match);
+      } else {
+        if (!future[mDateStr]) future[mDateStr] = [];
+        future[mDateStr].push(match);
+      }
     });
 
     // Sort past matches (newest first usually better for history, or oldest first? let's do oldest first for schedule)
-    past.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    
+    past.sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+    );
+
     // Sort today matches by time
-    today.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    today.sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+    );
 
     return { pastMatches: past, todayMatches: today, futureGroups: future };
   }, [matches]);
 
   const formatDateTitle = (dateStr: string) => {
-      const date = new Date(dateStr + 'T12:00:00'); // Force midday to avoid timezone shifts on just date display
-      return date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+    const date = new Date(dateStr + "T12:00:00"); // Force midday to avoid timezone shifts on just date display
+    return date.toLocaleDateString("pt-BR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
   };
 
-
   // --- Render Auth Screen ---
+  if (!authReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-brand-dark text-white">
+        Carregando autenticação...
+      </div>
+    );
+  }
+
   if (!currentUser) {
     return (
-        <Login 
-            onLogin={(user) => {
-                login(user);
-                setActiveTab(user.role === 'ADMIN' ? 'admin' : 'matches'); 
-            }}
-            onRegister={(name, email, pass, code) => register(name, email, pass, code, groups)}
-            onAuth={loginWithCredentials}
-            availableUsers={users} 
-        />
+      <Login
+        onLogin={(user) => {
+          login(user);
+          setActiveTab(user.role === "ADMIN" ? "admin" : "matches");
+        }}
+        onRegister={(name, email, pass, code) =>
+          register(name, email, pass, code, groups)
+        }
+        onAuth={loginWithCredentials}
+        availableUsers={users}
+      />
     );
   }
 
   // --- Helpers for Group Switching ---
   const handleCreateGroup = (name: string) => {
-      const newGroup = createGroup(name, currentUser.id);
-      joinGroup(currentUser.id, newGroup.id);
-      setGroupError(null);
-      setIsGroupSwitcherOpen(false);
+    const newGroup = createGroup(name, currentUser.id);
+    joinGroup(currentUser.id, newGroup.id);
+    setGroupError(null);
+    setIsGroupSwitcherOpen(false);
   };
 
   const handleJoinGroup = (code: string) => {
-      const group = getGroupByCode(code);
-      if (group) {
-          if (currentUser.groupIds.includes(group.id)) {
-              switchGroup(currentUser.id, group.id);
-          } else {
-              joinGroup(currentUser.id, group.id);
-          }
-          setGroupError(null);
-          setIsGroupSwitcherOpen(false);
+    const group = getGroupByCode(code);
+    if (group) {
+      if (currentUser.groupIds.includes(group.id)) {
+        switchGroup(currentUser.id, group.id);
       } else {
-          setGroupError('Código inválido.');
+        joinGroup(currentUser.id, group.id);
       }
+      setGroupError(null);
+      setIsGroupSwitcherOpen(false);
+    } else {
+      setGroupError("Código inválido.");
+    }
   };
 
   const myGroupsList = getGroupsByIds(currentUser.groupIds);
@@ -251,170 +405,239 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen pb-20 bg-brand-dark text-slate-100 font-sans selection:bg-brand-green selection:text-brand-dark">
-      
-      <Header 
-        currentUser={currentUser} 
-        onLogout={logout} 
-        onSimulate={simulateLiveGame} 
+      <Header
+        currentUser={currentUser}
+        onLogout={logout}
+        onSyncData={() => void handleAdminSyncAll()}
+        isSyncingData={isAdminSyncingAll || isSyncing}
       />
-      
+
       {/* Group Info Bar OR Call to Action */}
       <div className="max-w-2xl mx-auto px-4 mt-4">
-        <div 
-            onClick={() => setIsGroupSwitcherOpen(true)}
-            className="bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 flex justify-between items-center text-xs cursor-pointer hover:bg-slate-700/80 hover:border-slate-600 transition-all group shadow-sm"
+        <div
+          onClick={() => setIsGroupSwitcherOpen(true)}
+          className="bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 flex justify-between items-center text-xs cursor-pointer hover:bg-slate-700/80 hover:border-slate-600 transition-all group shadow-sm"
         >
-            {currentGroup ? (
-                <>
-                    <div className="flex items-center gap-3">
-                        <span className="text-slate-400 uppercase tracking-wider font-semibold text-[10px]">Grupo</span>
-                        <div className="flex items-center gap-2">
-                            <strong className="text-white text-sm">{currentGroup.name}</strong>
-                            <ChevronsUpDown size={14} className="text-brand-green opacity-70 group-hover:opacity-100 transition-opacity" />
-                        </div>
-                    </div>
-                    <span className="text-slate-500 font-mono bg-slate-900 px-2 py-1 rounded text-[10px] border border-slate-700/50">
-                        #{currentGroup.code}
-                    </span>
-                </>
-            ) : (
-                <div className="flex items-center gap-2 w-full justify-center text-brand-green py-1">
-                    <PlusCircle size={16} />
-                    <span className="font-bold">
-                        {currentUser.role === 'ADMIN' ? 'Entrar ou Criar um Grupo' : 'Entrar em um Grupo'}
-                    </span>
+          {currentGroup ? (
+            <>
+              <div className="flex items-center gap-3">
+                <span className="text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
+                  Grupo
+                </span>
+                <div className="flex items-center gap-2">
+                  <strong className="text-white text-sm">
+                    {currentGroup.name}
+                  </strong>
+                  <ChevronsUpDown
+                    size={14}
+                    className="text-brand-green opacity-70 group-hover:opacity-100 transition-opacity"
+                  />
                 </div>
-            )}
+              </div>
+              <span className="text-slate-500 font-mono bg-slate-900 px-2 py-1 rounded text-[10px] border border-slate-700/50">
+                #{currentGroup.code}
+              </span>
+            </>
+          ) : (
+            <div className="flex items-center gap-2 w-full justify-center text-brand-green py-1">
+              <PlusCircle size={16} />
+              <span className="font-bold">
+                {currentUser.role === "ADMIN"
+                  ? "Entrar ou Criar um Grupo"
+                  : "Entrar em um Grupo"}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Group Switcher Modal */}
       {isGroupSwitcherOpen && (
-          <GroupSwitcher 
-              myGroups={myGroupsList}
-              activeGroupId={currentUser.activeGroupId}
-              onSwitch={(id) => {
-                  switchGroup(currentUser.id, id);
-                  setIsGroupSwitcherOpen(false);
-              }}
-              onCreate={handleCreateGroup}
-              onJoin={handleJoinGroup}
-              onClose={() => {
-                  setIsGroupSwitcherOpen(false);
-                  setGroupError(null);
-              }}
-              error={groupError}
-              userRole={currentUser.role}
-          />
+        <GroupSwitcher
+          myGroups={myGroupsList}
+          activeGroupId={currentUser.activeGroupId}
+          onSwitch={(id) => {
+            switchGroup(currentUser.id, id);
+            setIsGroupSwitcherOpen(false);
+          }}
+          onCreate={handleCreateGroup}
+          onJoin={handleJoinGroup}
+          onClose={() => {
+            setIsGroupSwitcherOpen(false);
+            setGroupError(null);
+          }}
+          error={groupError}
+          userRole={currentUser.role}
+        />
       )}
 
       <main className="max-w-2xl mx-auto p-4">
         {/* Matches Tab */}
-        {activeTab === 'matches' && (
+        {activeTab === "matches" && (
           <div className="space-y-6">
-             {currentUser.role !== 'ADMIN' && <RulesSection />}
+            {matches.length === 0 && (
+              <div className="text-center py-8 border border-slate-700 rounded-xl bg-slate-800/50 border-dashed">
+                <p className="text-slate-300 text-sm mb-3">
+                  Nenhum jogo encontrado.
+                </p>
+                <button
+                  onClick={() => void syncWithExternalApi()}
+                  disabled={isSyncing}
+                  className="bg-brand-green hover:bg-emerald-400 text-slate-900 font-bold px-4 py-2 rounded-lg disabled:opacity-50"
+                >
+                  {isSyncing ? "Sincronizando..." : "Sincronizar jogos"}
+                </button>
+              </div>
+            )}
 
-             {currentUser.role !== 'ADMIN' && (
-                <TopScorerCard 
-                    prediction={currentUser.tournamentPredictions}
-                    onPredict={predictTournament}
-                    lockDate={lockDate}
-                    finalResult={tournamentResults}
-                />
-             )}
+            {currentUser.role !== "ADMIN" && <RulesSection />}
 
-             {/* 1. Past Matches Group */}
-             {pastMatches.length > 0 && (
-                <MatchGroup 
-                    title="Jogos Anteriores"
-                    matches={pastMatches}
-                    isOpenDefault={false}
-                    icon={<History size={18} className="text-slate-400" />}
-                    userPredictions={myPredictionsMap}
-                    leaderboardData={leaderboardData}
-                    onPredict={predictMatch}
-                    isAdmin={currentUser.role === 'ADMIN'}
-                    onStartMatch={adminControls.startMatch}
-                    onUpdateLiveScore={adminControls.updateLiveScore}
-                    onFinishMatch={adminControls.finishMatch}
-                />
-             )}
+            {currentUser.role !== "ADMIN" && (
+              <TopScorerCard
+                prediction={currentUser.tournamentPredictions}
+                onPredict={predictTournament}
+                lockDate={lockDate}
+                finalResult={tournamentResults}
+              />
+            )}
 
-             {/* 2. Today's Matches Group (Highlighted) */}
-             <MatchGroup 
-                title="Jogos do Dia"
-                matches={todayMatches}
-                isOpenDefault={true}
-                isToday={true}
-                icon={<CalendarDays size={20} className="text-brand-green" />}
+            {/* 1. Past Matches Group */}
+            {pastMatches.length > 0 && (
+              <MatchGroup
+                title="Jogos Anteriores"
+                matches={pastMatches}
+                isOpenDefault={false}
+                icon={<History size={18} className="text-slate-400" />}
                 userPredictions={myPredictionsMap}
                 leaderboardData={leaderboardData}
                 onPredict={predictMatch}
-                isAdmin={currentUser.role === 'ADMIN'}
-                onStartMatch={adminControls.startMatch}
-                onUpdateLiveScore={adminControls.updateLiveScore}
+                isAdmin={currentUser.role === "ADMIN"}
                 onFinishMatch={adminControls.finishMatch}
-             />
-             
-             {/* Fallback if todayMatches is empty (e.g. rest day) */}
-             {todayMatches.length === 0 && pastMatches.length > 0 && Object.keys(futureGroups).length > 0 && (
-                 <div className="text-center py-8 border border-slate-700 rounded-xl bg-slate-800/50 border-dashed">
-                     <p className="text-slate-400 text-sm">Nenhum jogo agendado para hoje.</p>
-                 </div>
-             )}
+              />
+            )}
 
-             {/* 3. Future Matches Groups (Accordion by Date) */}
-             {Object.entries(futureGroups).sort().map(([dateStr, groupMatches]) => (
-                 <MatchGroup 
-                    key={dateStr}
-                    title={formatDateTitle(dateStr)}
-                    matches={groupMatches}
-                    isOpenDefault={false}
-                    icon={<CalendarDays size={18} className="text-slate-500" />}
-                    userPredictions={myPredictionsMap}
-                    leaderboardData={leaderboardData}
-                    onPredict={predictMatch}
-                    isAdmin={currentUser.role === 'ADMIN'}
-                    onStartMatch={adminControls.startMatch}
-                    onUpdateLiveScore={adminControls.updateLiveScore}
-                    onFinishMatch={adminControls.finishMatch}
-                 />
-             ))}
+            {/* 2. Today's Matches Group (Highlighted) */}
+            <MatchGroup
+              title="Jogos do Dia"
+              matches={todayMatches}
+              isOpenDefault={true}
+              isToday={true}
+              icon={<CalendarDays size={20} className="text-brand-green" />}
+              userPredictions={myPredictionsMap}
+              leaderboardData={leaderboardData}
+              onPredict={predictMatch}
+              isAdmin={currentUser.role === "ADMIN"}
+              onFinishMatch={adminControls.finishMatch}
+            />
+
+            {/* Fallback if todayMatches is empty (e.g. rest day) */}
+            {todayMatches.length === 0 &&
+              pastMatches.length > 0 &&
+              Object.keys(futureGroups).length > 0 && (
+                <div className="text-center py-8 border border-slate-700 rounded-xl bg-slate-800/50 border-dashed">
+                  <p className="text-slate-400 text-sm">
+                    Nenhum jogo agendado para hoje.
+                  </p>
+                </div>
+              )}
+
+            {/* 3. Future Matches Groups (Accordion by Date) */}
+            {Object.entries(futureGroups)
+              .sort()
+              .map(([dateStr, groupMatches]) => (
+                <MatchGroup
+                  key={dateStr}
+                  title={formatDateTitle(dateStr)}
+                  matches={groupMatches}
+                  isOpenDefault={false}
+                  icon={<CalendarDays size={18} className="text-slate-500" />}
+                  userPredictions={myPredictionsMap}
+                  leaderboardData={leaderboardData}
+                  onPredict={predictMatch}
+                  isAdmin={currentUser.role === "ADMIN"}
+                  onFinishMatch={adminControls.finishMatch}
+                />
+              ))}
           </div>
         )}
 
         {/* Tournament Standings Tab */}
-        {activeTab === 'tournament' && (
+        {activeTab === "tournament" && (
           <TournamentStandings matches={matches} />
         )}
 
         {/* Leaderboard Tab */}
-        {activeTab === 'leaderboard' && (
-          <Leaderboard users={leaderboardData} />
+        {activeTab === "leaderboard" && (
+          <Leaderboard sections={leaderboardSections} />
         )}
 
         {/* Admin Tab */}
-        {activeTab === 'admin' && currentUser.role === 'ADMIN' && (
-            <AdminDashboard 
-                users={users} 
-                groups={groups}
-                currentUser={currentUser}
-                onInvite={adminActions.inviteUser}
-                onUpdateRole={adminActions.updateUserRole}
-                onRemoveUser={adminActions.removeUser}
-                onCreateGroup={(name: string) => createGroup(name, currentUser.id)}
-                onDeleteGroup={deleteGroup}
-                onAddUserToGroup={adminActions.adminAddUserToGroup}
-                onRemoveUserFromGroup={adminActions.adminRemoveUserFromGroup}
-            />
+        {activeTab === "admin" && currentUser.role === "ADMIN" && (
+          <AdminDashboard
+            users={users}
+            groups={groups}
+            currentUser={currentUser}
+            onInvite={adminActions.inviteUser}
+            onUpdateRole={adminActions.updateUserRole}
+            onRemoveUser={adminActions.removeUser}
+            onCreateGroup={(name: string) => createGroup(name, currentUser.id)}
+            onDeleteGroup={deleteGroup}
+            onAddUserToGroup={adminActions.adminAddUserToGroup}
+            onRemoveUserFromGroup={adminActions.adminRemoveUserFromGroup}
+            isSyncing={isSyncing}
+            isAutoSyncEnabled={isAutoSyncEnabled}
+            toggleAutoSync={toggleAutoSync}
+          />
         )}
       </main>
 
-      <BottomNav 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        userRole={currentUser.role} 
+      <BottomNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        userRole={currentUser.role}
       />
+
+      {syncFeedback.isOpen && (
+        <ModalShell
+          title={
+            <span className="inline-flex items-center gap-2">
+              {syncFeedback.isError ? (
+                <AlertTriangle size={18} className="text-amber-400" />
+              ) : (
+                <CheckCircle2 size={18} className="text-brand-green" />
+              )}
+              {syncFeedback.title}
+            </span>
+          }
+          onClose={() =>
+            setSyncFeedback((prev) => ({
+              ...prev,
+              isOpen: false,
+            }))
+          }
+          maxWidthClassName="max-w-lg"
+          panelClassName="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl"
+          contentClassName="p-5"
+          footerClassName="px-5 pb-5"
+          footer={
+            <button
+              onClick={() =>
+                setSyncFeedback((prev) => ({
+                  ...prev,
+                  isOpen: false,
+                }))
+              }
+              className="w-full py-2.5 rounded-lg bg-brand-green hover:bg-emerald-400 text-slate-900 font-bold text-sm transition-colors"
+            >
+              OK
+            </button>
+          }
+        >
+          <p className="text-sm text-slate-200 leading-relaxed">
+            {syncFeedback.message}
+          </p>
+        </ModalShell>
+      )}
     </div>
   );
 };

@@ -1,14 +1,21 @@
-import React from 'react';
-import { User } from '../types';
-import { Trophy, Zap, Shield } from 'lucide-react';
+import React from "react";
+import { User } from "../types";
+import { Trophy, Zap, Shield, Loader2 } from "lucide-react";
+import AvatarWithFallback from "./ui/AvatarWithFallback";
 
 interface HeaderProps {
   currentUser: User;
   onLogout: () => void;
-  onSimulate: () => void;
+  onSyncData: () => void;
+  isSyncingData?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ currentUser, onLogout, onSimulate }) => {
+const Header: React.FC<HeaderProps> = ({
+  currentUser,
+  onLogout,
+  onSyncData,
+  isSyncingData = false,
+}) => {
   return (
     <header className="sticky top-0 z-40 bg-brand-dark/95 backdrop-blur border-b border-slate-800">
       <div className="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -19,25 +26,56 @@ const Header: React.FC<HeaderProps> = ({ currentUser, onLogout, onSimulate }) =>
           <h1 className="font-bold text-lg tracking-tight">Bolão Copa 2026</h1>
         </div>
         <div className="flex items-center gap-3">
-            <div className="flex flex-col items-end">
-              <span className="text-xs font-bold text-white">{currentUser.name}</span>
-              <span className={`text-[10px] ${currentUser.role === 'ADMIN' ? 'text-brand-blue font-bold flex items-center gap-1' : 'text-slate-400'}`}>
-                  {currentUser.role === 'ADMIN' ? <><Shield size={10} /> Admin</> : 'Participante'}
-              </span>
-            </div>
-            <img src={currentUser.avatar} alt="Me" className={`w-8 h-8 rounded-full border ${currentUser.role === 'ADMIN' ? 'border-brand-blue' : 'border-slate-600'}`} />
-            <button onClick={onLogout} className="text-xs text-red-400 hover:text-red-300 ml-2">Sair</button>
-            
-            {/* Sim Button - Admin Only */}
-            {currentUser.role === 'ADMIN' && (
-              <button 
-                onClick={onSimulate}
-                className="ml-2 text-slate-600 hover:text-brand-green"
-                title="Simular Resultados"
-              >
+          <div className="flex flex-col items-end">
+            <span className="text-xs font-bold text-white">
+              {currentUser.name}
+            </span>
+            <span
+              className={`text-[10px] ${currentUser.role === "ADMIN" ? "text-brand-blue font-bold flex items-center gap-1" : "text-slate-400"}`}
+            >
+              {currentUser.role === "ADMIN" ? (
+                <>
+                  <Shield size={10} /> Admin
+                </>
+              ) : (
+                "Participante"
+              )}
+            </span>
+          </div>
+          <AvatarWithFallback
+            src={currentUser.avatar}
+            alt="Me"
+            title="Usuário"
+            className={`w-8 h-8 rounded-full border ${currentUser.role === "ADMIN" ? "border-brand-blue" : "border-slate-600"}`}
+            fallbackClassName={`bg-slate-800 ${currentUser.role === "ADMIN" ? "text-brand-blue" : "text-slate-300"}`}
+            iconSize={14}
+          />
+          <button
+            onClick={onLogout}
+            className="text-xs text-red-400 hover:text-red-300 ml-2"
+          >
+            Sair
+          </button>
+
+          {/* Sync Button - Admin Only */}
+          {currentUser.role === "ADMIN" && (
+            <button
+              onClick={onSyncData}
+              disabled={isSyncingData}
+              className="ml-2 text-slate-600 hover:text-brand-green disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                isSyncingData
+                  ? "Sincronizando Jogos e Tabela"
+                  : "Sincronizar Jogos e Tabela"
+              }
+            >
+              {isSyncingData ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
                 <Zap size={14} />
-              </button>
-            )}
+              )}
+            </button>
+          )}
         </div>
       </div>
     </header>
