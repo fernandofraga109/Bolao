@@ -60,6 +60,7 @@ export interface MatchDB {
 
 export interface PredictionDB {
   userId: string;
+  groupId?: string;
   matchId: string;
   homeScore: number;
   awayScore: number;

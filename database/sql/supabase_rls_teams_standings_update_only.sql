@@ -38,6 +38,7 @@ revoke insert, update, delete on public.teams from authenticated;
 
 grant update (
   "externalTeamId",
+  "ranking",
   "standingsSeason",
   "standingsStage",
   "standingsType",

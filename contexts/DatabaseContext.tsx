@@ -179,6 +179,9 @@ const mergeUserGroupIntoList = (
   return [...list, incoming];
 };
 
+const predictionIdentityKey = (pred: PredictionDB): string =>
+  `${pred.userId}:${pred.groupId || ""}:${pred.matchId}`;
+
 export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
@@ -390,8 +393,8 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
             setPredictions((prev) => {
               const idx = prev.findIndex(
                 (p) =>
-                  p.userId === newRecord.userId &&
-                  p.matchId === newRecord.matchId,
+                  predictionIdentityKey(p) ===
+                  predictionIdentityKey(newRecord as PredictionDB),
               );
               if (idx >= 0) {
                 const newArr = [...prev];
@@ -402,14 +405,9 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
             });
           } else if (eventType === "DELETE") {
             if (oldRecord.userId && oldRecord.matchId) {
+              const oldKey = predictionIdentityKey(oldRecord as PredictionDB);
               setPredictions((prev) =>
-                prev.filter(
-                  (p) =>
-                    !(
-                      p.userId === oldRecord.userId &&
-                      p.matchId === oldRecord.matchId
-                    ),
-                ),
+                prev.filter((p) => predictionIdentityKey(p) !== oldKey),
               );
             }
           }
@@ -832,7 +830,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   const upsertPrediction = async (pred: PredictionDB) => {
     setPredictions((prev) => {
       const index = prev.findIndex(
-        (p) => p.userId === pred.userId && p.matchId === pred.matchId,
+        (p) => predictionIdentityKey(p) === predictionIdentityKey(pred),
       );
       if (index >= 0) {
         const newArr = [...prev];
@@ -843,9 +841,23 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     });
 
     if (isSupabaseEnabled() && supabase) {
-      await supabase
-        .from("predictions")
-        .upsert(pred, { onConflict: "userId, matchId" });
+      if (pred.groupId) {
+        const { error } = await supabase
+          .from("predictions")
+          .upsert(pred, { onConflict: "userId, groupId, matchId" });
+
+        if (error) {
+          throw new Error(`Erro ao salvar prediction: ${error.message}`);
+        }
+      } else {
+        const { error } = await supabase
+          .from("predictions")
+          .upsert(pred, { onConflict: "userId, matchId" });
+
+        if (error) {
+          throw new Error(`Erro ao salvar prediction: ${error.message}`);
+        }
+      }
     }
   };
 

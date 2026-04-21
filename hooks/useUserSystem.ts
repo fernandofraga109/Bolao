@@ -26,12 +26,36 @@ export const useUserSystem = () => {
         .filter((ug) => ug.userId === user.id)
         .map((ug) => ug.groupId);
 
+      // activeGroupId may not be persisted in remote rows; recover from local preference or first joined group.
+      const preferredActiveGroupId = localStorage.getItem(
+        `bolao_active_group_${user.id}`,
+      );
+
+      const resolvedActiveGroupId =
+        (preferredActiveGroupId && myGroups.includes(preferredActiveGroupId)
+          ? preferredActiveGroupId
+          : undefined) ||
+        (user.activeGroupId && myGroups.includes(user.activeGroupId)
+          ? user.activeGroupId
+          : undefined) ||
+        myGroups[0];
+
       // Join Predictions
       const myPredictionsMap: Record<string, { home: number; away: number }> =
         {};
       db.predictions
         .filter((p) => p.userId === user.id)
         .forEach((p) => {
+          const isExactGroupPrediction =
+            !!resolvedActiveGroupId && p.groupId === resolvedActiveGroupId;
+          const isLegacyPrediction = !p.groupId;
+
+          if (!isExactGroupPrediction && !isLegacyPrediction) return;
+
+          // Group-specific prediction always wins over legacy/global entries.
+          const alreadyHasPrediction = !!myPredictionsMap[p.matchId];
+          if (alreadyHasPrediction && !isExactGroupPrediction) return;
+
           myPredictionsMap[p.matchId] = {
             home: p.homeScore,
             away: p.awayScore,
@@ -54,20 +78,6 @@ export const useUserSystem = () => {
             bestGoalkeeper: tpDb.bestGoalkeeper,
           }
         : undefined;
-
-      // activeGroupId may not be persisted in remote rows; recover from local preference or first joined group.
-      const preferredActiveGroupId = localStorage.getItem(
-        `bolao_active_group_${user.id}`,
-      );
-
-      const resolvedActiveGroupId =
-        (preferredActiveGroupId && myGroups.includes(preferredActiveGroupId)
-          ? preferredActiveGroupId
-          : undefined) ||
-        (user.activeGroupId && myGroups.includes(user.activeGroupId)
-          ? user.activeGroupId
-          : undefined) ||
-        myGroups[0];
 
       return {
         ...user,
@@ -430,8 +440,12 @@ export const useUserSystem = () => {
 
   const predictMatch = async (matchId: string, home: number, away: number) => {
     if (!currentUser) return;
+    const activeGroupId = currentUser.activeGroupId || currentUser.groupIds[0];
+    if (!activeGroupId) return;
+
     await db.upsertPrediction({
       userId: currentUser.id,
+      groupId: activeGroupId,
       matchId,
       homeScore: home,
       awayScore: away,

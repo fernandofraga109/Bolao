@@ -23,9 +23,11 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
+  Zap,
 } from "lucide-react";
 import { useDatabase } from "../contexts/DatabaseContext";
 import { seedDatabase } from "../services/seeder";
+import { syncTeamRankings } from "../api/sync-team-rankings";
 import { isSupabaseEnabled } from "../services/supabase";
 import ModalShell from "./ui/ModalShell";
 import UserIdentity from "./ui/UserIdentity";
@@ -89,6 +91,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
   const [seedLogs, setSeedLogs] = useState<string[]>([]);
+
+  // Ranking Sync States
+  const [syncingRankings, setSyncingRankings] = useState(false);
+  const [rankingSyncResult, setRankingSyncResult] = useState<{
+    success: boolean;
+    message: string;
+    updated: number;
+    failed: number;
+    errors: string[];
+  } | null>(null);
+  const [showSyncRankingsModal, setShowSyncRankingsModal] = useState(false);
 
   // --- Actions ---
 
@@ -210,6 +223,36 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const handleSyncTeamRankings = () => {
+    setShowSyncRankingsModal(true);
+  };
+
+  const confirmSyncTeamRankings = async () => {
+    setShowSyncRankingsModal(false);
+    setSyncingRankings(true);
+    setRankingSyncResult(null);
+
+    try {
+      const result = await syncTeamRankings();
+      setRankingSyncResult(result);
+
+      if (!result.success) {
+        alert(`❌ Erro: ${result.message}`);
+      }
+    } catch (error: any) {
+      setRankingSyncResult({
+        success: false,
+        message: "Erro desconhecido ao sincronizar rankings",
+        updated: 0,
+        failed: 0,
+        errors: [error?.message || "Erro"]
+      });
+      alert("Erro ao sincronizar rankings");
+    } finally {
+      setSyncingRankings(false);
+    }
+  };
+
   const downloadJson = (filename: string, data: any) => {
     const blob = new Blob([JSON.stringify(data, null, 2)], {
       type: "application/json",
@@ -302,6 +345,97 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           )}
         </div>
 
+        {/* SYNC TEAM RANKINGS SECTION */}
+        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 mb-6">
+          <h3 className="font-bold text-white mb-2 flex items-center gap-2">
+            <Zap className="text-yellow-400" />
+            Sincronizar Rankings das Seleções
+          </h3>
+          <p className="text-sm text-slate-400 mb-4">
+            Atualiza a coluna 'ranking' da tabela 'teams' no Supabase com base
+            no arquivo team-ranking.json (rankings oficiais da FIFA).
+            <br />
+            <span className="text-blue-400 font-bold">Dica:</span> Execute esta
+            operação quando quiser atualizar os rankings para cálculo do bônus
+            de underdog.
+          </p>
+
+          <button
+            onClick={handleSyncTeamRankings}
+            disabled={syncingRankings || !isConnected}
+            className={`font-bold px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${isConnected ? "bg-yellow-600 hover:bg-yellow-500 text-white" : "bg-slate-700 text-slate-500 cursor-not-allowed"}`}
+          >
+            {syncingRankings ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Sincronizando...
+              </>
+            ) : (
+              <>
+                <Zap size={18} />
+                Sincronizar Rankings
+              </>
+            )}
+          </button>
+
+          {rankingSyncResult && (
+            <div className={`mt-4 p-4 rounded-lg border ${rankingSyncResult.success ? "bg-green-900/20 border-green-500/30" : "bg-red-900/20 border-red-500/30"}`}>
+              <div className="flex items-start gap-3">
+                {rankingSyncResult.success ? (
+                  <Check className="text-green-400 mt-1" size={20} />
+                ) : (
+                  <AlertTriangle className="text-red-400 mt-1" size={20} />
+                )}
+                <div className="flex-1">
+                  <p className={`font-bold ${rankingSyncResult.success ? "text-green-300" : "text-red-300"}`}>
+                    {rankingSyncResult.message}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    ✅ Atualizados: {rankingSyncResult.updated} | ❌ Falhas:{" "}
+                    {rankingSyncResult.failed}
+                  </p>
+                  {rankingSyncResult.errors.length > 0 && (
+                    <>
+                      <details className="mt-2">
+                        <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300">
+                          Ver erros ({rankingSyncResult.errors.length})
+                        </summary>
+                        <ul className="mt-2 text-[10px] text-slate-400 space-y-1">
+                          {rankingSyncResult.errors.slice(0, 5).map((err, i) => (
+                            <li key={i} className="ml-4">
+                              • {err}
+                            </li>
+                          ))}
+                          {rankingSyncResult.errors.length > 5 && (
+                            <li className="ml-4 text-slate-500 italic">
+                              ... e mais {rankingSyncResult.errors.length - 5}
+                            </li>
+                          )}
+                        </ul>
+                      </details>
+
+                      {rankingSyncResult.errors.some(e => e.includes('403')) && (
+                        <div className="mt-3 bg-yellow-900/30 border border-yellow-600/50 rounded p-3 text-[11px]">
+                          <p className="text-yellow-300 font-bold mb-1">⚠️ Erro 403: Permissão Negada</p>
+                          <p className="text-yellow-200 mb-2">Execute este script SQL no Supabase SQL Editor:</p>
+                          <div className="bg-slate-950 p-2 rounded border border-slate-700 font-mono text-[9px] text-green-400 overflow-x-auto">
+                            <code>
+                              GRANT UPDATE (ranking) ON public.teams TO authenticated;
+                            </code>
+                          </div>
+                          <p className="text-yellow-200 mt-2">
+                            Ou execute o script: <span className="font-mono text-blue-400">database/sql/supabase_fix_team_ranking_update.sql</span>
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="grid gap-6">
           <h3 className="font-bold text-slate-300 ml-1">
             Dados Atuais (Memória do App)
@@ -341,6 +475,53 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </pre>
           </div>
         </div>
+
+        {/* MODAL: Confirm Sync Rankings */}
+        {showSyncRankingsModal && (
+          <ModalShell
+            title="Sincronizar Rankings das Seleções"
+            onClose={() => setShowSyncRankingsModal(false)}
+            footer={
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowSyncRankingsModal(false)}
+                  className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:border-slate-500 hover:text-white transition-colors font-bold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmSyncTeamRankings}
+                  disabled={syncingRankings}
+                  className="px-4 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {syncingRankings ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Sincronizando...
+                    </>
+                  ) : (
+                    <>
+                      <Zap size={16} />
+                      Sincronizar
+                    </>
+                  )}
+                </button>
+              </div>
+            }
+          >
+            <div className="space-y-4">
+              <p className="text-slate-300">
+                Deseja sincronizar os rankings das seleções do arquivo <span className="font-mono text-brand-green">team-ranking.json</span> para o Supabase?
+              </p>
+              <p className="text-sm text-slate-400">
+                Isso atualizará a coluna <span className="font-mono text-blue-400">ranking</span> da tabela <span className="font-mono text-blue-400">teams</span> com os rankings oficiais da FIFA.
+              </p>
+              <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3 text-xs text-blue-200">
+                ℹ️ Esta operação é segura e pode ser executada a qualquer momento para manter os dados atualizados.
+              </div>
+            </div>
+          </ModalShell>
+        )}
       </div>
     );
   };

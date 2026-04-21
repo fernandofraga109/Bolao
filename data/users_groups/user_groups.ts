@@ -41,5 +41,10 @@ export const DB_USER_GROUPS: UserGroupDB[] = [
     joinedAt: "2025-01-01T15:00:00",
   },
 
-  // Demo user starts with no groups (or we could add one)
+  // Demo user is in G1 (so they can see groups, members, and predictions)
+  {
+    userId: "22222222-2222-4222-8222-222222222222",
+    groupId: "g1",
+    joinedAt: "2025-01-01T16:00:00",
+  },
 ];
