@@ -55,6 +55,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
   const [homeInput, setHomeInput] = useState<string>("");
   const [awayInput, setAwayInput] = useState<string>("");
   const [isSavingPrediction, setIsSavingPrediction] = useState(false);
+  const [predictionError, setPredictionError] = useState<string | null>(null);
   const [hasSavedPrediction, setHasSavedPrediction] = useState(
     Boolean(userPrediction),
   );
@@ -86,6 +87,10 @@ const MatchCard: React.FC<MatchCardProps> = ({
     setHasSavedPrediction(Boolean(userPrediction));
   }, [userPrediction]);
 
+  useEffect(() => {
+    setPredictionError(null);
+  }, [match.id]);
+
   const handlePredict = async () => {
     if (isSavingPrediction) return;
     if (homeInput === "" || awayInput === "") return;
@@ -93,9 +98,18 @@ const MatchCard: React.FC<MatchCardProps> = ({
     const a = parseInt(awayInput);
     if (!isNaN(h) && !isNaN(a)) {
       try {
+        setPredictionError(null);
         setIsSavingPrediction(true);
         await onPredict(match.id, h, a);
         setHasSavedPrediction(true);
+      } catch (error: any) {
+        setHomeInput("");
+        setAwayInput("");
+        setHasSavedPrediction(false);
+        setPredictionError(
+          error?.message ||
+            "Nao foi possivel salvar seu palpite. Tente novamente.",
+        );
       } finally {
         setIsSavingPrediction(false);
       }
@@ -256,7 +270,10 @@ const MatchCard: React.FC<MatchCardProps> = ({
         <input
           type="number"
           value={homeInput}
-          onChange={(e) => setHomeInput(e.target.value)}
+          onChange={(e) => {
+            setHomeInput(e.target.value);
+            if (predictionError) setPredictionError(null);
+          }}
           disabled={!isAdmin && isLocked}
           placeholder={isAdmin ? match.result?.home?.toString() || "0" : "-"}
           className={`w-12 h-10 text-center font-bold text-lg rounded-lg outline-none focus:ring-2 transition-all ${
@@ -269,7 +286,10 @@ const MatchCard: React.FC<MatchCardProps> = ({
         <input
           type="number"
           value={awayInput}
-          onChange={(e) => setAwayInput(e.target.value)}
+          onChange={(e) => {
+            setAwayInput(e.target.value);
+            if (predictionError) setPredictionError(null);
+          }}
           disabled={!isAdmin && isLocked}
           placeholder={isAdmin ? match.result?.away?.toString() || "0" : "-"}
           className={`w-12 h-10 text-center font-bold text-lg rounded-lg outline-none focus:ring-2 transition-all ${
@@ -427,6 +447,12 @@ const MatchCard: React.FC<MatchCardProps> = ({
             )}
           </div>
         </div>
+
+        {!isAdmin && predictionError && (
+          <div className="mt-3 rounded-lg border border-red-500/40 bg-red-900/20 px-3 py-2 text-xs text-red-200">
+            {predictionError}
+          </div>
+        )}
 
         {aiPrediction && (
           <div className="mt-3 bg-indigo-900/30 border border-indigo-500/30 rounded-lg p-3 text-sm animate-fadeIn">

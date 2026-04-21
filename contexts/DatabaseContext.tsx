@@ -828,18 +828,6 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
 
   // PREDICTIONS
   const upsertPrediction = async (pred: PredictionDB) => {
-    setPredictions((prev) => {
-      const index = prev.findIndex(
-        (p) => predictionIdentityKey(p) === predictionIdentityKey(pred),
-      );
-      if (index >= 0) {
-        const newArr = [...prev];
-        newArr[index] = { ...newArr[index], ...pred };
-        return newArr;
-      }
-      return [...prev, pred];
-    });
-
     if (isSupabaseEnabled() && supabase) {
       if (pred.groupId) {
         const { error } = await supabase
@@ -859,6 +847,18 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         }
       }
     }
+
+    setPredictions((prev) => {
+      const index = prev.findIndex(
+        (p) => predictionIdentityKey(p) === predictionIdentityKey(pred),
+      );
+      if (index >= 0) {
+        const newArr = [...prev];
+        newArr[index] = { ...newArr[index], ...pred };
+        return newArr;
+      }
+      return [...prev, pred];
+    });
   };
 
   const upsertTournamentPrediction = async (pred: TournamentPredictionDB) => {

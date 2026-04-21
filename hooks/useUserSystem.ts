@@ -439,9 +439,13 @@ export const useUserSystem = () => {
   };
 
   const predictMatch = async (matchId: string, home: number, away: number) => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      throw new Error("Voce precisa estar logado para salvar palpites.");
+    }
     const activeGroupId = currentUser.activeGroupId || currentUser.groupIds[0];
-    if (!activeGroupId) return;
+    if (!activeGroupId) {
+      throw new Error("Entre em um grupo antes de salvar palpites.");
+    }
 
     await db.upsertPrediction({
       userId: currentUser.id,
