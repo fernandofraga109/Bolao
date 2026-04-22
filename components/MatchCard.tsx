@@ -148,6 +148,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
     new Date() > matchDate || match.status !== MatchStatus.SCHEDULED;
   const isLive = match.status === MatchStatus.LIVE;
   const isFinished = match.status === MatchStatus.FINISHED;
+  const isPredictionDisabled = !isAdmin && (isFinished || isLive || isLocked);
 
   const getPointsStyle = (points: number) => {
     if (points >= POINTS_EXACT)
@@ -252,16 +253,21 @@ const MatchCard: React.FC<MatchCardProps> = ({
   ]);
 
   const renderScoreInputs = () => {
-    if (!isAdmin && (isLive || isFinished)) {
+    if (!isAdmin && isFinished) {
       return (
-        <div className="flex items-center gap-3 text-3xl font-bold font-mono animate-fadeIn">
-          <span className={isLive ? "text-white" : "text-slate-300"}>
-            {match.result?.home ?? 0}
-          </span>
-          <span className="text-slate-600 text-xl">x</span>
-          <span className={isLive ? "text-white" : "text-slate-300"}>
-            {match.result?.away ?? 0}
-          </span>
+        <div className="flex flex-col items-center gap-2 animate-fadeIn">
+          <div className="flex items-center gap-3 text-3xl font-bold font-mono">
+            <span className="text-slate-300">0</span>
+            <span className="text-slate-600 text-xl">x</span>
+            <span className="text-slate-300">0</span>
+          </div>
+          <div className="text-[10px] uppercase tracking-wider text-slate-400">
+            Palpite encerrado
+          </div>
+          <div className="flex items-center gap-2 text-sm font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">
+            <CheckCircle size={14} />
+            Placar final: {match.result?.home ?? 0} x {match.result?.away ?? 0}
+          </div>
         </div>
       );
     }
@@ -355,7 +361,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
 
         <div className="flex flex-wrap justify-between items-center mt-2 gap-2">
           <div className="flex gap-2">
-            {(!isLocked || isAdmin) && (
+            {!isPredictionDisabled && (
               <button
                 onClick={handleAIPredict}
                 disabled={isPredictingAI}
@@ -417,7 +423,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
                       </span>
                     )}
                   </div>
-                ) : isLocked ? (
+                ) : isPredictionDisabled ? (
                   <div className="flex items-center gap-1 text-xs text-orange-400 font-bold bg-orange-900/20 px-3 py-1.5 rounded-full border border-orange-500/20">
                     <Lock size={12} /> Palpites Encerrados
                   </div>

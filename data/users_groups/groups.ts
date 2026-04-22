@@ -7,6 +7,7 @@ export const DB_GROUPS: Group[] = [
     code: "ABCDE12345",
     adminId: "11111111-1111-4111-8111-111111111111",
     createdAt: "2025-01-01T10:00:00",
+    competitionCode: "WC",
   },
   {
     id: "g2",
@@ -14,5 +15,6 @@ export const DB_GROUPS: Group[] = [
     code: "FAMIL12345",
     adminId: "11111111-1111-4111-8111-111111111111",
     createdAt: "2025-01-02T10:00:00",
+    competitionCode: "WC",
   },
 ];

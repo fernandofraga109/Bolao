@@ -13,6 +13,43 @@ export const useUserSystem = () => {
   const pendingSignupsRef = useRef(new Set<string>());
   const signupAttemptAtRef = useRef(new Map<string, number>());
 
+  const resolveChampionIdForUi = useCallback(
+    (storedChampionTeamId?: string): string | undefined => {
+      if (!storedChampionTeamId) return undefined;
+
+      const normalizedStored = storedChampionTeamId.toLowerCase();
+      const match = db.teams.find((team) => {
+        if (!team) return false;
+        const byId = team.id?.toLowerCase() === normalizedStored;
+        const byCode = team.code?.toLowerCase() === normalizedStored;
+        return byId || byCode;
+      });
+
+      if (!match) return undefined;
+
+      return (match.id || match.code || "").toLowerCase() || undefined;
+    },
+    [db.teams],
+  );
+
+  const resolveChampionIdForDb = useCallback(
+    (uiChampionTeamId?: string): string | undefined => {
+      if (!uiChampionTeamId) return undefined;
+
+      const normalizedUiId = uiChampionTeamId.toLowerCase();
+      const match = db.teams.find((team) => {
+        if (!team) return false;
+        const byId = team.id?.toLowerCase() === normalizedUiId;
+        const byCode = team.code?.toLowerCase() === normalizedUiId;
+        return byId || byCode;
+      });
+
+      if (!match) return uiChampionTeamId;
+      return match.id;
+    },
+    [db.teams],
+  );
+
   useEffect(() => {
     dbRef.current = db;
   }, [db]);
@@ -66,7 +103,7 @@ export const useUserSystem = () => {
       const tpDb = db.tournamentPredictions.find((tp) => tp.userId === user.id);
       const tp: TournamentPredictions | undefined = tpDb
         ? {
-            championTeamId: tpDb.championTeamId,
+            championTeamId: resolveChampionIdForUi(tpDb.championTeamId),
             topScorer:
               tpDb.topScorerPlayer || tpDb.topScorerGoals
                 ? {
@@ -87,7 +124,13 @@ export const useUserSystem = () => {
         tournamentPredictions: tp,
       };
     });
-  }, [db.users, db.userGroups, db.predictions, db.tournamentPredictions]);
+  }, [
+    db.users,
+    db.userGroups,
+    db.predictions,
+    db.tournamentPredictions,
+    resolveChampionIdForUi,
+  ]);
 
   const currentUser = useMemo(() => {
     if (!currentUserId) return null;
@@ -461,12 +504,75 @@ export const useUserSystem = () => {
     if (!currentUser) return;
     db.upsertTournamentPrediction({
       userId: currentUser.id,
-      championTeamId: data.championTeamId,
+      championTeamId: resolveChampionIdForDb(data.championTeamId),
       topScorerPlayer: data.topScorer?.player,
       topScorerGoals: data.topScorer?.goals,
       bestPlayer: data.bestPlayer,
       bestGoalkeeper: data.bestGoalkeeper,
     });
+  };
+
+  const requestPasswordReset = async (email: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      return { success: false, message: "Informe um e-mail válido." };
+    }
+
+    if (!isSupabaseEnabled() || !supabase) {
+      return {
+        success: false,
+        message: "Reset de senha disponível apenas com Supabase configurado.",
+      };
+    }
+
+    const redirectTo = `${window.location.origin}/?mode=recovery`;
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      normalizedEmail,
+      {
+        redirectTo,
+      },
+    );
+
+    if (error) {
+      return { success: false, message: error.message };
+    }
+
+    return {
+      success: true,
+      message:
+        "Enviamos um e-mail com o link para redefinir sua senha, se a conta existir.",
+    };
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    const normalizedPassword = newPassword.trim();
+    if (!normalizedPassword || normalizedPassword.length < 6) {
+      return {
+        success: false,
+        message: "A nova senha deve ter pelo menos 6 caracteres.",
+      };
+    }
+
+    if (!isSupabaseEnabled() || !supabase) {
+      return {
+        success: false,
+        message:
+          "Redefinição de senha disponível apenas com Supabase configurado.",
+      };
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      password: normalizedPassword,
+    });
+
+    if (error) {
+      return { success: false, message: error.message };
+    }
+
+    return {
+      success: true,
+      message: "Senha atualizada com sucesso.",
+    };
   };
 
   // --- Admin Actions ---
@@ -512,6 +618,8 @@ export const useUserSystem = () => {
     switchGroup,
     predictMatch,
     predictTournament,
+    requestPasswordReset,
+    updatePassword,
     adminActions: {
       inviteUser,
       updateUserRole,

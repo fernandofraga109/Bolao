@@ -3,12 +3,16 @@ import { Group, UserRole } from "../types";
 import { Check, PlusCircle, Hash, ArrowRight, Copy } from "lucide-react";
 import ModalShell from "./ui/ModalShell";
 import DualActionButtons from "./ui/DualActionButtons";
+import {
+  COMPETITION_OPTIONS,
+  DEFAULT_COMPETITION_CODE,
+} from "../data/competitions";
 
 interface GroupSwitcherProps {
   myGroups: Group[];
   activeGroupId?: string;
   onSwitch: (groupId: string) => void;
-  onCreate: (name: string) => void;
+  onCreate: (name: string, competitionCode: string) => void;
   onJoin: (code: string) => void;
   onClose: () => void;
   error?: string | null;
@@ -29,11 +33,14 @@ const GroupSwitcher: React.FC<GroupSwitcherProps> = ({
 }) => {
   const [mode, setMode] = useState<ViewMode>("list");
   const [inputVal, setInputVal] = useState("");
+  const [competitionCode, setCompetitionCode] = useState(
+    DEFAULT_COMPETITION_CODE,
+  );
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleAction = () => {
     if (!inputVal.trim()) return;
-    if (mode === "create") onCreate(inputVal);
+    if (mode === "create") onCreate(inputVal, competitionCode);
     if (mode === "join") onJoin(inputVal);
   };
 
@@ -125,6 +132,14 @@ const GroupSwitcher: React.FC<GroupSwitcherProps> = ({
                     <span className="text-xs text-slate-500 font-mono tracking-wider mt-0.5">
                       #{group.code}
                     </span>
+                    <span className="text-[11px] text-slate-400 mt-0.5">
+                      Competicao:
+                      <span className="font-mono text-slate-300 ml-1">
+                        {(
+                          group.competitionCode || DEFAULT_COMPETITION_CODE
+                        ).toUpperCase()}
+                      </span>
+                    </span>
                   </button>
 
                   <button
@@ -188,6 +203,25 @@ const GroupSwitcher: React.FC<GroupSwitcherProps> = ({
               onKeyDown={(e) => e.key === "Enter" && handleAction()}
             />
           </div>
+
+          {mode === "create" && (
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase block mb-2">
+                Competicao
+              </label>
+              <select
+                value={competitionCode}
+                onChange={(e) => setCompetitionCode(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-600 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green"
+              >
+                {COMPETITION_OPTIONS.map((competition) => (
+                  <option key={competition.code} value={competition.code}>
+                    {competition.code} - {competition.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       )}
     </ModalShell>

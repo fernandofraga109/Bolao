@@ -1,5 +1,6 @@
 import { useDatabase } from "../contexts/DatabaseContext";
 import { Group } from "../types";
+import { DEFAULT_COMPETITION_CODE } from "../data/competitions";
 
 export const useGroupSystem = () => {
   const db = useDatabase();
@@ -16,7 +17,11 @@ export const useGroupSystem = () => {
     return codeLetters + codeNumbers;
   };
 
-  const createGroup = (name: string, adminId: string): Group => {
+  const createGroup = (
+    name: string,
+    adminId: string,
+    competitionCode: string = DEFAULT_COMPETITION_CODE,
+  ): Group => {
     let code = generateGroupCode();
     // Ensure uniqueness
     while (db.groups.some((g) => g.code === code)) {
@@ -29,6 +34,9 @@ export const useGroupSystem = () => {
       code,
       adminId,
       createdAt: new Date().toISOString(),
+      competitionCode: (
+        competitionCode || DEFAULT_COMPETITION_CODE
+      ).toUpperCase(),
     };
 
     db.addGroup(newGroup);

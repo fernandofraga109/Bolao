@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS public.teams (
   "standingsGoalsFor" integer,
   "standingsGoalsAgainst" integer,
   "standingsGoalDifference" integer,
-  "standingsUpdatedAt" text
+  "standingsUpdatedAt" text,
+  "standingsCompetitionCode" text DEFAULT 'WC'
 );
 
 CREATE TABLE IF NOT EXISTS public.stadiums (
@@ -85,6 +86,7 @@ CREATE TABLE IF NOT EXISTS public.matches (
     "awayTeamId" uuid NOT NULL REFERENCES public.teams(id),
     date timestamptz NOT NULL,
     "group" text NOT NULL,
+  "competitionCode" text DEFAULT 'WC',
     "stadiumId" uuid REFERENCES public.stadiums(id),
     status text NOT NULL,
     "resultHome" integer,

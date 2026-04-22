@@ -22,6 +22,7 @@ const matchesList: MatchDB[] = OFFICIAL_MATCHES.map(m => ({
     awayTeamId: m.awayTeam.id,
     date: m.date,
     group: m.group,
+    competitionCode: 'WC',
     stadiumId: m.stadiumId || 'unknown',
     status: m.status,
     resultHome: m.result?.home,

@@ -79,7 +79,8 @@ CREATE TABLE IF NOT EXISTS public.groups (
     name text NOT NULL,
     code text NOT NULL,
     "adminId" uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    "createdAt" text
+    "createdAt" text,
+    "competitionCode" text DEFAULT 'WC' -- e.g., 'WC' (Copa do Mundo), 'PL' (Premier League), 'BSA' (Campeonato Brasileiro)
 );
 
 -- 6. TABELA USER_GROUPS (Relação Usuário <-> Grupo)
@@ -98,6 +99,7 @@ CREATE TABLE IF NOT EXISTS public.matches (
     "awayTeamId" text NOT NULL REFERENCES public.teams(id),
     date text NOT NULL,
     "group" text NOT NULL, -- "group" é palavra reservada em SQL, aspas são essenciais
+    "competitionCode" text DEFAULT 'WC',
     "stadiumId" text, -- Pode ser null se não definido
     status text NOT NULL,
     "resultHome" integer,

@@ -32,6 +32,11 @@ import { isSupabaseEnabled } from "../services/supabase";
 import ModalShell from "./ui/ModalShell";
 import UserIdentity from "./ui/UserIdentity";
 import DualActionButtons from "./ui/DualActionButtons";
+import {
+  COMPETITION_OPTIONS,
+  DEFAULT_COMPETITION_CODE,
+  getCompetitionByCode,
+} from "../data/competitions";
 
 interface AdminDashboardProps {
   users: User[];
@@ -40,7 +45,7 @@ interface AdminDashboardProps {
   onInvite: (email: string) => void;
   onUpdateRole: (userId: string, newRole: "ADMIN" | "USER") => void;
   onRemoveUser: (userId: string) => void;
-  onCreateGroup: (name: string) => void;
+  onCreateGroup: (name: string, competitionCode: string) => void;
   onDeleteGroup: (id: string) => Promise<void>;
   // Fix: changed onAddUserToGroup to return Promise<void> to match async nature of db operations
   onAddUserToGroup: (uid: string, gid: string) => Promise<void>;
@@ -69,6 +74,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     "general",
   );
   const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupCompetitionCode, setNewGroupCompetitionCode] = useState(
+    DEFAULT_COMPETITION_CODE,
+  );
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [copiedGroup, setCopiedGroup] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState("");
@@ -107,8 +115,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleCreateGroup = () => {
     if (!newGroupName.trim()) return;
-    onCreateGroup(newGroupName);
+    onCreateGroup(newGroupName, newGroupCompetitionCode);
     setNewGroupName("");
+    setNewGroupCompetitionCode(DEFAULT_COMPETITION_CODE);
   };
 
   const handleRequestDeleteGroup = (e: React.MouseEvent, group: Group) => {
@@ -245,7 +254,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         message: "Erro desconhecido ao sincronizar rankings",
         updated: 0,
         failed: 0,
-        errors: [error?.message || "Erro"]
+        errors: [error?.message || "Erro"],
       });
       alert("Erro ao sincronizar rankings");
     } finally {
@@ -379,7 +388,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </button>
 
           {rankingSyncResult && (
-            <div className={`mt-4 p-4 rounded-lg border ${rankingSyncResult.success ? "bg-green-900/20 border-green-500/30" : "bg-red-900/20 border-red-500/30"}`}>
+            <div
+              className={`mt-4 p-4 rounded-lg border ${rankingSyncResult.success ? "bg-green-900/20 border-green-500/30" : "bg-red-900/20 border-red-500/30"}`}
+            >
               <div className="flex items-start gap-3">
                 {rankingSyncResult.success ? (
                   <Check className="text-green-400 mt-1" size={20} />
@@ -387,7 +398,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <AlertTriangle className="text-red-400 mt-1" size={20} />
                 )}
                 <div className="flex-1">
-                  <p className={`font-bold ${rankingSyncResult.success ? "text-green-300" : "text-red-300"}`}>
+                  <p
+                    className={`font-bold ${rankingSyncResult.success ? "text-green-300" : "text-red-300"}`}
+                  >
                     {rankingSyncResult.message}
                   </p>
                   <p className="text-xs text-slate-400 mt-1">
@@ -401,11 +414,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           Ver erros ({rankingSyncResult.errors.length})
                         </summary>
                         <ul className="mt-2 text-[10px] text-slate-400 space-y-1">
-                          {rankingSyncResult.errors.slice(0, 5).map((err, i) => (
-                            <li key={i} className="ml-4">
-                              • {err}
-                            </li>
-                          ))}
+                          {rankingSyncResult.errors
+                            .slice(0, 5)
+                            .map((err, i) => (
+                              <li key={i} className="ml-4">
+                                • {err}
+                              </li>
+                            ))}
                           {rankingSyncResult.errors.length > 5 && (
                             <li className="ml-4 text-slate-500 italic">
                               ... e mais {rankingSyncResult.errors.length - 5}
@@ -414,17 +429,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </ul>
                       </details>
 
-                      {rankingSyncResult.errors.some(e => e.includes('403')) && (
+                      {rankingSyncResult.errors.some((e) =>
+                        e.includes("403"),
+                      ) && (
                         <div className="mt-3 bg-yellow-900/30 border border-yellow-600/50 rounded p-3 text-[11px]">
-                          <p className="text-yellow-300 font-bold mb-1">⚠️ Erro 403: Permissão Negada</p>
-                          <p className="text-yellow-200 mb-2">Execute este script SQL no Supabase SQL Editor:</p>
+                          <p className="text-yellow-300 font-bold mb-1">
+                            ⚠️ Erro 403: Permissão Negada
+                          </p>
+                          <p className="text-yellow-200 mb-2">
+                            Execute este script SQL no Supabase SQL Editor:
+                          </p>
                           <div className="bg-slate-950 p-2 rounded border border-slate-700 font-mono text-[9px] text-green-400 overflow-x-auto">
                             <code>
-                              GRANT UPDATE (ranking) ON public.teams TO authenticated;
+                              GRANT UPDATE (ranking) ON public.teams TO
+                              authenticated;
                             </code>
                           </div>
                           <p className="text-yellow-200 mt-2">
-                            Ou execute o script: <span className="font-mono text-blue-400">database/sql/supabase_fix_team_ranking_update.sql</span>
+                            Ou execute o script:{" "}
+                            <span className="font-mono text-blue-400">
+                              database/sql/supabase_fix_team_ranking_update.sql
+                            </span>
                           </p>
                         </div>
                       )}
@@ -511,13 +536,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           >
             <div className="space-y-4">
               <p className="text-slate-300">
-                Deseja sincronizar os rankings das seleções do arquivo <span className="font-mono text-brand-green">team-ranking.json</span> para o Supabase?
+                Deseja sincronizar os rankings das seleções do arquivo{" "}
+                <span className="font-mono text-brand-green">
+                  team-ranking.json
+                </span>{" "}
+                para o Supabase?
               </p>
               <p className="text-sm text-slate-400">
-                Isso atualizará a coluna <span className="font-mono text-blue-400">ranking</span> da tabela <span className="font-mono text-blue-400">teams</span> com os rankings oficiais da FIFA.
+                Isso atualizará a coluna{" "}
+                <span className="font-mono text-blue-400">ranking</span> da
+                tabela <span className="font-mono text-blue-400">teams</span>{" "}
+                com os rankings oficiais da FIFA.
               </p>
               <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3 text-xs text-blue-200">
-                ℹ️ Esta operação é segura e pode ser executada a qualquer momento para manter os dados atualizados.
+                ℹ️ Esta operação é segura e pode ser executada a qualquer
+                momento para manter os dados atualizados.
               </div>
             </div>
           </ModalShell>
@@ -653,18 +686,47 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </h2>
 
         {/* Create Group */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex flex-col sm:flex-row gap-2 mb-6">
           <input
             type="text"
             value={newGroupName}
             onChange={(e) => setNewGroupName(e.target.value)}
             placeholder="Nome do novo grupo..."
-            className="flex-1 bg-slate-900 border border-slate-600 text-white px-4 py-2 rounded-lg focus:outline-none focus:border-brand-green"
+            className="sm:flex-1 bg-slate-900 border border-slate-600 text-white px-4 py-2 rounded-lg focus:outline-none focus:border-brand-green"
           />
+          <div className="sm:w-[290px]">
+            <label className="sr-only" htmlFor="group-competition-select">
+              Competicao
+            </label>
+            <select
+              id="group-competition-select"
+              value={newGroupCompetitionCode}
+              onChange={(e) => setNewGroupCompetitionCode(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-600 text-white px-3 py-2 rounded-lg focus:outline-none focus:border-brand-green"
+            >
+              {COMPETITION_OPTIONS.map((competition) => (
+                <option key={competition.code} value={competition.code}>
+                  {competition.code} - {competition.name}
+                </option>
+              ))}
+            </select>
+            <div className="mt-2 flex items-center gap-2 text-xs text-slate-300">
+              <img
+                src={getCompetitionByCode(newGroupCompetitionCode).emblem}
+                alt={getCompetitionByCode(newGroupCompetitionCode).name}
+                className="w-5 h-5 rounded-sm border border-slate-600"
+                loading="lazy"
+              />
+              <span>
+                {getCompetitionByCode(newGroupCompetitionCode).name} (
+                {newGroupCompetitionCode})
+              </span>
+            </div>
+          </div>
           <button
             onClick={handleCreateGroup}
             disabled={!newGroupName.trim()}
-            className="bg-brand-green hover:bg-emerald-400 text-slate-900 font-bold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+            className="bg-brand-green hover:bg-emerald-400 text-slate-900 font-bold px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <Plus size={18} /> Criar
           </button>
@@ -698,7 +760,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-2">
                   <div className="bg-slate-800 border border-slate-700 rounded px-2 py-1 font-mono text-sm text-brand-green tracking-wider">
                     {group.code}
                   </div>
@@ -712,6 +774,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <Copy size={16} />
                     )}
                   </button>
+                </div>
+
+                <div className="text-xs text-slate-400 mb-3">
+                  Competicao:
+                  <span className="font-mono text-slate-200 ml-1">
+                    {(
+                      group.competitionCode || DEFAULT_COMPETITION_CODE
+                    ).toUpperCase()}
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-800/50 p-2 rounded">

@@ -330,9 +330,9 @@ INSERT INTO public.user_roles ("userId", role) VALUES
 ON CONFLICT ("userId") DO NOTHING;
 
 -- 5. GROUPS
-INSERT INTO public.groups (id, name, code, "adminId", "createdAt") VALUES
-('g1', 'Amigos da Firma', 'ABCDE12345', '11111111-1111-4111-8111-111111111111', '2025-01-01T10:00:00'),
-('g2', 'Família Silva', 'FAMIL12345', '11111111-1111-4111-8111-111111111111', '2025-01-02T10:00:00')
+INSERT INTO public.groups (id, name, code, "adminId", "createdAt", "competitionCode") VALUES
+('g1', 'Amigos da Firma', 'ABCDE12345', '11111111-1111-4111-8111-111111111111', '2025-01-01T10:00:00', 'WC'),
+('g2', 'Família Silva', 'FAMIL12345', '11111111-1111-4111-8111-111111111111', '2025-01-02T10:00:00', 'WC')
 ON CONFLICT (id) DO NOTHING;
 
 -- 6. USER_GROUPS

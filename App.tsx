@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Tab, MatchStatus, Match } from "./types";
 import { calculatePoints, calculateTournamentPoints } from "./utils/scoring";
 
@@ -22,6 +22,7 @@ import AdminDashboard from "./components/AdminDashboard";
 import GroupSwitcher from "./components/GroupSwitcher";
 import TournamentStandings from "./components/TournamentStandings";
 import ModalShell from "./components/ui/ModalShell";
+import { DEFAULT_COMPETITION_CODE } from "./data/competitions";
 import {
   ChevronsUpDown,
   ChevronDown,
@@ -136,8 +137,88 @@ const App: React.FC = () => {
     switchGroup,
     predictMatch,
     predictTournament,
+    requestPasswordReset,
+    updatePassword,
     adminActions,
   } = useUserSystem();
+
+  const isRecoveryLink = () => {
+    if (typeof window === "undefined") return false;
+
+    const url = new URL(window.location.href);
+
+    // Verificar URL params para modo de recovery explícito (fallback)
+    if (url.searchParams.get("mode") === "recovery") {
+      return true;
+    }
+
+    // Verificar hash params (do redirect do Supabase)
+    const hashParams = new URLSearchParams(
+      window.location.hash.replace("#", ""),
+    );
+    const hashType = (hashParams.get("type") || "").toLowerCase();
+    const hasAccessToken = !!hashParams.get("access_token");
+
+    // Se hash tem type=recovery E access_token, é uma sessão válida de recovery
+    return hashType === "recovery" && hasAccessToken;
+  };
+
+  const [isPasswordRecoveryFlow, setIsPasswordRecoveryFlow] = useState<boolean>(
+    () => isRecoveryLink(),
+  );
+
+  useEffect(() => {
+    const checkRecovery = () => {
+      const isRecovery = isRecoveryLink();
+      console.log(
+        "[Recovery Flow] Detectado:",
+        isRecovery,
+        "Hash:",
+        window.location.hash,
+      );
+      setIsPasswordRecoveryFlow(isRecovery);
+    };
+
+    checkRecovery();
+
+    window.addEventListener("hashchange", checkRecovery);
+    window.addEventListener("popstate", checkRecovery);
+
+    // Verificar novamente após delay para capturar redirects assincronos
+    const timeout = setTimeout(checkRecovery, 500);
+
+    return () => {
+      window.removeEventListener("hashchange", checkRecovery);
+      window.removeEventListener("popstate", checkRecovery);
+      clearTimeout(timeout);
+    };
+  }, []);
+
+  const finishPasswordRecoveryFlow = () => {
+    const url = new URL(window.location.href);
+    url.hash = "";
+    url.searchParams.delete("mode");
+    window.history.replaceState(
+      {},
+      document.title,
+      `${url.pathname}${url.search}`,
+    );
+    setIsPasswordRecoveryFlow(false);
+  };
+
+  useEffect(() => {
+    if (currentUser && isPasswordRecoveryFlow) {
+      finishPasswordRecoveryFlow();
+    }
+  }, [currentUser, isPasswordRecoveryFlow]);
+
+  const activeGroupIdForContext =
+    currentUser?.activeGroupId || currentUser?.groupIds?.[0];
+
+  const activeCompetitionCode = (
+    db.groups.find((g) => g.id === activeGroupIdForContext)?.competitionCode ||
+    DEFAULT_COMPETITION_CODE
+  ).toUpperCase();
 
   const {
     matches,
@@ -149,7 +230,7 @@ const App: React.FC = () => {
     isAutoSyncEnabled,
     toggleAutoSync,
     adminControls,
-  } = useMatchSystem();
+  } = useMatchSystem(activeCompetitionCode);
 
   const {
     groups,
@@ -256,8 +337,13 @@ const App: React.FC = () => {
     });
 
     const groupNameMap = new Map<string, string>();
+    const groupCompetitionMap = new Map<string, string>();
     groups.forEach((group) => {
       groupNameMap.set(group.id, group.name);
+      groupCompetitionMap.set(
+        group.id,
+        (group.competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase(),
+      );
     });
 
     return currentUser.groupIds
@@ -285,6 +371,8 @@ const App: React.FC = () => {
         return {
           groupId,
           groupName: groupNameMap.get(groupId) || fallbackGroupName,
+          competitionCode:
+            groupCompetitionMap.get(groupId) || DEFAULT_COMPETITION_CODE,
           users: groupUsers,
         };
       })
@@ -297,6 +385,16 @@ const App: React.FC = () => {
   const currentGroup = resolvedActiveGroupId
     ? getGroupById(resolvedActiveGroupId)
     : undefined;
+
+  useEffect(() => {
+    if (!currentUser || !currentUser.groupIds.length) return;
+    void syncMatchesAndStandings(activeCompetitionCode);
+  }, [
+    currentUser?.id,
+    currentUser?.activeGroupId,
+    activeCompetitionCode,
+    syncMatchesAndStandings,
+  ]);
 
   // --- Date Grouping Logic ---
   const { pastMatches, todayMatches, futureGroups } = useMemo(() => {
@@ -361,10 +459,11 @@ const App: React.FC = () => {
     );
   }
 
-  if (!currentUser) {
+  if (!currentUser || isPasswordRecoveryFlow) {
     return (
       <Login
         onLogin={(user) => {
+          finishPasswordRecoveryFlow();
           login(user);
           setActiveTab(user.role === "ADMIN" ? "admin" : "matches");
         }}
@@ -372,15 +471,22 @@ const App: React.FC = () => {
           register(name, email, pass, code, groups)
         }
         onAuth={loginWithCredentials}
+        onRequestPasswordReset={requestPasswordReset}
+        onUpdatePassword={updatePassword}
+        initialMode={
+          isPasswordRecoveryFlow ? "RESET_PASSWORD_CONFIRM" : "LOGIN"
+        }
+        onPasswordResetComplete={finishPasswordRecoveryFlow}
         availableUsers={users}
       />
     );
   }
 
   // --- Helpers for Group Switching ---
-  const handleCreateGroup = (name: string) => {
-    const newGroup = createGroup(name, currentUser.id);
+  const handleCreateGroup = (name: string, competitionCode: string) => {
+    const newGroup = createGroup(name, currentUser.id, competitionCode);
     joinGroup(currentUser.id, newGroup.id);
+    void syncMatchesAndStandings(competitionCode);
     setGroupError(null);
     setIsGroupSwitcherOpen(false);
   };
@@ -393,6 +499,9 @@ const App: React.FC = () => {
       } else {
         joinGroup(currentUser.id, group.id);
       }
+      void syncMatchesAndStandings(
+        (group.competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase(),
+      );
       setGroupError(null);
       setIsGroupSwitcherOpen(false);
     } else {
@@ -434,9 +543,14 @@ const App: React.FC = () => {
                   />
                 </div>
               </div>
-              <span className="text-slate-500 font-mono bg-slate-900 px-2 py-1 rounded text-[10px] border border-slate-700/50">
-                #{currentGroup.code}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500 font-mono bg-slate-900 px-2 py-1 rounded text-[10px] border border-slate-700/50">
+                  #{currentGroup.code}
+                </span>
+                <span className="text-brand-green font-mono bg-brand-green/10 px-2 py-1 rounded text-[10px] border border-brand-green/30">
+                  {(currentGroup.competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase()}
+                </span>
+              </div>
             </>
           ) : (
             <div className="flex items-center gap-2 w-full justify-center text-brand-green py-1">
@@ -458,6 +572,10 @@ const App: React.FC = () => {
           activeGroupId={currentUser.activeGroupId}
           onSwitch={(id) => {
             switchGroup(currentUser.id, id);
+            const nextGroup = getGroupById(id);
+            void syncMatchesAndStandings(
+              (nextGroup?.competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase(),
+            );
             setIsGroupSwitcherOpen(false);
           }}
           onCreate={handleCreateGroup}
@@ -563,7 +681,10 @@ const App: React.FC = () => {
 
         {/* Tournament Standings Tab */}
         {activeTab === "tournament" && (
-          <TournamentStandings matches={matches} />
+          <TournamentStandings
+            matches={matches}
+            competitionCode={activeCompetitionCode}
+          />
         )}
 
         {/* Leaderboard Tab */}
@@ -580,7 +701,9 @@ const App: React.FC = () => {
             onInvite={adminActions.inviteUser}
             onUpdateRole={adminActions.updateUserRole}
             onRemoveUser={adminActions.removeUser}
-            onCreateGroup={(name: string) => createGroup(name, currentUser.id)}
+            onCreateGroup={(name: string, competitionCode: string) =>
+              createGroup(name, currentUser.id, competitionCode)
+            }
             onDeleteGroup={deleteGroup}
             onAddUserToGroup={adminActions.adminAddUserToGroup}
             onRemoveUserFromGroup={adminActions.adminRemoveUserFromGroup}

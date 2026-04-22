@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Trophy,
   ArrowRight,
@@ -9,7 +9,7 @@ import {
   LogIn,
   UserPlus,
 } from "lucide-react";
-import { User, Group } from "../types";
+import { User } from "../types";
 import { isSupabaseEnabled } from "../services/supabase";
 
 interface LoginProps {
@@ -25,24 +25,44 @@ interface LoginProps {
     email: string,
     pass: string,
   ) => Promise<{ success: boolean; message?: string; user?: User }>;
+  onRequestPasswordReset: (
+    email: string,
+  ) => Promise<{ success: boolean; message?: string }>;
+  onUpdatePassword: (
+    newPassword: string,
+  ) => Promise<{ success: boolean; message?: string }>;
+  initialMode?: AuthMode;
+  onPasswordResetComplete?: () => void;
 }
 
-type AuthMode = "LOGIN" | "REGISTER";
+type AuthMode = "LOGIN" | "REGISTER" | "RESET_PASSWORD";
 
 const Login: React.FC<LoginProps> = ({
   onLogin,
   availableUsers,
   onRegister,
   onAuth,
+  onRequestPasswordReset,
+  onUpdatePassword,
+  initialMode = "LOGIN",
+  onPasswordResetComplete,
 }) => {
   const isSupabaseAuthEnabled = isSupabaseEnabled();
-  const [mode, setMode] = useState<AuthMode>("LOGIN");
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Login Form
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPass, setLoginPass] = useState("");
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
 
   // Register Form
   const [regCode, setRegCode] = useState("");
@@ -55,16 +75,22 @@ const Login: React.FC<LoginProps> = ({
     if (loading) return;
 
     setError(null);
+    setResetSuccess(null);
     setLoading(true);
 
-    const resolved = await onAuth(loginEmail, loginPass);
-    if (resolved.success && resolved.user) {
-      onLogin(resolved.user);
-      return;
-    }
+    try {
+      const resolved = await onAuth(loginEmail, loginPass);
+      if (resolved.success && resolved.user) {
+        onLogin(resolved.user);
+        return;
+      }
 
-    setError(resolved.message || "Erro ao entrar.");
-    setLoading(false);
+      setError(resolved.message || "Erro ao entrar.");
+    } catch {
+      setError("Erro inesperado ao entrar. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -72,6 +98,7 @@ const Login: React.FC<LoginProps> = ({
     if (loading) return;
 
     setError(null);
+    setResetSuccess(null);
 
     if (
       !regCode.trim() ||
@@ -84,14 +111,90 @@ const Login: React.FC<LoginProps> = ({
     }
 
     setLoading(true);
-    const result = await onRegister(regName, regEmail, regPass, regCode);
-    if (result.success) {
-      // Auto login happens inside onRegister wrapper usually, or we do nothing as App.tsx handles state
+    try {
+      const result = await onRegister(regName, regEmail, regPass, regCode);
+      if (result.success) {
+        return;
+      }
+
+      setError(result.message || "Erro ao cadastrar.");
+    } catch {
+      setError("Erro inesperado ao cadastrar. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loading) return;
+
+    setError(null);
+    setResetSuccess(null);
+
+    if (!resetEmail.trim()) {
+      setError("Informe o e-mail para resetar a senha.");
       return;
     }
 
-    setError(result.message || "Erro ao cadastrar.");
-    setLoading(false);
+    setLoading(true);
+    try {
+      const result = await onRequestPasswordReset(resetEmail);
+      if (!result.success) {
+        setError(result.message || "Não foi possível enviar o reset.");
+        return;
+      }
+
+      setResetSuccess(
+        result.message ||
+          "Se o e-mail existir, você receberá um link de redefinição.",
+      );
+    } catch {
+      setError("Erro inesperado ao solicitar reset de senha.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loading) return;
+
+    setError(null);
+    setResetSuccess(null);
+
+    if (!newPassword.trim()) {
+      setError("Informe a nova senha.");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setError("A nova senha deve ter pelo menos 6 caracteres.");
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setError("As senhas não conferem.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await onUpdatePassword(newPassword);
+      if (!result.success) {
+        setError(result.message || "Não foi possível atualizar a senha.");
+        return;
+      }
+
+      setResetSuccess(result.message || "Senha atualizada com sucesso.");
+      setNewPassword("");
+      setConfirmNewPassword("");
+      onPasswordResetComplete?.();
+    } catch {
+      setError("Erro inesperado ao atualizar senha.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -118,7 +221,9 @@ const Login: React.FC<LoginProps> = ({
             onClick={() => {
               setMode("LOGIN");
               setError(null);
+              setResetSuccess(null);
             }}
+            disabled={initialMode === "RESET_PASSWORD_CONFIRM"}
             className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${mode === "LOGIN" ? "text-brand-green bg-slate-800" : "text-slate-500 bg-slate-900/50 hover:bg-slate-800"}`}
           >
             <LogIn size={16} /> Entrar
@@ -127,7 +232,9 @@ const Login: React.FC<LoginProps> = ({
             onClick={() => {
               setMode("REGISTER");
               setError(null);
+              setResetSuccess(null);
             }}
+            disabled={initialMode === "RESET_PASSWORD_CONFIRM"}
             className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${mode === "REGISTER" ? "text-brand-green bg-slate-800" : "text-slate-500 bg-slate-900/50 hover:bg-slate-800"}`}
           >
             <UserPlus size={16} /> Primeiro Acesso
@@ -140,6 +247,12 @@ const Login: React.FC<LoginProps> = ({
             <div className="mb-6 bg-red-500/10 border border-red-500/50 text-red-200 text-sm px-4 py-3 rounded-lg flex items-start gap-3">
               <div className="mt-0.5 min-w-[16px]">⚠️</div>
               <span>{error}</span>
+            </div>
+          )}
+
+          {resetSuccess && (
+            <div className="mb-6 bg-emerald-500/10 border border-emerald-500/40 text-emerald-200 text-sm px-4 py-3 rounded-lg">
+              {resetSuccess}
             </div>
           )}
 
@@ -190,8 +303,21 @@ const Login: React.FC<LoginProps> = ({
               >
                 {loading ? "Entrando..." : "Entrar"} <ArrowRight size={18} />
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setResetEmail(loginEmail);
+                  setMode("RESET_PASSWORD");
+                  setError(null);
+                  setResetSuccess(null);
+                }}
+                className="w-full text-xs text-slate-400 hover:text-brand-green transition-colors"
+              >
+                Esqueci minha senha
+              </button>
             </form>
-          ) : (
+          ) : mode === "REGISTER" ? (
             <form
               onSubmit={handleRegister}
               className="space-y-4 animate-fadeIn"
@@ -277,6 +403,125 @@ const Login: React.FC<LoginProps> = ({
               >
                 {loading ? "Criando Conta..." : "Cadastrar e Entrar"}{" "}
                 <ArrowRight size={18} />
+              </button>
+            </form>
+          ) : mode === "RESET_PASSWORD" ? (
+            <form
+              onSubmit={handlePasswordReset}
+              className="space-y-4 animate-fadeIn"
+            >
+              <div className="bg-slate-900/60 border border-slate-700 p-3 rounded-lg text-xs text-slate-300">
+                Informe seu e-mail para receber o link de redefinição de senha.
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 uppercase ml-1">
+                  E-mail
+                </label>
+                <div className="relative">
+                  <Mail
+                    className="absolute left-3 top-3 text-slate-500"
+                    size={18}
+                  />
+                  <input
+                    type="email"
+                    required
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-600 text-white pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:border-brand-green focus:ring-1 focus:ring-brand-green transition-all"
+                    placeholder="seu@email.com"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-brand-green hover:bg-emerald-400 text-slate-900 font-bold py-3.5 rounded-xl transition-all mt-4 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {loading ? "Enviando..." : "Enviar link de reset"}
+                <ArrowRight size={18} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("LOGIN");
+                  setError(null);
+                }}
+                className="w-full text-xs text-slate-400 hover:text-white transition-colors"
+              >
+                Voltar para login
+              </button>
+            </form>
+          ) : (
+            <form
+              onSubmit={handlePasswordUpdate}
+              className="space-y-4 animate-fadeIn"
+            >
+              <div className="bg-emerald-900/20 border border-emerald-500/30 p-3 rounded-lg text-xs text-emerald-200">
+                Defina sua nova senha para concluir a recuperação da conta.
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 uppercase ml-1">
+                  Nova senha
+                </label>
+                <div className="relative">
+                  <Lock
+                    className="absolute left-3 top-3 text-slate-500"
+                    size={18}
+                  />
+                  <input
+                    type="password"
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-600 text-white pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:border-brand-green focus:ring-1 focus:ring-brand-green transition-all"
+                    placeholder="Mínimo 6 caracteres"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 uppercase ml-1">
+                  Confirmar nova senha
+                </label>
+                <div className="relative">
+                  <Lock
+                    className="absolute left-3 top-3 text-slate-500"
+                    size={18}
+                  />
+                  <input
+                    type="password"
+                    required
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-600 text-white pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:border-brand-green focus:ring-1 focus:ring-brand-green transition-all"
+                    placeholder="Repita a senha"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-brand-green hover:bg-emerald-400 text-slate-900 font-bold py-3.5 rounded-xl transition-all mt-4 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {loading ? "Atualizando..." : "Salvar nova senha"}
+                <ArrowRight size={18} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("LOGIN");
+                  setError(null);
+                  onPasswordResetComplete?.();
+                }}
+                className="w-full text-xs text-slate-400 hover:text-white transition-colors"
+              >
+                Voltar para login
               </button>
             </form>
           )}

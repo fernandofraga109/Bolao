@@ -64,9 +64,15 @@ export interface ExternalStandingsResponse {
   standings: ExternalStandingGroup[];
 }
 
-export const fetchExternalMatches = async (): Promise<ExternalMatch[]> => {
+export const fetchExternalMatches = async (
+  competitionCode = "WC",
+): Promise<ExternalMatch[]> => {
   // Rota interna segura que oculta seu Token
-  const internalApiUrl = "/api/matches";
+  const params = new URLSearchParams();
+  if (competitionCode && competitionCode.toUpperCase() !== "WC") {
+    params.set("competition", competitionCode.toUpperCase());
+  }
+  const internalApiUrl = `/api/matches${params.toString() ? "?" + params.toString() : ""}`;
 
   try {
     const response = await fetch(internalApiUrl);

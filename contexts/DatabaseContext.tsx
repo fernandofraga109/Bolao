@@ -238,9 +238,16 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   useEffect(() => {
     if (!isSupabaseEnabled() || !supabase) return;
 
+    let isMounted = true;
+
     // 1. Initial Fetch
     const fetchData = async () => {
       console.log("🔄 Sincronizando dados com o Supabase...");
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const isAuthenticated = !!session?.user;
 
       const [
         rolesRes,
@@ -255,20 +262,36 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         tournPredsRes,
         configRes,
       ] = await Promise.all([
-        supabase
-          .from("user_roles")
-          .select('"userId", "displayName", avatar, role'),
-        supabase.from("profiles").select("*"),
-        supabase.from("users").select("*"),
+        isAuthenticated
+          ? supabase
+              .from("user_roles")
+              .select('"userId", "displayName", avatar, role')
+          : Promise.resolve({ data: null, error: null } as any),
+        isAuthenticated
+          ? supabase.from("profiles").select("*")
+          : Promise.resolve({ data: null, error: null } as any),
+        isAuthenticated
+          ? supabase.from("users").select("*")
+          : Promise.resolve({ data: null, error: null } as any),
         supabase.from("teams").select("*"),
         supabase.from("stadiums").select("*"),
-        supabase.from("groups").select("*"),
-        supabase.from("user_groups").select("*"),
+        isAuthenticated
+          ? supabase.from("groups").select("*")
+          : Promise.resolve({ data: null, error: null } as any),
+        isAuthenticated
+          ? supabase.from("user_groups").select("*")
+          : Promise.resolve({ data: null, error: null } as any),
         supabase.from("matches").select("*"),
-        supabase.from("predictions").select("*"),
-        supabase.from("tournament_predictions").select("*"),
+        isAuthenticated
+          ? supabase.from("predictions").select("*")
+          : Promise.resolve({ data: null, error: null } as any),
+        isAuthenticated
+          ? supabase.from("tournament_predictions").select("*")
+          : Promise.resolve({ data: null, error: null } as any),
         supabase.from("system_config").select("*").single(),
       ]);
+
+      if (!isMounted) return;
 
       const usersById = new Map<string, UserDB>();
 
@@ -351,9 +374,21 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       if (predsRes.data) setPredictions(predsRes.data);
       if (tournPredsRes.data) setTournamentPredictions(tournPredsRes.data);
       if (configRes.data) setSystemConfig(configRes.data);
+
+      if (!isAuthenticated) {
+        setUsers([]);
+        setGroups([]);
+        setUserGroups([]);
+        setPredictions([]);
+        setTournamentPredictions([]);
+      }
     };
 
     fetchData();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
+      void fetchData();
+    });
 
     // 2. Realtime Subscriptions Handler
     const handleRealtimeEvent = (payload: any) => {
@@ -549,6 +584,8 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       });
 
     return () => {
+      isMounted = false;
+      authListener.subscription.unsubscribe();
       supabase.removeChannel(channel);
     };
   }, []);
@@ -873,9 +910,15 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     });
 
     if (isSupabaseEnabled() && supabase) {
-      await supabase
+      const { error } = await supabase
         .from("tournament_predictions")
         .upsert(pred, { onConflict: "userId" });
+
+      if (error) {
+        throw new Error(
+          `Erro ao salvar tournament prediction: ${error.message}`,
+        );
+      }
     }
   };
 

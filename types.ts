@@ -28,6 +28,7 @@ export interface TeamDB {
   ranking: number;
   pot?: 1 | 2 | 3 | 4;
   externalTeamId?: number;
+  standingsCompetitionCode?: string;
   standingsSeason?: string;
   standingsStage?: string;
   standingsType?: string;
@@ -52,6 +53,7 @@ export interface MatchDB {
   awayTeamId: string;
   date: string;
   group: string; // "Grupo A", "Oitavas", etc.
+  competitionCode?: string;
   stadiumId?: string | null;
   status: MatchStatus;
   resultHome?: number;
@@ -94,6 +96,7 @@ export interface GroupDB {
   code: string;
   adminId: string;
   createdAt: string;
+  competitionCode?: string; // e.g., 'WC' (Copa do Mundo), 'PL' (Premier League), 'BSA' (Campeonato Brasileiro)
 }
 
 export interface UserGroupDB {
@@ -152,6 +155,7 @@ export interface Match {
   awayTeam: Team;
   date: string;
   group: string;
+  competitionCode?: string;
   location: string;
   stadiumId?: string;
   status: MatchStatus;

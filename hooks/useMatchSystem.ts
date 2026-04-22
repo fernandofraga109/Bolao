@@ -8,7 +8,10 @@ import {
   mapExternalStatusToInternal,
 } from "../services/liveScoreService";
 
-export const useMatchSystem = () => {
+const normalizeCompetitionCode = (value?: string) =>
+  (value || "WC").toUpperCase();
+
+export const useMatchSystem = (activeCompetitionCode: string = "WC") => {
   const db = useDatabase();
   const [isSyncing, setIsSyncing] = useState(false);
   const dbRef = useRef(db);
@@ -26,7 +29,7 @@ export const useMatchSystem = () => {
   // Hydrate Matches (Join with Teams and Stadiums)
   const matches: Match[] = useMemo(() => {
     if (!db.matches) return []; // Safety check
-    return db.matches
+    const hydrated = db.matches
       .map((m) => {
         const homeTeam = db.teams.find((t) => t.id === m.homeTeamId);
         const awayTeam = db.teams.find((t) => t.id === m.awayTeamId);
@@ -40,6 +43,7 @@ export const useMatchSystem = () => {
           awayTeam,
           date: m.date,
           group: m.group,
+          competitionCode: normalizeCompetitionCode(m.competitionCode),
           location: stadium ? stadium.name : "Unknown",
           stadiumId: m.stadiumId,
           status: m.status,
@@ -50,7 +54,13 @@ export const useMatchSystem = () => {
         };
       })
       .filter(Boolean) as Match[];
-  }, [db.matches, db.teams, db.stadiums]);
+
+    return hydrated.filter(
+      (match) =>
+        normalizeCompetitionCode(match.competitionCode) ===
+        normalizeCompetitionCode(activeCompetitionCode),
+    );
+  }, [db.matches, db.teams, db.stadiums, activeCompetitionCode]);
 
   // Keep a ref to matches to access the latest state inside the interval closure/async operations
   const matchesRef = useRef(matches);
@@ -95,7 +105,7 @@ export const useMatchSystem = () => {
   };
 
   // --- SYNC EXTERNAL API ---
-  const syncWithExternalApi = useCallback(async () => {
+  const syncWithExternalApi = useCallback(async (competitionCode = activeCompetitionCode) => {
     // Prevent multiple overlapping calls
     if (isSyncingRef.current) {
       return { success: false, message: "Já está sincronizando." };
@@ -115,7 +125,8 @@ export const useMatchSystem = () => {
     isSyncingRef.current = true;
     setIsSyncing(true);
     try {
-      const externalMatches = await fetchExternalMatches();
+      const normalizedCompetitionCode = normalizeCompetitionCode(competitionCode);
+      const externalMatches = await fetchExternalMatches(normalizedCompetitionCode);
       if (externalMatches.length === 0) {
         console.log(
           "Nenhum jogo retornado pela API externa (ou token inválido/rate limit).",
@@ -130,6 +141,7 @@ export const useMatchSystem = () => {
       let updatedCount = 0;
       let insertedCount = 0;
       let skippedUndefinedTeams = 0;
+      const syncedMatchIds = new Set<string>();
       const ensuredTeams = new Map<string, string>();
 
       const normalizeMatchGroup = (group?: string | null, stage?: string) => {
@@ -217,6 +229,7 @@ export const useMatchSystem = () => {
 
         if (internalMatch || existingByExternalId) {
           const targetId = internalMatch?.id || existingByExternalId!.id;
+          syncedMatchIds.add(targetId);
           const newStatus = mapExternalStatusToInternal(extMatch.status);
           const newGroup = normalizeMatchGroup(extMatch.group, extMatch.stage);
 
@@ -246,6 +259,7 @@ export const useMatchSystem = () => {
             await currentDb.updateMatch(targetId, {
               status: newStatus,
               group: newGroup,
+              competitionCode: normalizedCompetitionCode,
               // Use null coalescing to ensure undefined if null, or the value
               resultHome: extHome ?? undefined,
               resultAway: extAway ?? undefined,
@@ -257,21 +271,26 @@ export const useMatchSystem = () => {
           const extHome = extMatch.score?.fullTime?.home;
           const extAway = extMatch.score?.fullTime?.away;
 
+          const newMatchId = crypto.randomUUID();
+
           await currentDb.upsertMatch({
-            id: crypto.randomUUID(),
+            id: newMatchId,
             externalMatchId: String(extMatch.id),
             homeTeamId,
             awayTeamId,
             date: extMatch.utcDate,
             group: normalizeMatchGroup(extMatch.group, extMatch.stage),
+            competitionCode: normalizedCompetitionCode,
             stadiumId: null,
             status: newStatus,
             resultHome: extHome ?? undefined,
             resultAway: extAway ?? undefined,
           });
+          syncedMatchIds.add(newMatchId);
           insertedCount++;
         }
       }
+
       isSyncingRef.current = false;
       setIsSyncing(false);
       return {
@@ -294,7 +313,7 @@ export const useMatchSystem = () => {
         message: error?.message || "Erro ao salvar dados no banco.",
       };
     }
-  }, []);
+  }, [activeCompetitionCode]);
 
   const normalizeGroupName = useCallback((groupName: string) => {
     const m = /^Group\s+([A-Z])$/i.exec(groupName.trim());
@@ -302,9 +321,9 @@ export const useMatchSystem = () => {
     return `Grupo ${m[1]}`;
   }, []);
 
-  const syncStandingsWithExternalApi = useCallback(async () => {
+  const syncStandingsWithExternalApi = useCallback(async (competitionCode = activeCompetitionCode) => {
     try {
-      const data = await fetchExternalStandings("WC", "2026");
+      const data = await fetchExternalStandings(normalizeCompetitionCode(competitionCode), "2026");
       if (!data || !Array.isArray(data.standings)) {
         return { success: false, message: "Sem dados de tabela na API." };
       }
@@ -376,11 +395,11 @@ export const useMatchSystem = () => {
         message: error?.message || "Erro ao sincronizar tabela.",
       };
     }
-  }, [normalizeGroupName]);
+  }, [activeCompetitionCode, normalizeGroupName]);
 
-  const syncMatchesAndStandings = useCallback(async () => {
-    const matchesResult = await syncWithExternalApi();
-    const standingsResult = await syncStandingsWithExternalApi();
+  const syncMatchesAndStandings = useCallback(async (competitionCode = activeCompetitionCode) => {
+    const matchesResult = await syncWithExternalApi(competitionCode);
+    const standingsResult = await syncStandingsWithExternalApi(competitionCode);
 
     return {
       success: matchesResult.success || standingsResult.success,
@@ -388,7 +407,7 @@ export const useMatchSystem = () => {
       matchesResult,
       standingsResult,
     };
-  }, [syncStandingsWithExternalApi, syncWithExternalApi]);
+  }, [activeCompetitionCode, syncStandingsWithExternalApi, syncWithExternalApi]);
 
   // --- AUTO SYNC POLLING EFFECT ---
   useEffect(() => {
@@ -399,11 +418,11 @@ export const useMatchSystem = () => {
         `🔄 Auto-Sync ATIVO via Banco de Dados. Intervalo: ${syncInterval}ms`,
       );
       // Run immediately
-      void syncWithExternalApi();
+      void syncWithExternalApi(activeCompetitionCode);
 
       intervalId = setInterval(() => {
         console.log("🔄 Auto-Sync: Buscando atualizações...");
-        void syncWithExternalApi();
+        void syncWithExternalApi(activeCompetitionCode);
       }, syncInterval || 60000);
     } else {
       console.log("⏹️ Auto-Sync PARADO (Configuração Global)");
@@ -412,7 +431,7 @@ export const useMatchSystem = () => {
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [isAutoSyncEnabled, syncInterval, syncWithExternalApi]);
+  }, [activeCompetitionCode, isAutoSyncEnabled, syncInterval, syncWithExternalApi]);
 
   const toggleAutoSync = useCallback(() => {
     // Now toggles DB Value

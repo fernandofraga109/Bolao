@@ -7,6 +7,7 @@ interface LeaderboardProps {
   sections: {
     groupId: string;
     groupName: string;
+    competitionCode?: string;
     users: Friend[];
   }[];
 }
@@ -53,7 +54,14 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections }) => {
               className="bg-slate-800 rounded-xl overflow-hidden shadow-lg border border-slate-700"
             >
               <div className="px-4 py-3 bg-slate-900/50 border-b border-slate-700 flex items-center justify-between">
-                <h3 className="font-bold text-white">{section.groupName}</h3>
+                <div>
+                  <h3 className="font-bold text-white">{section.groupName}</h3>
+                  {section.competitionCode && (
+                    <span className="text-[10px] uppercase tracking-wider text-slate-400">
+                      Competição: {section.competitionCode}
+                    </span>
+                  )}
+                </div>
                 <span className="text-[10px] uppercase tracking-wider text-slate-400">
                   {section.users.length} participantes
                 </span>

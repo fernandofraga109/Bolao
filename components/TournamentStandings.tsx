@@ -9,6 +9,7 @@ import {
 
 interface TournamentStandingsProps {
   matches: Match[];
+  competitionCode?: string;
 }
 
 interface TeamStats {
@@ -25,6 +26,7 @@ interface TeamStats {
 
 const TournamentStandings: React.FC<TournamentStandingsProps> = ({
   matches,
+  competitionCode = "WC",
 }) => {
   const db = useDatabase();
   const [view, setView] = useState<"groups" | "knockout">("groups");
@@ -95,6 +97,12 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
 
     db.teams.forEach((team) => {
       if (!team.standingsGroup) return;
+      if (
+        team.standingsCompetitionCode &&
+        team.standingsCompetitionCode.toUpperCase() !== competitionCode.toUpperCase()
+      ) {
+        return;
+      }
       if (team.standingsSeason && team.standingsSeason !== STANDINGS_SEASON)
         return;
 
@@ -243,7 +251,10 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
 
       setIsLoadingStandings(true);
       try {
-        const data = await fetchExternalStandings("WC", STANDINGS_SEASON);
+        const data = await fetchExternalStandings(
+          competitionCode,
+          STANDINGS_SEASON,
+        );
         if (!data || !Array.isArray(data.standings)) {
           throw new Error("Sem dados de standings na API.");
         }
@@ -287,6 +298,7 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
                 ranking: existing?.ranking || 999,
                 pot: existing?.pot,
                 externalTeamId: row.team?.id,
+                standingsCompetitionCode: competitionCode,
                 standingsSeason: STANDINGS_SEASON,
                 standingsStage: groupEntry.stage,
                 standingsType: groupEntry.type,
@@ -324,7 +336,7 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
         setIsLoadingStandings(false);
       }
     },
-    [buildStandingsFromExternal, cachedStandings, db],
+    [buildStandingsFromExternal, cachedStandings, competitionCode, db],
   );
 
   const resolvedStandings =
@@ -335,7 +347,7 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
   return (
     <div className="w-full max-w-2xl mx-auto pb-6">
       <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 rounded-2xl mb-6 shadow-lg text-center text-white">
-        <h2 className="text-2xl font-bold mb-1">Tabela da Copa</h2>
+        <h2 className="text-2xl font-bold mb-1">Tabela da Competição</h2>
         <p className="opacity-90 text-sm">Acompanhe os grupos e o mata-mata</p>
       </div>
 
