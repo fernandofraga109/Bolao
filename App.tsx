@@ -226,6 +226,7 @@ const App: React.FC = () => {
     lockDate,
     syncWithExternalApi,
     syncMatchesAndStandings,
+    syncStatusByCompetition,
     isSyncing,
     isAutoSyncEnabled,
     toggleAutoSync,
@@ -274,6 +275,18 @@ const App: React.FC = () => {
     } finally {
       setIsAdminSyncingAll(false);
     }
+  };
+
+  const handleManualMatchesSync = async () => {
+    const result = await syncWithExternalApi(activeCompetitionCode);
+    setSyncFeedback({
+      isOpen: true,
+      title: result.success
+        ? "Sincronização de jogos concluída"
+        : "Falha ao sincronizar jogos",
+      message: result.message,
+      isError: !result.success,
+    });
   };
 
   // --- Calculations (Leaderboard) ---
@@ -483,10 +496,50 @@ const App: React.FC = () => {
   }
 
   // --- Helpers for Group Switching ---
+  const createGroupWithCompetitionBootstrap = async (
+    name: string,
+    competitionCode: string,
+    options: { joinCreator: boolean },
+  ) => {
+    const normalizedCompetitionCode = (
+      competitionCode || DEFAULT_COMPETITION_CODE
+    ).toUpperCase();
+
+    const competitionAlreadyRegistered = groups.some(
+      (group) =>
+        (group.competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase() ===
+        normalizedCompetitionCode,
+    );
+
+    const newGroup = createGroup(name, currentUser.id, normalizedCompetitionCode);
+
+    if (options.joinCreator) {
+      joinGroup(currentUser.id, newGroup.id);
+    }
+
+    if (!competitionAlreadyRegistered) {
+      const bootstrapResult = await syncMatchesAndStandings(
+        normalizedCompetitionCode,
+      );
+      setSyncFeedback({
+        isOpen: true,
+        title: bootstrapResult.success
+          ? "Competicao inicializada"
+          : "Competicao criada com alerta",
+        message: bootstrapResult.success
+          ? `Nova competicao ${normalizedCompetitionCode} cadastrada e sincronizada. ${bootstrapResult.message}`
+          : `A competicao ${normalizedCompetitionCode} foi criada, mas a carga inicial falhou. ${bootstrapResult.message}`,
+        isError: !bootstrapResult.success,
+      });
+    }
+
+    return newGroup;
+  };
+
   const handleCreateGroup = (name: string, competitionCode: string) => {
-    const newGroup = createGroup(name, currentUser.id, competitionCode);
-    joinGroup(currentUser.id, newGroup.id);
-    void syncMatchesAndStandings(competitionCode);
+    void createGroupWithCompetitionBootstrap(name, competitionCode, {
+      joinCreator: true,
+    });
     setGroupError(null);
     setIsGroupSwitcherOpen(false);
   };
@@ -548,7 +601,9 @@ const App: React.FC = () => {
                   #{currentGroup.code}
                 </span>
                 <span className="text-brand-green font-mono bg-brand-green/10 px-2 py-1 rounded text-[10px] border border-brand-green/30">
-                  {(currentGroup.competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase()}
+                  {(
+                    currentGroup.competitionCode || DEFAULT_COMPETITION_CODE
+                  ).toUpperCase()}
                 </span>
               </div>
             </>
@@ -574,7 +629,9 @@ const App: React.FC = () => {
             switchGroup(currentUser.id, id);
             const nextGroup = getGroupById(id);
             void syncMatchesAndStandings(
-              (nextGroup?.competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase(),
+              (
+                nextGroup?.competitionCode || DEFAULT_COMPETITION_CODE
+              ).toUpperCase(),
             );
             setIsGroupSwitcherOpen(false);
           }}
@@ -599,7 +656,7 @@ const App: React.FC = () => {
                   Nenhum jogo encontrado.
                 </p>
                 <button
-                  onClick={() => void syncWithExternalApi()}
+                  onClick={() => void handleManualMatchesSync()}
                   disabled={isSyncing}
                   className="bg-brand-green hover:bg-emerald-400 text-slate-900 font-bold px-4 py-2 rounded-lg disabled:opacity-50"
                 >
@@ -702,7 +759,9 @@ const App: React.FC = () => {
             onUpdateRole={adminActions.updateUserRole}
             onRemoveUser={adminActions.removeUser}
             onCreateGroup={(name: string, competitionCode: string) =>
-              createGroup(name, currentUser.id, competitionCode)
+              createGroupWithCompetitionBootstrap(name, competitionCode, {
+                joinCreator: false,
+              }).then(() => undefined)
             }
             onDeleteGroup={deleteGroup}
             onAddUserToGroup={adminActions.adminAddUserToGroup}
@@ -710,6 +769,7 @@ const App: React.FC = () => {
             isSyncing={isSyncing}
             isAutoSyncEnabled={isAutoSyncEnabled}
             toggleAutoSync={toggleAutoSync}
+            syncStatusByCompetition={syncStatusByCompetition}
           />
         )}
       </main>

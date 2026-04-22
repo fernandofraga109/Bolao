@@ -251,7 +251,6 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
 
       const [
         rolesRes,
-        profilesRes,
         legacyUsersRes,
         teamsRes,
         stadiumsRes,
@@ -266,9 +265,6 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
           ? supabase
               .from("user_roles")
               .select('"userId", "displayName", avatar, role')
-          : Promise.resolve({ data: null, error: null } as any),
-        isAuthenticated
-          ? supabase.from("profiles").select("*")
           : Promise.resolve({ data: null, error: null } as any),
         isAuthenticated
           ? supabase.from("users").select("*")
@@ -774,6 +770,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         ranking: team.ranking,
         pot: team.pot,
         externalTeamId: team.externalTeamId,
+        standingsCompetitionCode: team.standingsCompetitionCode,
         standingsSeason: team.standingsSeason,
         standingsStage: team.standingsStage,
         standingsType: team.standingsType,

@@ -6,34 +6,50 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, ".", "");
   const footballDataToken = env.FOOTBALL_DATA_TOKEN;
 
-  const apiProxy = footballDataToken
-    ? {
-        "/api/matches": {
-          target: "https://api.football-data.org",
-          changeOrigin: true,
-          secure: true,
-          rewrite: () => "/v4/competitions/WC/matches",
-          configure: (proxy: any) => {
-            proxy.on("proxyReq", (proxyReq: any) => {
-              proxyReq.setHeader("X-Auth-Token", footballDataToken);
-              proxyReq.setHeader("Content-Type", "application/json");
-            });
-          },
-        },
-        "/api/standings": {
-          target: "https://api.football-data.org",
-          changeOrigin: true,
-          secure: true,
-          rewrite: () => "/v4/competitions/WC/standings",
-          configure: (proxy: any) => {
-            proxy.on("proxyReq", (proxyReq: any) => {
-              proxyReq.setHeader("X-Auth-Token", footballDataToken);
-              proxyReq.setHeader("Content-Type", "application/json");
-            });
-          },
-        },
-      }
-    : undefined;
+  const apiProxy = {
+    "/api/matches": {
+      target: "https://api.football-data.org",
+      changeOrigin: true,
+      secure: true,
+      rewrite: (incomingPath: string) => {
+        const [, search = ""] = incomingPath.split("?");
+        const params = new URLSearchParams(search);
+        const competition = (params.get("competition") || "WC").toUpperCase();
+        return `/v4/competitions/${competition}/matches`;
+      },
+      configure: (proxy: any) => {
+        proxy.on("proxyReq", (proxyReq: any) => {
+          if (footballDataToken) {
+            proxyReq.setHeader("X-Auth-Token", footballDataToken);
+          }
+          proxyReq.setHeader("Content-Type", "application/json");
+        });
+      },
+    },
+    "/api/standings": {
+      target: "https://api.football-data.org",
+      changeOrigin: true,
+      secure: true,
+      rewrite: (incomingPath: string) => {
+        const [, search = ""] = incomingPath.split("?");
+        const params = new URLSearchParams(search);
+        const competition = (params.get("competition") || "WC").toUpperCase();
+        const season = params.get("season");
+        const seasonQuery = season
+          ? `?season=${encodeURIComponent(season)}`
+          : "";
+        return `/v4/competitions/${competition}/standings${seasonQuery}`;
+      },
+      configure: (proxy: any) => {
+        proxy.on("proxyReq", (proxyReq: any) => {
+          if (footballDataToken) {
+            proxyReq.setHeader("X-Auth-Token", footballDataToken);
+          }
+          proxyReq.setHeader("Content-Type", "application/json");
+        });
+      },
+    },
+  };
 
   return {
     server: {

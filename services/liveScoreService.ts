@@ -69,9 +69,7 @@ export const fetchExternalMatches = async (
 ): Promise<ExternalMatch[]> => {
   // Rota interna segura que oculta seu Token
   const params = new URLSearchParams();
-  if (competitionCode && competitionCode.toUpperCase() !== "WC") {
-    params.set("competition", competitionCode.toUpperCase());
-  }
+  params.set("competition", (competitionCode || "WC").toUpperCase());
   const internalApiUrl = `/api/matches${params.toString() ? "?" + params.toString() : ""}`;
 
   try {
@@ -139,9 +137,7 @@ export const fetchExternalStandings = async (
   season = "2026",
 ): Promise<ExternalStandingsResponse | null> => {
   const params = new URLSearchParams({ season });
-  if (competitionCode && competitionCode.toUpperCase() !== "WC") {
-    params.set("competition", competitionCode.toUpperCase());
-  }
+  params.set("competition", (competitionCode || "WC").toUpperCase());
   const internalApiUrl = `/api/standings?${params.toString()}`;
 
   try {

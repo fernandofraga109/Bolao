@@ -29,6 +29,7 @@ import { useDatabase } from "../contexts/DatabaseContext";
 import { seedDatabase } from "../services/seeder";
 import { syncTeamRankings } from "../api/sync-team-rankings";
 import { isSupabaseEnabled } from "../services/supabase";
+import type { CompetitionSyncStatus } from "../hooks/useMatchSystem";
 import ModalShell from "./ui/ModalShell";
 import UserIdentity from "./ui/UserIdentity";
 import DualActionButtons from "./ui/DualActionButtons";
@@ -53,6 +54,7 @@ interface AdminDashboardProps {
   isSyncing: boolean;
   isAutoSyncEnabled: boolean;
   toggleAutoSync: () => void;
+  syncStatusByCompetition: Record<string, CompetitionSyncStatus>;
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -67,6 +69,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   isSyncing,
   isAutoSyncEnabled,
   toggleAutoSync,
+  syncStatusByCompetition,
 }) => {
   const db = useDatabase(); // Access raw DB tables and config
 
@@ -110,6 +113,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     errors: string[];
   } | null>(null);
   const [showSyncRankingsModal, setShowSyncRankingsModal] = useState(false);
+
+  const formatRelativeSyncTime = (isoDate?: string) => {
+    if (!isoDate) return "nunca";
+    const diffMs = Date.now() - new Date(isoDate).getTime();
+    if (!Number.isFinite(diffMs) || diffMs < 0) return "agora";
+
+    const diffSeconds = Math.floor(diffMs / 1000);
+    if (diffSeconds < 60) return `ha ${diffSeconds}s`;
+
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    if (diffMinutes < 60) return `ha ${diffMinutes} min`;
+
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `ha ${diffHours} h`;
+
+    const diffDays = Math.floor(diffHours / 24);
+    return `ha ${diffDays} d`;
+  };
 
   // --- Actions ---
 
@@ -662,6 +683,58 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     A atualização consome cotas da API. Use "15 segundos" apenas
                     durante jogos importantes.
                   </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs text-slate-500 uppercase font-bold tracking-wider">
+                    Ultima sincronizacao por competicao
+                  </label>
+
+                  {Object.keys(syncStatusByCompetition).length === 0 ? (
+                    <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 text-[11px] text-slate-400">
+                      Nenhuma sincronizacao registrada ainda.
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                      {Object.values(syncStatusByCompetition)
+                        .sort((a, b) => {
+                          const aTime = a.lastAttemptAt
+                            ? new Date(a.lastAttemptAt).getTime()
+                            : 0;
+                          const bTime = b.lastAttemptAt
+                            ? new Date(b.lastAttemptAt).getTime()
+                            : 0;
+                          return bTime - aTime;
+                        })
+                        .map((status) => (
+                          <div
+                            key={status.competitionCode}
+                            className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-mono text-brand-green">
+                                {status.competitionCode}
+                              </span>
+                              <span
+                                className={`text-[10px] px-2 py-0.5 rounded-full border ${status.lastSuccess ? "text-green-300 bg-green-900/20 border-green-700/50" : "text-amber-300 bg-amber-900/20 border-amber-700/50"}`}
+                              >
+                                {status.lastSuccess ? "ok" : "atencao"}
+                              </span>
+                            </div>
+                            <div className="mt-1 text-[10px] text-slate-400">
+                              {status.lastSuccess
+                                ? `sincronizado ${formatRelativeSyncTime(status.lastSuccessAt)}`
+                                : `ultima tentativa ${formatRelativeSyncTime(status.lastAttemptAt)}`}
+                            </div>
+                            {status.lastMessage && (
+                              <p className="mt-1 text-[10px] text-slate-500 line-clamp-2">
+                                {status.lastMessage}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { Match, MatchStatus, Team, TeamDB } from "../types";
 import { Table2, GitMerge, RefreshCw } from "lucide-react";
 import { useDatabase } from "../contexts/DatabaseContext";
@@ -24,6 +24,32 @@ interface TeamStats {
   points: number;
 }
 
+const uniqueTeamStats = (rows: TeamStats[]): TeamStats[] => {
+  const byTeamKey = new Map<string, TeamStats>();
+
+  rows.forEach((row) => {
+    const key = (row.team.id || row.team.code || "").toLowerCase();
+    if (!key) return;
+
+    const current = byTeamKey.get(key);
+    if (!current) {
+      byTeamKey.set(key, row);
+      return;
+    }
+
+    const currentScore =
+      current.points * 1000 + current.gd * 100 + current.gf * 10 + current.played;
+    const nextScore =
+      row.points * 1000 + row.gd * 100 + row.gf * 10 + row.played;
+
+    if (nextScore > currentScore) {
+      byTeamKey.set(key, row);
+    }
+  });
+
+  return Array.from(byTeamKey.values());
+};
+
 const TournamentStandings: React.FC<TournamentStandingsProps> = ({
   matches,
   competitionCode = "WC",
@@ -42,6 +68,8 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
 
   const STANDINGS_SEASON = "2026";
   const STANDINGS_CACHE_TTL_MS = 15 * 60 * 1000;
+  const normalizeCompetition = (value?: string) =>
+    (value || "WC").toUpperCase();
 
   const normalizeGroupName = (groupName: string) => {
     const m = /^Group\s+([A-Z])$/i.exec(groupName.trim());
@@ -57,7 +85,7 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
         const groupName = normalizeGroupName(groupEntry.group || "Grupo");
         const rows = Array.isArray(groupEntry.table) ? groupEntry.table : [];
 
-        mapped[groupName] = rows.map((row) => {
+        const mappedRows = rows.map((row) => {
           const code = (row.team?.tla || "").toUpperCase();
           const existing = db.teams.find(
             (t) =>
@@ -84,6 +112,12 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
             points: row.points || 0,
           };
         });
+
+        mapped[groupName] = uniqueTeamStats(mappedRows).sort((a, b) => {
+          if (b.points !== a.points) return b.points - a.points;
+          if (b.gd !== a.gd) return b.gd - a.gd;
+          return b.gf - a.gf;
+        });
       });
 
       return mapped;
@@ -98,8 +132,8 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
     db.teams.forEach((team) => {
       if (!team.standingsGroup) return;
       if (
-        team.standingsCompetitionCode &&
-        team.standingsCompetitionCode.toUpperCase() !== competitionCode.toUpperCase()
+        normalizeCompetition(team.standingsCompetitionCode) !==
+        normalizeCompetition(competitionCode)
       ) {
         return;
       }
@@ -141,6 +175,8 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
         if (b.gd !== a.gd) return b.gd - a.gd;
         return b.gf - a.gf;
       });
+
+      grouped[groupName] = uniqueTeamStats(grouped[groupName]);
     });
 
     return grouped;
@@ -262,7 +298,8 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
         const groupsData = data.standings.filter(
           (entry) =>
             entry.type === "TOTAL" &&
-            typeof entry.group === "string" &&
+            (typeof entry.group === "string" ||
+              entry.stage == "REGULAR_SEASON") &&
             Array.isArray(entry.table),
         );
 
@@ -298,7 +335,7 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
                 ranking: existing?.ranking || 999,
                 pot: existing?.pot,
                 externalTeamId: row.team?.id,
-                standingsCompetitionCode: competitionCode,
+                standingsCompetitionCode: normalizeCompetition(competitionCode),
                 standingsSeason: STANDINGS_SEASON,
                 standingsStage: groupEntry.stage,
                 standingsType: groupEntry.type,
@@ -338,6 +375,13 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
     },
     [buildStandingsFromExternal, cachedStandings, competitionCode, db],
   );
+
+  useEffect(() => {
+    setApiStandings(null);
+    setStandingsSource("local");
+    setStandingsError(null);
+    void loadGroupStandings(true);
+  }, [competitionCode]);
 
   const resolvedStandings =
     apiStandings && Object.keys(apiStandings).length > 0
@@ -446,7 +490,7 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
                       <tbody className="divide-y divide-slate-700/50">
                         {teams.map((stats, index) => (
                           <tr
-                            key={stats.team.id}
+                            key={`${groupName}-${stats.team.id || stats.team.code}-${index}`}
                             className={`${index < 2 ? "bg-brand-green/5" : ""}`}
                           >
                             <td className="px-3 py-2">
