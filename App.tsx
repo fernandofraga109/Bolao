@@ -22,7 +22,7 @@ import AdminDashboard from "./components/AdminDashboard";
 import GroupSwitcher from "./components/GroupSwitcher";
 import TournamentStandings from "./components/TournamentStandings";
 import ModalShell from "./components/ui/ModalShell";
-import { DEFAULT_COMPETITION_CODE } from "./data/competitions";
+import { DEFAULT_COMPETITION_CODE, COMPETITION_OPTIONS, getCompetitionByCode } from "./data/competitions";
 import {
   ChevronsUpDown,
   ChevronDown,
@@ -139,6 +139,7 @@ const App: React.FC = () => {
     predictTournament,
     requestPasswordReset,
     updatePassword,
+    updateAvatar,
     adminActions,
   } = useUserSystem();
 
@@ -215,10 +216,33 @@ const App: React.FC = () => {
   const activeGroupIdForContext =
     currentUser?.activeGroupId || currentUser?.groupIds?.[0];
 
+  const adminActiveCompetitions = useMemo(() => {
+    const codes = Array.from(
+      new Set(
+        db.groups.map((g) =>
+          (g.competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase()
+        )
+      )
+    );
+    return codes.length > 0 ? codes : [DEFAULT_COMPETITION_CODE];
+  }, [db.groups]);
+
+  const [adminActiveCompetitionCode, setAdminActiveCompetitionCode] = useState<string>(adminActiveCompetitions[0]);
+
+  useEffect(() => {
+    if (!adminActiveCompetitions.includes(adminActiveCompetitionCode) && adminActiveCompetitions.length > 0) {
+      setAdminActiveCompetitionCode(adminActiveCompetitions[0]);
+    }
+  }, [adminActiveCompetitions, adminActiveCompetitionCode]);
+
   const activeCompetitionCode = (
-    db.groups.find((g) => g.id === activeGroupIdForContext)?.competitionCode ||
-    DEFAULT_COMPETITION_CODE
+    currentUser?.role === "ADMIN"
+    ? adminActiveCompetitionCode
+    : (db.groups.find((g) => g.id === activeGroupIdForContext)?.competitionCode ||
+    DEFAULT_COMPETITION_CODE)
   ).toUpperCase();
+
+  const canWriteCompetitionData = currentUser?.role === "ADMIN";
 
   const {
     matches,
@@ -231,7 +255,7 @@ const App: React.FC = () => {
     isAutoSyncEnabled,
     toggleAutoSync,
     adminControls,
-  } = useMatchSystem(activeCompetitionCode);
+  } = useMatchSystem(activeCompetitionCode, canWriteCompetitionData);
 
   const {
     groups,
@@ -258,12 +282,13 @@ const App: React.FC = () => {
     isError: false,
   });
 
-  const handleAdminSyncAll = async () => {
+  const handleAdminSyncCompetition = async (competitionCode: string) => {
+    if (!canWriteCompetitionData) return;
     if (isAdminSyncingAll) return;
 
     setIsAdminSyncingAll(true);
     try {
-      const result = await syncMatchesAndStandings();
+      const result = await syncMatchesAndStandings(competitionCode);
       setSyncFeedback({
         isOpen: true,
         title: result.success
@@ -278,6 +303,16 @@ const App: React.FC = () => {
   };
 
   const handleManualMatchesSync = async () => {
+    if (!canWriteCompetitionData) {
+      setSyncFeedback({
+        isOpen: true,
+        title: "Ação bloqueada",
+        message: "Somente administradores podem sincronizar dados no banco.",
+        isError: true,
+      });
+      return;
+    }
+
     const result = await syncWithExternalApi(activeCompetitionCode);
     setSyncFeedback({
       isOpen: true,
@@ -511,7 +546,11 @@ const App: React.FC = () => {
         normalizedCompetitionCode,
     );
 
-    const newGroup = createGroup(name, currentUser.id, normalizedCompetitionCode);
+    const newGroup = createGroup(
+      name,
+      currentUser.id,
+      normalizedCompetitionCode,
+    );
 
     if (options.joinCreator) {
       joinGroup(currentUser.id, newGroup.id);
@@ -552,9 +591,11 @@ const App: React.FC = () => {
       } else {
         joinGroup(currentUser.id, group.id);
       }
-      void syncMatchesAndStandings(
-        (group.competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase(),
-      );
+      if (canWriteCompetitionData) {
+        void syncMatchesAndStandings(
+          (group.competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase(),
+        );
+      }
       setGroupError(null);
       setIsGroupSwitcherOpen(false);
     } else {
@@ -570,55 +611,81 @@ const App: React.FC = () => {
       <Header
         currentUser={currentUser}
         onLogout={logout}
-        onSyncData={() => void handleAdminSyncAll()}
-        isSyncingData={isAdminSyncingAll || isSyncing}
+        onUpdateAvatar={updateAvatar}
       />
 
       {/* Group Info Bar OR Call to Action */}
-      <div className="max-w-2xl mx-auto px-4 mt-4">
-        <div
-          onClick={() => setIsGroupSwitcherOpen(true)}
-          className="bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 flex justify-between items-center text-xs cursor-pointer hover:bg-slate-700/80 hover:border-slate-600 transition-all group shadow-sm"
-        >
-          {currentGroup ? (
-            <>
-              <div className="flex items-center gap-3">
+      {activeTab !== "admin" && (
+        <div className="max-w-2xl mx-auto px-4 mt-4">
+          {currentUser.role === "ADMIN" ? (
+            <div className="bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 flex justify-between items-center text-xs shadow-sm relative">
+              <div className="flex items-center gap-3 w-full">
                 <span className="text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
-                  Grupo
+                  Competição
                 </span>
-                <div className="flex items-center gap-2">
-                  <strong className="text-white text-sm">
-                    {currentGroup.name}
-                  </strong>
-                  <ChevronsUpDown
-                    size={14}
-                    className="text-brand-green opacity-70 group-hover:opacity-100 transition-opacity"
-                  />
+                <div className="flex items-center gap-2 flex-1">
+                  <select
+                    value={adminActiveCompetitionCode}
+                    onChange={(e) => setAdminActiveCompetitionCode(e.target.value)}
+                    className="bg-transparent text-white text-sm font-bold focus:outline-none focus:ring-0 appearance-none cursor-pointer flex-1"
+                    style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
+                  >
+                    {adminActiveCompetitions.map(code => {
+                      const comp = getCompetitionByCode(code);
+                      return <option key={code} value={code} className="bg-slate-900">{comp.name}</option>
+                    })}
+                  </select>
+                  <ChevronsUpDown size={14} className="text-brand-green opacity-70 pointer-events-none" />
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-slate-500 font-mono bg-slate-900 px-2 py-1 rounded text-[10px] border border-slate-700/50">
-                  #{currentGroup.code}
-                </span>
-                <span className="text-brand-green font-mono bg-brand-green/10 px-2 py-1 rounded text-[10px] border border-brand-green/30">
-                  {(
-                    currentGroup.competitionCode || DEFAULT_COMPETITION_CODE
-                  ).toUpperCase()}
+              <div className="flex items-center gap-2 pl-4 border-l border-slate-700/50">
+                <span className="text-brand-green font-mono bg-brand-green/10 px-2 py-1 rounded text-[10px] border border-brand-green/30 pointer-events-none">
+                  {adminActiveCompetitionCode}
                 </span>
               </div>
-            </>
+            </div>
           ) : (
-            <div className="flex items-center gap-2 w-full justify-center text-brand-green py-1">
-              <PlusCircle size={16} />
-              <span className="font-bold">
-                {currentUser.role === "ADMIN"
-                  ? "Entrar ou Criar um Grupo"
-                  : "Entrar em um Grupo"}
-              </span>
+            <div
+              onClick={() => setIsGroupSwitcherOpen(true)}
+              className="bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 flex justify-between items-center text-xs cursor-pointer hover:bg-slate-700/80 hover:border-slate-600 transition-all group shadow-sm"
+            >
+              {currentGroup ? (
+                <>
+                  <div className="flex items-center gap-3">
+                    <span className="text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
+                      Grupo
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <strong className="text-white text-sm">
+                        {currentGroup.name}
+                      </strong>
+                      <ChevronsUpDown
+                        size={14}
+                        className="text-brand-green opacity-70 group-hover:opacity-100 transition-opacity"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500 font-mono bg-slate-900 px-2 py-1 rounded text-[10px] border border-slate-700/50">
+                      #{currentGroup.code}
+                    </span>
+                    <span className="text-brand-green font-mono bg-brand-green/10 px-2 py-1 rounded text-[10px] border border-brand-green/30">
+                      {(
+                        currentGroup.competitionCode || DEFAULT_COMPETITION_CODE
+                      ).toUpperCase()}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center gap-2 w-full justify-center text-brand-green py-1">
+                  <PlusCircle size={16} />
+                  <span className="font-bold">Entrar em um Grupo</span>
+                </div>
+              )}
             </div>
           )}
         </div>
-      </div>
+      )}
 
       {/* Group Switcher Modal */}
       {isGroupSwitcherOpen && (
@@ -628,11 +695,13 @@ const App: React.FC = () => {
           onSwitch={(id) => {
             switchGroup(currentUser.id, id);
             const nextGroup = getGroupById(id);
-            void syncMatchesAndStandings(
-              (
-                nextGroup?.competitionCode || DEFAULT_COMPETITION_CODE
-              ).toUpperCase(),
-            );
+            if (canWriteCompetitionData) {
+              void syncMatchesAndStandings(
+                (
+                  nextGroup?.competitionCode || DEFAULT_COMPETITION_CODE
+                ).toUpperCase(),
+              );
+            }
             setIsGroupSwitcherOpen(false);
           }}
           onCreate={handleCreateGroup}
@@ -657,10 +726,14 @@ const App: React.FC = () => {
                 </p>
                 <button
                   onClick={() => void handleManualMatchesSync()}
-                  disabled={isSyncing}
+                  disabled={isSyncing || !canWriteCompetitionData}
                   className="bg-brand-green hover:bg-emerald-400 text-slate-900 font-bold px-4 py-2 rounded-lg disabled:opacity-50"
                 >
-                  {isSyncing ? "Sincronizando..." : "Sincronizar jogos"}
+                  {!canWriteCompetitionData
+                    ? "Apenas admin sincroniza"
+                    : isSyncing
+                      ? "Sincronizando..."
+                      : "Sincronizar jogos"}
                 </button>
               </div>
             )}
@@ -741,6 +814,7 @@ const App: React.FC = () => {
           <TournamentStandings
             matches={matches}
             competitionCode={activeCompetitionCode}
+            canPersistToDatabase={canWriteCompetitionData}
           />
         )}
 
@@ -770,6 +844,7 @@ const App: React.FC = () => {
             isAutoSyncEnabled={isAutoSyncEnabled}
             toggleAutoSync={toggleAutoSync}
             syncStatusByCompetition={syncStatusByCompetition}
+            onManualSync={handleAdminSyncCompetition}
           />
         )}
       </main>

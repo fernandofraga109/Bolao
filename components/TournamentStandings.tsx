@@ -10,6 +10,7 @@ import {
 interface TournamentStandingsProps {
   matches: Match[];
   competitionCode?: string;
+  canPersistToDatabase?: boolean;
 }
 
 interface TeamStats {
@@ -38,7 +39,10 @@ const uniqueTeamStats = (rows: TeamStats[]): TeamStats[] => {
     }
 
     const currentScore =
-      current.points * 1000 + current.gd * 100 + current.gf * 10 + current.played;
+      current.points * 1000 +
+      current.gd * 100 +
+      current.gf * 10 +
+      current.played;
     const nextScore =
       row.points * 1000 + row.gd * 100 + row.gf * 10 + row.played;
 
@@ -53,6 +57,7 @@ const uniqueTeamStats = (rows: TeamStats[]): TeamStats[] => {
 const TournamentStandings: React.FC<TournamentStandingsProps> = ({
   matches,
   competitionCode = "WC",
+  canPersistToDatabase = false,
 }) => {
   const db = useDatabase();
   const [view, setView] = useState<"groups" | "knockout">("groups");
@@ -67,7 +72,6 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
   >("local");
 
   const STANDINGS_SEASON = "2026";
-  const STANDINGS_CACHE_TTL_MS = 15 * 60 * 1000;
   const normalizeCompetition = (value?: string) =>
     (value || "WC").toUpperCase();
 
@@ -140,12 +144,9 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
       if (team.standingsSeason && team.standingsSeason !== STANDINGS_SEASON)
         return;
 
-      if (team.standingsUpdatedAt) {
-        const ageMs = now - new Date(team.standingsUpdatedAt).getTime();
-        if (!Number.isFinite(ageMs) || ageMs > STANDINGS_CACHE_TTL_MS) return;
-      } else {
-        return;
-      }
+      // Removida a verificação de TTL (tempo de expiração). 
+      // Se os dados existem no banco para este time, confiamos neles como a fonte da verdade da tabela.
+      if (!team.standingsUpdatedAt) return;
 
       const groupName = normalizeGroupName(team.standingsGroup);
       if (!grouped[groupName]) grouped[groupName] = [];
@@ -279,6 +280,17 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
     async (forceRefresh = false) => {
       setStandingsError(null);
 
+      if (!canPersistToDatabase) {
+        if (cachedStandings) {
+          setApiStandings(cachedStandings);
+          setStandingsSource("cache");
+        } else {
+          setApiStandings(null);
+          setStandingsSource("local");
+        }
+        return;
+      }
+
       if (!forceRefresh && cachedStandings) {
         setApiStandings(cachedStandings);
         setStandingsSource("cache");
@@ -313,55 +325,8 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
 
         const updatedAt = new Date().toISOString();
 
-        // Persisting standings cache is best-effort only; UI should keep working even with strict RLS.
-        try {
-          for (const groupEntry of groupsData) {
-            for (const row of groupEntry.table) {
-              const code = (row.team?.tla || "").toUpperCase();
-              if (!code) continue;
-
-              const existing = db.teams.find(
-                (t) =>
-                  t.code.toUpperCase() === code ||
-                  (typeof row.team?.id === "number" &&
-                    t.externalTeamId === row.team.id),
-              );
-
-              const payload: TeamDB = {
-                id: existing?.id || crypto.randomUUID(),
-                name: row.team?.name || existing?.name || code,
-                code,
-                flag: row.team?.crest || existing?.flag || "/favicon.ico",
-                ranking: existing?.ranking || 999,
-                pot: existing?.pot,
-                externalTeamId: row.team?.id,
-                standingsCompetitionCode: normalizeCompetition(competitionCode),
-                standingsSeason: STANDINGS_SEASON,
-                standingsStage: groupEntry.stage,
-                standingsType: groupEntry.type,
-                standingsGroup: normalizeGroupName(groupEntry.group),
-                standingsPosition: row.position,
-                standingsPlayedGames: row.playedGames,
-                standingsForm: row.form,
-                standingsWon: row.won,
-                standingsDraw: row.draw,
-                standingsLost: row.lost,
-                standingsPoints: row.points,
-                standingsGoalsFor: row.goalsFor,
-                standingsGoalsAgainst: row.goalsAgainst,
-                standingsGoalDifference: row.goalDifference,
-                standingsUpdatedAt: updatedAt,
-              };
-
-              await db.upsertTeam(payload);
-            }
-          }
-        } catch (cacheError) {
-          console.warn(
-            "Standings carregados, mas sem permissão para salvar cache em teams:",
-            cacheError,
-          );
-        }
+        // Removed automatic persisting to database on view to prevent API spam.
+        // Persistence should only happen via explicit admin 'Sync' actions using useMatchSystem.
       } catch (error: any) {
         console.error("Erro ao carregar standings:", error);
         setStandingsError(error?.message || "Falha ao carregar standings.");
@@ -373,30 +338,69 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
         setIsLoadingStandings(false);
       }
     },
-    [buildStandingsFromExternal, cachedStandings, competitionCode, db],
+    [
+      buildStandingsFromExternal,
+      cachedStandings,
+      canPersistToDatabase,
+      competitionCode,
+      db,
+    ],
   );
 
   useEffect(() => {
     setApiStandings(null);
     setStandingsSource("local");
     setStandingsError(null);
-    void loadGroupStandings(true);
   }, [competitionCode]);
 
   const resolvedStandings =
     apiStandings && Object.keys(apiStandings).length > 0
       ? apiStandings
-      : standings;
+      : cachedStandings && Object.keys(cachedStandings).length > 0
+        ? cachedStandings
+        : standings;
+
+  const isRegularSeason = useMemo(() => {
+    const leagueCodes = ["PL", "PD", "SA", "BL1", "FL1", "BSA"];
+    if (leagueCodes.includes(competitionCode.toUpperCase())) return true;
+
+    const keys = Object.keys(resolvedStandings);
+    if (keys.length === 0) return false;
+    return keys.length === 1 && (keys[0] === "Temporada Regular" || keys[0] === "Classificacao Geral");
+  }, [resolvedStandings, competitionCode]);
+
+  const lastUpdated = useMemo(() => {
+    let latest: Date | null = null;
+    db.teams.forEach((t) => {
+      if (normalizeCompetition(t.standingsCompetitionCode) === normalizeCompetition(competitionCode)) {
+        if (t.standingsUpdatedAt) {
+          const d = new Date(t.standingsUpdatedAt);
+          if (!latest || d > latest) latest = d;
+        }
+      }
+    });
+    return latest ? latest.toLocaleString("pt-BR") : null;
+  }, [db.teams, competitionCode]);
+
+  // Se for temporada regular, garantimos a visualização de grupos (tabela)
+  useEffect(() => {
+    if (isRegularSeason && view !== "groups") {
+      setView("groups");
+    }
+  }, [isRegularSeason, view]);
 
   return (
     <div className="w-full max-w-2xl mx-auto pb-6">
       <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 rounded-2xl mb-6 shadow-lg text-center text-white">
         <h2 className="text-2xl font-bold mb-1">Tabela da Competição</h2>
-        <p className="opacity-90 text-sm">Acompanhe os grupos e o mata-mata</p>
+        <p className="opacity-90 text-sm">
+          {isRegularSeason ? "Acompanhe a classificação" : "Acompanhe os grupos e o mata-mata"}
+        </p>
       </div>
 
       {/* Toggle View */}
-      <div className="flex bg-slate-800 p-1 rounded-xl mb-6 border border-slate-700">
+      {!isRegularSeason && (
+        <div className="flex bg-slate-800 p-1 rounded-xl mb-6 border border-slate-700">
         <button
           onClick={() => setView("groups")}
           className={`flex-1 py-2 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${
@@ -420,6 +424,7 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
           Mata-Mata
         </button>
       </div>
+      )}
 
       {/* Groups View */}
       {view === "groups" && (
@@ -433,17 +438,33 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
                   ? "cache teams"
                   : "cálculo local"}
             </span>
-            <button
-              onClick={() => void loadGroupStandings(true)}
-              disabled={isLoadingStandings}
-              className="text-xs bg-slate-800 border border-slate-700 hover:border-slate-600 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg text-slate-300 flex items-center gap-2 disabled:opacity-60"
-            >
-              <RefreshCw
-                size={12}
-                className={isLoadingStandings ? "animate-spin" : ""}
-              />
-              Atualizar Tabela
-            </button>
+            {canPersistToDatabase ? (
+              <div className="flex items-center gap-2">
+                {lastUpdated && (
+                  <span className="text-[10px] text-slate-500 mr-2">
+                    Atualizado: {lastUpdated}
+                  </span>
+                )}
+                <button
+                  onClick={() => void loadGroupStandings(true)}
+                  disabled={isLoadingStandings}
+                  className="text-xs bg-slate-800 border border-slate-700 hover:border-slate-600 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg text-slate-300 flex items-center gap-2 disabled:opacity-60"
+                >
+                  <RefreshCw
+                    size={12}
+                    className={isLoadingStandings ? "animate-spin" : ""}
+                  />
+                  Atualizar Tabela
+                </button>
+              </div>
+            ) : (
+              <span className="text-[10px] text-slate-500 flex flex-col items-end">
+                <span>Somente admin atualiza standings</span>
+                {lastUpdated && (
+                  <span className="opacity-70 mt-0.5">Última atualização: {lastUpdated}</span>
+                )}
+              </span>
+            )}
           </div>
 
           {standingsError && (

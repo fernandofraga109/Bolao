@@ -575,6 +575,12 @@ export const useUserSystem = () => {
     };
   };
 
+  const updateAvatar = async (newAvatarUrl: string) => {
+    if (!currentUser) return { success: false, message: "Usuário não autenticado." };
+    await db.updateUser(currentUser.id, { avatar: newAvatarUrl });
+    return { success: true };
+  };
+
   // --- Admin Actions ---
   const inviteUser = (email: string) => console.log("Inviting", email);
   const updateUserRole = (userId: string, newRole: UserRole) =>
@@ -620,6 +626,7 @@ export const useUserSystem = () => {
     predictTournament,
     requestPasswordReset,
     updatePassword,
+    updateAvatar,
     adminActions: {
       inviteUser,
       updateUserRole,

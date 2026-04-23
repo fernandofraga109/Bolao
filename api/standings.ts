@@ -30,7 +30,7 @@ export default async function handler(req: Request) {
   try {
     console.log(`[PROXY] Consultando standings: ${targetUrl}`);
 
-    const response = await fetch(targetUrl, {
+    let response = await fetch(targetUrl, {
       method: "GET",
       headers: {
         "X-Auth-Token": API_TOKEN,
@@ -38,13 +38,40 @@ export default async function handler(req: Request) {
       },
     });
 
+    if (response.status === 404) {
+      console.log(`[PROXY] 404 com season=${season}. Tentando sem season para ${competitionCode}...`);
+      const fallbackUrl = `${BASE_URL}/competitions/${competitionCode}/standings`;
+      response = await fetch(fallbackUrl, {
+        method: "GET",
+        headers: {
+          "X-Auth-Token": API_TOKEN,
+          "Content-Type": "application/json",
+        },
+      });
+    }
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error(
-        "[PROXY] Erro da API Football-Data (standings):",
+      console.warn(
+        "[PROXY] Aviso da API Football-Data (standings):",
         response.status,
         errorData,
       );
+
+      // Se for 404 ou 403, retornamos sucesso com array vazio para não quebrar o frontend
+      if (response.status === 404 || response.status === 403) {
+        return new Response(
+          JSON.stringify({
+            standings: [],
+            message: "Tabela não disponível ou acesso restrito pela API externa.",
+            isFallback: true
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
 
       return new Response(
         JSON.stringify({

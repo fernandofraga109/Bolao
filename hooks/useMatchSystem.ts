@@ -25,7 +25,10 @@ export interface CompetitionSyncStatus {
 
 const SYNC_STATUS_STORAGE_KEY = "bolao_sync_status_by_competition";
 
-export const useMatchSystem = (activeCompetitionCode: string = "WC") => {
+export const useMatchSystem = (
+  activeCompetitionCode: string = "WC",
+  canWriteData: boolean = false,
+) => {
   const db = useDatabase();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatusByCompetition, setSyncStatusByCompetition] = useState<
@@ -52,7 +55,9 @@ export const useMatchSystem = (activeCompetitionCode: string = "WC") => {
     ) => {
       const normalizedCode = normalizeCompetitionCode(competitionCode);
       setSyncStatusByCompetition((prev) => {
-        const current = prev[normalizedCode] || { competitionCode: normalizedCode };
+        const current = prev[normalizedCode] || {
+          competitionCode: normalizedCode,
+        };
         return {
           ...prev,
           [normalizedCode]: {
@@ -162,7 +167,17 @@ export const useMatchSystem = (activeCompetitionCode: string = "WC") => {
   // --- SYNC EXTERNAL API ---
   const syncWithExternalApi = useCallback(
     async (competitionCode = activeCompetitionCode) => {
-      const normalizedCompetitionCode = normalizeCompetitionCode(competitionCode);
+      const normalizedCompetitionCode =
+        normalizeCompetitionCode(competitionCode);
+
+      if (!canWriteData) {
+        return {
+          success: false,
+          message:
+            "Somente administradores podem sincronizar e persistir dados no banco.",
+        };
+      }
+
       // Prevent multiple overlapping calls
       if (isSyncingRef.current) {
         updateSyncStatus(normalizedCompetitionCode, {
@@ -432,7 +447,7 @@ export const useMatchSystem = (activeCompetitionCode: string = "WC") => {
         };
       }
     },
-    [activeCompetitionCode, updateSyncStatus],
+    [activeCompetitionCode, canWriteData, updateSyncStatus],
   );
 
   const normalizeGroupName = useCallback((groupName: string) => {
@@ -443,7 +458,17 @@ export const useMatchSystem = (activeCompetitionCode: string = "WC") => {
 
   const syncStandingsWithExternalApi = useCallback(
     async (competitionCode = activeCompetitionCode) => {
-      const normalizedCompetitionCode = normalizeCompetitionCode(competitionCode);
+      const normalizedCompetitionCode =
+        normalizeCompetitionCode(competitionCode);
+
+      if (!canWriteData) {
+        return {
+          success: false,
+          message:
+            "Somente administradores podem sincronizar e persistir dados no banco.",
+        };
+      }
+
       updateSyncStatus(normalizedCompetitionCode, {
         lastOperation: "standings",
         lastAttemptAt: new Date().toISOString(),
@@ -465,9 +490,7 @@ export const useMatchSystem = (activeCompetitionCode: string = "WC") => {
         }
 
         const groupsData = data.standings.filter(
-          (entry) =>
-            entry.type === "TOTAL" &&
-            Array.isArray(entry.table),
+          (entry) => entry.type === "TOTAL" && Array.isArray(entry.table),
         );
 
         if (groupsData.length === 0) {
@@ -559,21 +582,41 @@ export const useMatchSystem = (activeCompetitionCode: string = "WC") => {
         };
       }
     },
-    [activeCompetitionCode, normalizeGroupName, updateSyncStatus],
+    [activeCompetitionCode, canWriteData, normalizeGroupName, updateSyncStatus],
   );
 
   const syncMatchesAndStandings = useCallback(
     async (competitionCode = activeCompetitionCode) => {
-      const normalizedCompetitionCode = normalizeCompetitionCode(competitionCode);
+      const normalizedCompetitionCode =
+        normalizeCompetitionCode(competitionCode);
       const runStartedAt = new Date().toISOString();
+
+      if (!canWriteData) {
+        return {
+          success: false,
+          message:
+            "Somente administradores podem sincronizar e persistir dados no banco.",
+          matchesResult: {
+            success: false,
+            message:
+              "Operacao bloqueada para usuario sem permissao de escrita.",
+          },
+          standingsResult: {
+            success: false,
+            message:
+              "Operacao bloqueada para usuario sem permissao de escrita.",
+          },
+        };
+      }
 
       const standingsResult = await syncStandingsWithExternalApi(
         normalizedCompetitionCode,
       );
-      const matchesResult = await syncWithExternalApi(normalizedCompetitionCode);
+      const matchesResult = await syncWithExternalApi(
+        normalizedCompetitionCode,
+      );
 
-      const combinedSuccess =
-        matchesResult.success || standingsResult.success;
+      const combinedSuccess = matchesResult.success || standingsResult.success;
       const combinedMessage = `Jogos: ${matchesResult.message} | Tabela: ${standingsResult.message}`;
 
       updateSyncStatus(normalizedCompetitionCode, {
@@ -594,6 +637,7 @@ export const useMatchSystem = (activeCompetitionCode: string = "WC") => {
     },
     [
       activeCompetitionCode,
+      canWriteData,
       syncStandingsWithExternalApi,
       syncWithExternalApi,
       updateSyncStatus,
@@ -604,7 +648,7 @@ export const useMatchSystem = (activeCompetitionCode: string = "WC") => {
   useEffect(() => {
     let intervalId: any;
 
-    if (isAutoSyncEnabled) {
+    if (canWriteData && isAutoSyncEnabled) {
       console.log(
         `🔄 Auto-Sync ATIVO via Banco de Dados. Intervalo: ${syncInterval}ms`,
       );
@@ -624,15 +668,17 @@ export const useMatchSystem = (activeCompetitionCode: string = "WC") => {
     };
   }, [
     activeCompetitionCode,
+    canWriteData,
     isAutoSyncEnabled,
     syncInterval,
     syncWithExternalApi,
   ]);
 
   const toggleAutoSync = useCallback(() => {
+    if (!canWriteData) return;
     // Now toggles DB Value
     db.updateSystemConfig({ is_auto_sync_enabled: !isAutoSyncEnabled });
-  }, [db, isAutoSyncEnabled]);
+  }, [canWriteData, db, isAutoSyncEnabled]);
 
   // --- ADMIN LIVE CONTROLS ---
 

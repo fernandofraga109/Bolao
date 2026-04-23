@@ -297,28 +297,6 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         });
       }
 
-      if (Array.isArray(profilesRes.data)) {
-        (profilesRes.data as ProfileRow[]).forEach((row) => {
-          const current = usersById.get(row.id);
-          const profileUser = mapProfileToUser(row);
-          usersById.set(
-            row.id,
-            current
-              ? {
-                  ...profileUser,
-                  ...current,
-                  activeGroupId:
-                    current.activeGroupId || profileUser.activeGroupId,
-                  totalPoints:
-                    (current.totalPoints || 0) > 0
-                      ? current.totalPoints
-                      : profileUser.totalPoints,
-                }
-              : profileUser,
-          );
-        });
-      }
-
       if (Array.isArray(legacyUsersRes.data)) {
         (legacyUsersRes.data as LegacyUserRow[]).forEach((row) => {
           const current = usersById.get(row.id);

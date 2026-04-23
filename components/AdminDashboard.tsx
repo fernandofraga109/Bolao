@@ -55,6 +55,7 @@ interface AdminDashboardProps {
   isAutoSyncEnabled: boolean;
   toggleAutoSync: () => void;
   syncStatusByCompetition: Record<string, CompetitionSyncStatus>;
+  onManualSync?: (competitionCode: string) => Promise<void>;
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -70,6 +71,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   isAutoSyncEnabled,
   toggleAutoSync,
   syncStatusByCompetition,
+  onManualSync,
 }) => {
   const db = useDatabase(); // Access raw DB tables and config
 
@@ -86,6 +88,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // UI States
   const [showSyncMenu, setShowSyncMenu] = useState(false);
+  const [syncingCompetitionCode, setSyncingCompetitionCode] = useState<string | null>(null);
+
+  const activeCompetitions = React.useMemo(() => {
+    const codes = Array.from(
+      new Set(
+        groups.map((g) =>
+          (g.competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase(),
+        ),
+      ),
+    );
+    return codes.length > 0 ? codes : [DEFAULT_COMPETITION_CODE];
+  }, [groups]);
+
+  const handleTriggerManualSync = async (code: string) => {
+    if (!onManualSync) return;
+    setSyncingCompetitionCode(code);
+    await onManualSync(code);
+    setSyncingCompetitionCode(null);
+  };
 
   // Delete Modal States
   const [groupToDelete, setGroupToDelete] = useState<Group | null>(null);
@@ -582,26 +603,83 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const renderMainView = () => (
     <div className="space-y-8 pb-10">
-      {/* HEADER */}
-      <div className="flex justify-between items-start">
-        <div className="bg-gradient-to-r from-red-900 to-slate-900 p-6 rounded-xl border border-red-500/30 shadow-lg flex items-center gap-4 flex-1">
-          <div className="bg-red-600 p-3 rounded-full text-white shadow-lg shadow-red-600/20">
-            <Shield size={32} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white">Painel do Mestre</h1>
-            <p className="text-red-200 text-sm">Gerenciamento total do bolão</p>
+      {/* HEADER & SYNC PANEL */}
+      <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl overflow-hidden relative">
+        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-brand-green/5 rounded-full blur-3xl pointer-events-none"></div>
+        
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+          <div className="flex items-center gap-4">
+            <div className="bg-slate-900 p-3 rounded-xl border border-slate-700 text-brand-green shadow-inner">
+              <Shield size={28} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-white tracking-tight">Painel de Administração</h1>
+              <p className="text-slate-400 text-sm">Controle total do sistema e sincronização</p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* GLOBAL ACTIONS BAR */}
-      <div className="flex flex-wrap justify-end gap-3 items-center">
-        {/* SYNC WIDGET (Unified) */}
-        <div className="relative z-20">
-          <button
-            onClick={() => setShowSyncMenu(!showSyncMenu)}
-            className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border transition-all ${
+      {/* COMPETITIONS SYNC PANEL */}
+      <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
+        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+          <Zap className="text-brand-green" />
+          Sincronização de Competições
+        </h2>
+        <div className="flex flex-col gap-3">
+          {activeCompetitions.map(code => {
+            const comp = getCompetitionByCode(code);
+            const status = syncStatusByCompetition[code];
+            const isThisSyncing = syncingCompetitionCode === code || isSyncing;
+            return (
+              <div key={code} className="bg-slate-900 border border-slate-700 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:border-slate-500 transition-all shadow-sm gap-4">
+                <div className="flex items-center gap-4">
+                  <img
+                    src={comp.emblem}
+                    alt={comp.name}
+                    className="w-10 h-10 rounded-full border border-slate-700"
+                  />
+                  <div className="flex flex-col">
+                    <h3 className="font-bold text-white text-sm">{comp.name}</h3>
+                    <span className="text-[10px] font-mono text-brand-green bg-brand-green/10 px-1.5 py-0.5 rounded border border-brand-green/20 w-fit mt-0.5">{code}</span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                  <div className="text-[10px] text-slate-400 bg-slate-800 px-3 py-1.5 rounded-lg flex flex-col border border-slate-700/50 min-w-[140px]">
+                    <span className="uppercase font-bold tracking-wider mb-0.5">Última Atualização</span>
+                    <span className={`font-medium ${status?.lastSuccess ? "text-green-400" : "text-amber-400"}`}>
+                      {status?.lastSuccessAt ? formatRelativeSyncTime(status.lastSuccessAt) : "Nunca"}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => handleTriggerManualSync(code)}
+                    disabled={isThisSyncing}
+                    className="bg-brand-green hover:bg-emerald-400 text-slate-900 px-4 py-2 rounded-lg font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm shadow-md shadow-brand-green/10 shrink-0"
+                    title={`Sincronizar ${comp.name}`}
+                  >
+                    {isThisSyncing ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
+                    <span className="hidden sm:inline">Sincronizar</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ADVANCED SETTINGS BAR */}
+      <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex items-center gap-3 px-2">
+           <Settings size={18} className="text-slate-400" />
+           <h3 className="text-slate-300 font-bold text-sm">Configurações de Sistema</h3>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* SYNC WIDGET (Unified) */}
+          <div className="relative z-20">
+            <button
+              onClick={() => setShowSyncMenu(!showSyncMenu)}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg border transition-all ${
               isAutoSyncEnabled
                 ? "bg-slate-800 border-green-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
                 : "bg-slate-800 border-slate-700 hover:border-slate-600"
@@ -741,14 +819,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           )}
         </div>
 
-        {/* DB Inspector Button */}
-        <button
-          onClick={() => setActiveView("db_inspector")}
-          className={`flex items-center gap-2 border px-4 py-2.5 rounded-lg font-bold text-sm transition-all shadow-lg ${isSupabaseEnabled() ? "bg-slate-800 hover:bg-slate-700 text-brand-green border-brand-green/30" : "bg-red-900/20 border-red-500/50 text-red-300"}`}
-        >
-          <Database size={16} />
-          {isSupabaseEnabled() ? "Banco de Dados" : "Configurar BD"}
-        </button>
+          {/* DB Inspector Button */}
+          <button
+            onClick={() => setActiveView("db_inspector")}
+            className={`flex items-center gap-2 border px-3 py-2 rounded-lg font-bold text-xs transition-all shadow-sm ${isSupabaseEnabled() ? "bg-slate-800 hover:bg-slate-700 text-brand-green border-brand-green/30" : "bg-red-900/20 border-red-500/50 text-red-300"}`}
+          >
+            <Database size={14} />
+            {isSupabaseEnabled() ? "Banco de Dados" : "Configurar BD"}
+          </button>
+        </div>
       </div>
 
       {/* GROUPS MANAGEMENT */}
@@ -783,18 +862,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </option>
               ))}
             </select>
-            <div className="mt-2 flex items-center gap-2 text-xs text-slate-300">
-              <img
-                src={getCompetitionByCode(newGroupCompetitionCode).emblem}
-                alt={getCompetitionByCode(newGroupCompetitionCode).name}
-                className="w-5 h-5 rounded-sm border border-slate-600"
-                loading="lazy"
-              />
-              <span>
-                {getCompetitionByCode(newGroupCompetitionCode).name} (
-                {newGroupCompetitionCode})
-              </span>
-            </div>
           </div>
           <button
             onClick={handleCreateGroup}
