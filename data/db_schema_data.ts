@@ -1,4 +1,3 @@
-
 /**
  * ARQUIVO MESTRE DE BANCO DE DADOS
  * --------------------------------
@@ -6,7 +5,7 @@
  * 1. LIMPAR o banco existente (DROP TABLES) para corrigir erros de schema.
  * 2. Criar a estrutura das tabelas (Schema).
  * 3. Popular o banco com TODOS os dados estáticos e de exemplo do projeto.
- * 
+ *
  * INSTRUÇÕES:
  * 1. Copie todo o conteúdo dentro da string `FULL_DB_SQL` (entre as crases).
  * 2. Vá no Supabase -> SQL Editor.
@@ -23,8 +22,9 @@ DROP TABLE IF EXISTS public.tournament_predictions CASCADE;
 DROP TABLE IF EXISTS public.predictions CASCADE;
 DROP TABLE IF EXISTS public.matches CASCADE;
 DROP TABLE IF EXISTS public.user_groups CASCADE;
+DROP TABLE IF EXISTS public.user_roles CASCADE;
 DROP TABLE IF EXISTS public.groups CASCADE;
-DROP TABLE IF EXISTS public.users CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE;
 DROP TABLE IF EXISTS public.stadiums CASCADE;
 DROP TABLE IF EXISTS public.teams CASCADE;
 
@@ -40,7 +40,23 @@ CREATE TABLE IF NOT EXISTS public.teams (
     code text NOT NULL,
     flag text NOT NULL,
     ranking integer,
-    pot integer
+    pot integer,
+    "externalTeamId" integer,
+    "standingsSeason" text,
+    "standingsStage" text,
+    "standingsType" text,
+    "standingsGroup" text,
+    "standingsPosition" integer,
+    "standingsPlayedGames" integer,
+    "standingsForm" text,
+    "standingsWon" integer,
+    "standingsDraw" integer,
+    "standingsLost" integer,
+    "standingsPoints" integer,
+    "standingsGoalsFor" integer,
+    "standingsGoalsAgainst" integer,
+    "standingsGoalDifference" integer,
+    "standingsUpdatedAt" text
 );
 
 -- 2. TABELA STADIUMS
@@ -52,38 +68,42 @@ CREATE TABLE IF NOT EXISTS public.stadiums (
     capacity integer
 );
 
--- 3. TABELA USERS
-CREATE TABLE IF NOT EXISTS public.users (
-    id text NOT NULL PRIMARY KEY,
+-- 3. TABELA PROFILES
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     name text NOT NULL,
     email text NOT NULL,
-    password text,
     avatar text,
-    role text DEFAULT 'USER',
-    status text DEFAULT 'ACTIVE',
+    status text DEFAULT 'ACTIVE', -- Aspas para camelCase
     "activeGroupId" text, -- Aspas para camelCase
     "totalPoints" integer DEFAULT 0 -- Aspas para camelCase
 );
 
--- 4. TABELA GROUPS
+-- 4. TABELA USER_ROLES
+CREATE TABLE IF NOT EXISTS public.user_roles (
+    "userId" uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    role text DEFAULT 'USER'
+);
+
+-- 5. TABELA GROUPS
 CREATE TABLE IF NOT EXISTS public.groups (
     id text NOT NULL PRIMARY KEY,
     name text NOT NULL,
     code text NOT NULL,
-    "adminId" text NOT NULL, -- Aspas para camelCase
+    "adminId" uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE, -- Aspas para camelCase
     "createdAt" text -- Aspas para camelCase
 );
 
--- 5. TABELA USER_GROUPS (Relação Usuário <-> Grupo)
+-- 6. TABELA USER_GROUPS (Relação Usuário <-> Grupo)
 CREATE TABLE IF NOT EXISTS public.user_groups (
-    "userId" text NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    "userId" uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     "groupId" text NOT NULL REFERENCES public.groups(id) ON DELETE CASCADE,
     "joinedAt" text,
     role text DEFAULT 'MEMBER',
     PRIMARY KEY ("userId", "groupId")
 );
 
--- 6. TABELA MATCHES
+-- 7. TABELA MATCHES
 CREATE TABLE IF NOT EXISTS public.matches (
     id text NOT NULL PRIMARY KEY,
     "homeTeamId" text NOT NULL REFERENCES public.teams(id),
@@ -96,9 +116,9 @@ CREATE TABLE IF NOT EXISTS public.matches (
     "resultAway" integer
 );
 
--- 7. TABELA PREDICTIONS (Palpites dos Jogos)
+-- 8. TABELA PREDICTIONS (Palpites dos Jogos)
 CREATE TABLE IF NOT EXISTS public.predictions (
-    "userId" text NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    "userId" uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     "matchId" text NOT NULL REFERENCES public.matches(id) ON DELETE CASCADE,
     "homeScore" integer NOT NULL,
     "awayScore" integer NOT NULL,
@@ -106,10 +126,10 @@ CREATE TABLE IF NOT EXISTS public.predictions (
     PRIMARY KEY ("userId", "matchId")
 );
 
--- 8. TABELA TOURNAMENT_PREDICTIONS (Palpites Campeão/Artilheiro)
+-- 9. TABELA TOURNAMENT_PREDICTIONS (Palpites Campeão/Artilheiro)
 -- IMPORTANTE: Aspas duplas forçam case-sensitivity, essencial para corresponder ao JSON do frontend
 CREATE TABLE IF NOT EXISTS public.tournament_predictions (
-    "userId" text NOT NULL PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+    "userId" uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     "championTeamId" text,
     "topScorerPlayer" text,
     "topScorerGoals" integer,
@@ -120,7 +140,8 @@ CREATE TABLE IF NOT EXISTS public.tournament_predictions (
 -- Row Level Security (Básico)
 ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stadiums ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.matches ENABLE ROW LEVEL SECURITY;
@@ -136,8 +157,11 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'stadiums' AND policyname = 'Public Access Stadiums') THEN
         CREATE POLICY "Public Access Stadiums" ON public.stadiums FOR ALL USING (true);
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'users' AND policyname = 'Public Access Users') THEN
-        CREATE POLICY "Public Access Users" ON public.users FOR ALL USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'Public Access Profiles') THEN
+        CREATE POLICY "Public Access Profiles" ON public.profiles FOR ALL USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'user_roles' AND policyname = 'Public Access UserRoles') THEN
+        CREATE POLICY "Public Access UserRoles" ON public.user_roles FOR ALL USING (true);
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'groups' AND policyname = 'Public Access Groups') THEN
         CREATE POLICY "Public Access Groups" ON public.groups FOR ALL USING (true);
@@ -162,7 +186,8 @@ END $$;
 -- ====================================================================
 -- Adiciona as tabelas à publicação padrão do Supabase para que o app receba atualizações ao vivo.
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.users;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.user_roles;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.groups;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.user_groups;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.matches;
@@ -286,43 +311,52 @@ INSERT INTO public.matches (id, "homeTeamId", "awayTeamId", date, "group", "stad
 ('m66', 'uru', 'esp', '2026-06-26T18:00:00', 'Grupo H', 'akron', 'SCHEDULED', NULL, NULL)
 ON CONFLICT (id) DO NOTHING;
 
--- 4. USERS
-INSERT INTO public.users (id, name, email, password, avatar, role, status, "activeGroupId", "totalPoints") VALUES
-('master_admin', 'Mestre da Copa', 'admin', 'Copa2026@LLED', 'https://ui-avatars.com/api/?name=Admin&background=000&color=fff', 'ADMIN', 'ACTIVE', NULL, 0),
-('me', 'Usuário Demo', 'demo@gmail.com', '123', 'https://ui-avatars.com/api/?name=Demo&background=10b981&color=fff', 'USER', 'ACTIVE', NULL, 0),
-('f1', 'Carlos Silva', 'carlos@gmail.com', '123', 'https://picsum.photos/seed/carlos/50/50', 'USER', 'ACTIVE', 'g1', 0),
-('f2', 'Ana Souza', 'ana@gmail.com', '123', 'https://picsum.photos/seed/ana/50/50', 'USER', 'ACTIVE', 'g1', 0),
-('f3', 'Pedro Rocha', 'pedro@gmail.com', '123', 'https://picsum.photos/seed/pedro/50/50', 'USER', 'ACTIVE', 'g1', 0)
+-- 4. PROFILES
+INSERT INTO public.profiles (id, name, email, avatar, status, "activeGroupId", "totalPoints") VALUES
+('11111111-1111-4111-8111-111111111111', 'Mestre da Copa', 'admin', 'https://ui-avatars.com/api/?name=Admin&background=000&color=fff', 'ACTIVE', NULL, 0),
+('22222222-2222-4222-8222-222222222222', 'Usuário Demo', 'demo@gmail.com', 'https://ui-avatars.com/api/?name=Demo&background=10b981&color=fff', 'ACTIVE', NULL, 0),
+('33333333-3333-4333-8333-333333333333', 'Carlos Silva', 'carlos@gmail.com', 'https://picsum.photos/seed/carlos/50/50', 'ACTIVE', 'g1', 0),
+('44444444-4444-4444-8444-444444444444', 'Ana Souza', 'ana@gmail.com', 'https://picsum.photos/seed/ana/50/50', 'ACTIVE', 'g1', 0),
+('55555555-5555-4555-8555-555555555555', 'Pedro Rocha', 'pedro@gmail.com', 'https://picsum.photos/seed/pedro/50/50', 'ACTIVE', 'g1', 0)
 ON CONFLICT (id) DO NOTHING;
 
+-- 4.b USER_ROLES
+INSERT INTO public.user_roles ("userId", role) VALUES
+('11111111-1111-4111-8111-111111111111', 'ADMIN'),
+('22222222-2222-4222-8222-222222222222', 'USER'),
+('33333333-3333-4333-8333-333333333333', 'USER'),
+('44444444-4444-4444-8444-444444444444', 'USER'),
+('55555555-5555-4555-8555-555555555555', 'USER')
+ON CONFLICT ("userId") DO NOTHING;
+
 -- 5. GROUPS
-INSERT INTO public.groups (id, name, code, "adminId", "createdAt") VALUES
-('g1', 'Amigos da Firma', 'ABCDE12345', 'master_admin', '2025-01-01T10:00:00'),
-('g2', 'Família Silva', 'FAMIL12345', 'master_admin', '2025-01-02T10:00:00')
+INSERT INTO public.groups (id, name, code, "adminId", "createdAt", "competitionCode") VALUES
+('g1', 'Amigos da Firma', 'ABCDE12345', '11111111-1111-4111-8111-111111111111', '2025-01-01T10:00:00', 'WC'),
+('g2', 'Família Silva', 'FAMIL12345', '11111111-1111-4111-8111-111111111111', '2025-01-02T10:00:00', 'WC')
 ON CONFLICT (id) DO NOTHING;
 
 -- 6. USER_GROUPS
 INSERT INTO public.user_groups ("userId", "groupId", "joinedAt", role) VALUES
-('master_admin', 'g1', '2025-01-01T10:00:00', 'ADMIN'),
-('master_admin', 'g2', '2025-01-01T10:00:00', 'ADMIN'),
-('f1', 'g1', '2025-01-01T12:00:00', 'MEMBER'),
-('f1', 'g2', '2025-01-02T12:00:00', 'MEMBER'),
-('f2', 'g1', '2025-01-01T14:00:00', 'MEMBER'),
-('f3', 'g1', '2025-01-01T15:00:00', 'MEMBER')
+('11111111-1111-4111-8111-111111111111', 'g1', '2025-01-01T10:00:00', 'ADMIN'),
+('11111111-1111-4111-8111-111111111111', 'g2', '2025-01-01T10:00:00', 'ADMIN'),
+('33333333-3333-4333-8333-333333333333', 'g1', '2025-01-01T12:00:00', 'MEMBER'),
+('33333333-3333-4333-8333-333333333333', 'g2', '2025-01-02T12:00:00', 'MEMBER'),
+('44444444-4444-4444-8444-444444444444', 'g1', '2025-01-01T14:00:00', 'MEMBER'),
+('55555555-5555-4555-8555-555555555555', 'g1', '2025-01-01T15:00:00', 'MEMBER')
 ON CONFLICT ("userId", "groupId") DO NOTHING;
 
 -- 7. PREDICTIONS
 INSERT INTO public.predictions ("userId", "matchId", "homeScore", "awayScore", timestamp) VALUES
-('f1', 'm1', 2, 1, '2025-01-01T12:00:00'),
-('f2', 'm1', 3, 1, '2025-01-01T14:00:00'),
-('f3', 'm1', 0, 1, '2025-01-01T15:00:00')
+('33333333-3333-4333-8333-333333333333', 'm1', 2, 1, '2025-01-01T12:00:00'),
+('44444444-4444-4444-8444-444444444444', 'm1', 3, 1, '2025-01-01T14:00:00'),
+('55555555-5555-4555-8555-555555555555', 'm1', 0, 1, '2025-01-01T15:00:00')
 ON CONFLICT ("userId", "matchId") DO NOTHING;
 
 -- 8. TOURNAMENT_PREDICTIONS
 INSERT INTO public.tournament_predictions ("userId", "championTeamId", "topScorerPlayer", "topScorerGoals", "bestPlayer", "bestGoalkeeper") VALUES
-('f1', 'bra', 'Vinicius Jr', 7, 'Neymar', 'Alisson'),
-('f2', 'fra', 'Mbappé', 8, 'Mbappé', 'Maignan'),
-('f3', 'eng', 'Kane', 6, 'Bellingham', 'Pickford')
+('33333333-3333-4333-8333-333333333333', 'bra', 'Vinicius Jr', 7, 'Neymar', 'Alisson'),
+('44444444-4444-4444-8444-444444444444', 'fra', 'Mbappé', 8, 'Mbappé', 'Maignan'),
+('55555555-5555-4555-8555-555555555555', 'eng', 'Kane', 6, 'Bellingham', 'Pickford')
 ON CONFLICT ("userId") DO NOTHING;
 
 `;

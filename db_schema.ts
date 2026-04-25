@@ -1,10 +1,9 @@
-
 /**
  * INSTRUÇÕES:
  * 1. Copie o conteúdo da string `SUPABASE_SCHEMA_SQL` (apenas o texto SQL dentro das crases).
  * 2. Vá para o painel do Supabase -> SQL Editor.
  * 3. Cole e execute (Run).
- * 
+ *
  * NOTA: As colunas estão entre aspas duplas (ex: "homeTeamId") para preservar o camelCase
  * e corresponder exatamente às interfaces do TypeScript do seu frontend.
  */
@@ -16,8 +15,9 @@ DROP TABLE IF EXISTS public.tournament_predictions CASCADE;
 DROP TABLE IF EXISTS public.predictions CASCADE;
 DROP TABLE IF EXISTS public.matches CASCADE;
 DROP TABLE IF EXISTS public.user_groups CASCADE;
+DROP TABLE IF EXISTS public.user_roles CASCADE;
 DROP TABLE IF EXISTS public.groups CASCADE;
-DROP TABLE IF EXISTS public.users CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE;
 DROP TABLE IF EXISTS public.stadiums CASCADE;
 DROP TABLE IF EXISTS public.teams CASCADE;
 
@@ -28,7 +28,23 @@ CREATE TABLE IF NOT EXISTS public.teams (
     code text NOT NULL,
     flag text NOT NULL,
     ranking integer,
-    pot integer
+    pot integer,
+    "externalTeamId" integer,
+    "standingsSeason" text,
+    "standingsStage" text,
+    "standingsType" text,
+    "standingsGroup" text,
+    "standingsPosition" integer,
+    "standingsPlayedGames" integer,
+    "standingsForm" text,
+    "standingsWon" integer,
+    "standingsDraw" integer,
+    "standingsLost" integer,
+    "standingsPoints" integer,
+    "standingsGoalsFor" integer,
+    "standingsGoalsAgainst" integer,
+    "standingsGoalDifference" integer,
+    "standingsUpdatedAt" text
 );
 
 -- 2. TABELA STADIUMS
@@ -40,53 +56,59 @@ CREATE TABLE IF NOT EXISTS public.stadiums (
     capacity integer
 );
 
--- 3. TABELA USERS
-CREATE TABLE IF NOT EXISTS public.users (
-    id text NOT NULL PRIMARY KEY,
+-- 3. TABELA PROFILES
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     name text NOT NULL,
     email text NOT NULL,
-    password text,
     avatar text,
-    role text DEFAULT 'USER',
     status text DEFAULT 'ACTIVE',
     "activeGroupId" text,
     "totalPoints" integer DEFAULT 0
 );
 
--- 4. TABELA GROUPS
+-- 4. TABELA USER_ROLES
+CREATE TABLE IF NOT EXISTS public.user_roles (
+    "userId" uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    role text NOT NULL DEFAULT 'USER'
+);
+
+-- 5. TABELA GROUPS
 CREATE TABLE IF NOT EXISTS public.groups (
     id text NOT NULL PRIMARY KEY,
     name text NOT NULL,
     code text NOT NULL,
-    "adminId" text NOT NULL,
-    "createdAt" text
+    "adminId" uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    "createdAt" text,
+    "competitionCode" text DEFAULT 'WC' -- e.g., 'WC' (Copa do Mundo), 'PL' (Premier League), 'BSA' (Campeonato Brasileiro)
 );
 
--- 5. TABELA USER_GROUPS (Relação Usuário <-> Grupo)
+-- 6. TABELA USER_GROUPS (Relação Usuário <-> Grupo)
 CREATE TABLE IF NOT EXISTS public.user_groups (
-    "userId" text NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    "userId" uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     "groupId" text NOT NULL REFERENCES public.groups(id) ON DELETE CASCADE,
     "joinedAt" text,
     role text DEFAULT 'MEMBER',
     PRIMARY KEY ("userId", "groupId")
 );
 
--- 6. TABELA MATCHES
+-- 7. TABELA MATCHES
 CREATE TABLE IF NOT EXISTS public.matches (
     id text NOT NULL PRIMARY KEY,
     "homeTeamId" text NOT NULL REFERENCES public.teams(id),
     "awayTeamId" text NOT NULL REFERENCES public.teams(id),
     date text NOT NULL,
     "group" text NOT NULL, -- "group" é palavra reservada em SQL, aspas são essenciais
+    "competitionCode" text DEFAULT 'WC',
     "stadiumId" text, -- Pode ser null se não definido
     status text NOT NULL,
     "resultHome" integer,
     "resultAway" integer
 );
 
--- 7. TABELA PREDICTIONS (Palpites dos Jogos)
+-- 8. TABELA PREDICTIONS (Palpites dos Jogos)
 CREATE TABLE IF NOT EXISTS public.predictions (
-    "userId" text NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    "userId" uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     "matchId" text NOT NULL REFERENCES public.matches(id) ON DELETE CASCADE,
     "homeScore" integer NOT NULL,
     "awayScore" integer NOT NULL,
@@ -94,9 +116,9 @@ CREATE TABLE IF NOT EXISTS public.predictions (
     PRIMARY KEY ("userId", "matchId")
 );
 
--- 8. TABELA TOURNAMENT_PREDICTIONS (Palpites Campeão/Artilheiro)
+-- 9. TABELA TOURNAMENT_PREDICTIONS (Palpites Campeão/Artilheiro)
 CREATE TABLE IF NOT EXISTS public.tournament_predictions (
-    "userId" text NOT NULL PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+    "userId" uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     "championTeamId" text,
     "topScorerPlayer" text,
     "topScorerGoals" integer,
@@ -107,7 +129,8 @@ CREATE TABLE IF NOT EXISTS public.tournament_predictions (
 -- Habilitar Row Level Security (Opcional, mas recomendado para produção)
 ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stadiums ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.matches ENABLE ROW LEVEL SECURITY;
@@ -118,7 +141,8 @@ ALTER TABLE public.tournament_predictions ENABLE ROW LEVEL SECURITY;
 -- IMPORTANTE: Em produção, você deve restringir quem pode editar o quê.
 CREATE POLICY "Public Read Teams" ON public.teams FOR SELECT USING (true);
 CREATE POLICY "Public Read Stadiums" ON public.stadiums FOR SELECT USING (true);
-CREATE POLICY "Public Access Users" ON public.users FOR ALL USING (true);
+CREATE POLICY "Public Access Profiles" ON public.profiles FOR ALL USING (true);
+CREATE POLICY "Public Access UserRoles" ON public.user_roles FOR ALL USING (true);
 CREATE POLICY "Public Access Groups" ON public.groups FOR ALL USING (true);
 CREATE POLICY "Public Access UserGroups" ON public.user_groups FOR ALL USING (true);
 CREATE POLICY "Public Read Matches" ON public.matches FOR SELECT USING (true);

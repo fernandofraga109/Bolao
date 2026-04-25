@@ -1,33 +1,42 @@
-
-import { useDatabase } from '../contexts/DatabaseContext';
-import { Group } from '../types';
+import { useDatabase } from "../contexts/DatabaseContext";
+import { Group } from "../types";
+import { DEFAULT_COMPETITION_CODE } from "../data/competitions";
 
 export const useGroupSystem = () => {
   const db = useDatabase();
 
   const generateGroupCode = () => {
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const numbers = '0123456789';
-    let codeLetters = '';
-    for (let i = 0; i < 5; i++) codeLetters += letters.charAt(Math.floor(Math.random() * letters.length));
-    let codeNumbers = '';
-    for (let i = 0; i < 5; i++) codeNumbers += numbers.charAt(Math.floor(Math.random() * numbers.length));
+    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const numbers = "0123456789";
+    let codeLetters = "";
+    for (let i = 0; i < 5; i++)
+      codeLetters += letters.charAt(Math.floor(Math.random() * letters.length));
+    let codeNumbers = "";
+    for (let i = 0; i < 5; i++)
+      codeNumbers += numbers.charAt(Math.floor(Math.random() * numbers.length));
     return codeLetters + codeNumbers;
   };
 
-  const createGroup = (name: string, adminId: string): Group => {
+  const createGroup = (
+    name: string,
+    adminId: string,
+    competitionCode: string = DEFAULT_COMPETITION_CODE,
+  ): Group => {
     let code = generateGroupCode();
     // Ensure uniqueness
-    while (db.groups.some(g => g.code === code)) {
-        code = generateGroupCode();
+    while (db.groups.some((g) => g.code === code)) {
+      code = generateGroupCode();
     }
 
     const newGroup: Group = {
-      id: `g_${Date.now()}`,
+      id: crypto.randomUUID(),
       name,
       code,
       adminId,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      competitionCode: (
+        competitionCode || DEFAULT_COMPETITION_CODE
+      ).toUpperCase(),
     };
 
     db.addGroup(newGroup);
@@ -40,15 +49,24 @@ export const useGroupSystem = () => {
   };
 
   const getGroupByCode = (code: string): Group | undefined => {
-    return db.groups.find(g => g.code.toUpperCase() === code.toUpperCase());
+    return db.groups.find((g) => g.code.toUpperCase() === code.toUpperCase());
   };
 
   const getGroupById = (id: string): Group | undefined => {
-    return db.groups.find(g => g.id === id);
+    return db.groups.find((g) => g.id === id);
   };
 
   const getGroupsByIds = (ids: string[]): Group[] => {
-      return db.groups.filter(g => ids.includes(g.id));
+    const uniqueIdSet = new Set(ids);
+    const uniqueGroups = new Map<string, Group>();
+
+    db.groups.forEach((group) => {
+      if (uniqueIdSet.has(group.id) && !uniqueGroups.has(group.id)) {
+        uniqueGroups.set(group.id, group);
+      }
+    });
+
+    return Array.from(uniqueGroups.values());
   };
 
   return {
@@ -57,6 +75,6 @@ export const useGroupSystem = () => {
     deleteGroup,
     getGroupByCode,
     getGroupById,
-    getGroupsByIds
+    getGroupsByIds,
   };
 };

@@ -1,39 +1,36 @@
-
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 
 /**
  * CONFIGURAÇÃO DO SUPABASE (PROTEGIDA)
  * -----------------------------------
  * Não deixamos mais as chaves expostas no código-fonte.
  * Elas agora são lidas das variáveis de ambiente do Vite.
- * 
+ *
  * NO DESENVOLVIMENTO LOCAL:
  * Crie um arquivo chamado ".env" na raiz do projeto e adicione:
  * VITE_SUPABASE_URL=sua_url_aqui
  * VITE_SUPABASE_ANON_KEY=sua_chave_anon_aqui
- * 
+ *
  * NA VERCEL:
  * Adicione essas mesmas chaves em Settings > Environment Variables.
  */
 
-// Fix: Use process.env instead of import.meta.env to resolve Property 'env' does not exist on type 'ImportMeta' errors
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || '';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
 // Verificação de configuração
-const isConfigured = 
-    SUPABASE_URL.startsWith('https://') && 
-    SUPABASE_ANON_KEY.length > 20;
+const isConfigured =
+  SUPABASE_URL.startsWith("https://") && SUPABASE_ANON_KEY.length > 20;
 
-if (!isConfigured && typeof window !== 'undefined') {
+if (!isConfigured && typeof window !== "undefined") {
   console.warn(
     "⚠️ Supabase: URL ou Anon Key não configuradas.\n" +
-    "Certifique-se de definir VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no seu ambiente."
+      "Certifique-se de definir VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no seu ambiente.",
   );
 }
 
-export const supabase = isConfigured 
-  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
+export const supabase = isConfigured
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;
 
 /**

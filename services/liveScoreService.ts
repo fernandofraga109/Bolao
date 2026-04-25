@@ -1,5 +1,4 @@
-
-import { Match, MatchStatus } from '../types';
+import { Match, MatchStatus, CompetitionDB } from "../types";
 
 /**
  * SERVIÇO DE PLACARES AO VIVO (SEGURO)
@@ -9,55 +8,238 @@ export interface ExternalMatch {
   id: number;
   utcDate: string;
   status: string;
-  homeTeam: { name: string; tla: string; } | null;
-  awayTeam: { name: string; tla: string; } | null;
+  group?: string | null;
+  stage?: string;
+  homeTeam: {
+    id: number;
+    name: string;
+    shortName?: string;
+    tla: string;
+    crest?: string;
+  } | null;
+  awayTeam: {
+    id: number;
+    name: string;
+    shortName?: string;
+    tla: string;
+    crest?: string;
+  } | null;
   score?: {
-    fullTime?: { home: number; away: number; };
+    fullTime?: { home: number; away: number };
   };
 }
 
-export const fetchExternalMatches = async (): Promise<ExternalMatch[]> => {
+export interface ExternalStandingTeam {
+  id: number;
+  name: string;
+  shortName?: string;
+  tla: string;
+  crest?: string;
+}
+
+export interface ExternalStandingRow {
+  position: number;
+  team: ExternalStandingTeam;
+  playedGames: number;
+  form: string | null;
+  won: number;
+  draw: number;
+  lost: number;
+  points: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+}
+
+export interface ExternalStandingGroup {
+  stage: string;
+  type: string;
+  group: string;
+  table: ExternalStandingRow[];
+}
+
+export interface ExternalStandingsResponse {
+  filters?: { season?: string };
+  competition?: { id?: number; code?: string; name?: string };
+  standings: ExternalStandingGroup[];
+}
+
+export const fetchExternalMatches = async (
+  competitionCode = "WC",
+): Promise<ExternalMatch[]> => {
   // Rota interna segura que oculta seu Token
-  const internalApiUrl = '/api/matches';
-  
+  const params = new URLSearchParams();
+  params.set("competition", (competitionCode || "WC").toUpperCase());
+  const internalApiUrl = `/api/matches${params.toString() ? "?" + params.toString() : ""}`;
+
   try {
     const response = await fetch(internalApiUrl);
-    
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        
-        // Se der 404, explicamos que pode ser ausência de dados para 2026
-        if (response.status === 404) {
-            console.warn("[LIVE SCORE] A API da Football-Data ainda não possui jogos para a Copa de 2026.");
-        } else {
-            console.error(`[LIVE SCORE] Erro no Proxy (${response.status}):`, errorData.message || errorData.error);
-        }
-        return [];
+    const contentType = response.headers.get("content-type") || "";
+
+    let payload: any = {};
+    if (contentType.includes("application/json")) {
+      payload = await response.json().catch(() => ({}));
+    } else {
+      const raw = await response.text().catch(() => "");
+      console.error(
+        "[LIVE SCORE] /api/matches retornou conteúdo não-JSON.",
+        raw.slice(0, 200),
+      );
+      return [];
     }
 
-    const data = await response.json();
+    if (!response.ok) {
+      const errorData = payload || {};
+
+      if (response.status === 429) {
+        const retryHeader = response.headers.get("retry-after");
+        const waitFromHeader = retryHeader ? Number(retryHeader) : NaN;
+        const waitFromMessage = Number(
+          (errorData.message || "").match(/(\d+)\s*seconds?/i)?.[1] || NaN,
+        );
+        const waitSeconds =
+          Number.isFinite(waitFromHeader) && waitFromHeader > 0
+            ? waitFromHeader
+            : Number.isFinite(waitFromMessage) && waitFromMessage > 0
+              ? waitFromMessage
+              : 30;
+
+        throw new Error(`RATE_LIMIT_${waitSeconds}`);
+      }
+
+      // Se der 404, explicamos que pode ser ausência de dados para 2026
+      if (response.status === 404) {
+        console.warn(
+          "[LIVE SCORE] A API da Football-Data ainda não possui jogos para a Copa de 2026.",
+        );
+      } else {
+        console.error(
+          `[LIVE SCORE] Erro no Proxy (${response.status}):`,
+          errorData.message || errorData.error,
+        );
+      }
+      return [];
+    }
+
+    const data = payload;
     return data.matches || [];
   } catch (error) {
-    console.error("[LIVE SCORE] Falha na comunicação com o servidor local/Vercel:", error);
+    console.error(
+      "[LIVE SCORE] Falha na comunicação com o servidor local/Vercel:",
+      error,
+    );
+    return [];
+  }
+};
+
+export const fetchExternalStandings = async (
+  competitionCode = "WC",
+  season = "2026",
+): Promise<ExternalStandingsResponse | null> => {
+  const params = new URLSearchParams({ season });
+  params.set("competition", (competitionCode || "WC").toUpperCase());
+  const internalApiUrl = `/api/standings?${params.toString()}`;
+
+  try {
+    const response = await fetch(internalApiUrl);
+    const contentType = response.headers.get("content-type") || "";
+
+    let payload: any = {};
+    if (contentType.includes("application/json")) {
+      payload = await response.json().catch(() => ({}));
+    } else {
+      const raw = await response.text().catch(() => "");
+      console.error(
+        "[LIVE SCORE] /api/standings retornou conteúdo não-JSON.",
+        raw.slice(0, 200),
+      );
+      return null;
+    }
+
+    if (!response.ok) {
+      const errorData = payload || {};
+      console.error(
+        `[LIVE SCORE] Erro no Proxy Standings (${response.status}):`,
+        errorData.message || errorData.error,
+      );
+      return null;
+    }
+
+    if (!Array.isArray(payload.standings)) {
+      return null;
+    }
+
+    return payload as ExternalStandingsResponse;
+  } catch (error) {
+    console.error(
+      "[LIVE SCORE] Falha na comunicação com /api/standings:",
+      error,
+    );
+    return null;
+  }
+};
+
+// --- COMPETITIONS ---
+
+export interface ExternalCompetition {
+  id: number;
+  code: string;
+  name: string;
+  emblem?: string;
+  type?: string; // "LEAGUE" | "CUP"
+  lastUpdated?: string;
+}
+
+export const fetchExternalCompetitions = async (): Promise<CompetitionDB[]> => {
+  try {
+    const response = await fetch("/api/competitions");
+    const contentType = response.headers.get("content-type") || "";
+
+    if (!contentType.includes("application/json")) {
+      console.error("[COMPETITIONS] Resposta não-JSON do proxy.");
+      return [];
+    }
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      console.error(`[COMPETITIONS] Erro (${response.status}):`, payload.message || payload.error);
+      return [];
+    }
+
+    const competitions: ExternalCompetition[] = payload.competitions || [];
+
+    return competitions.map((c) => ({
+      code: c.code,
+      name: c.name,
+      emblem: c.emblem || undefined,
+      type: c.type || undefined,
+      lastUpdated: c.lastUpdated || new Date().toISOString(),
+    }));
+  } catch (error) {
+    console.error("[COMPETITIONS] Falha ao buscar competições:", error);
     return [];
   }
 };
 
 export const mapExternalStatusToInternal = (status: string): MatchStatus => {
-    if (['IN_PLAY', 'PAUSED'].includes(status)) return MatchStatus.LIVE;
-    if (['FINISHED', 'AWARDED'].includes(status)) return MatchStatus.FINISHED;
-    return MatchStatus.SCHEDULED;
+  if (["IN_PLAY", "PAUSED"].includes(status)) return MatchStatus.LIVE;
+  if (["FINISHED", "AWARDED"].includes(status)) return MatchStatus.FINISHED;
+  return MatchStatus.SCHEDULED;
 };
 
-export const findInternalMatch = (externalMatch: ExternalMatch, internalMatches: Match[]): Match | undefined => {
-    if (!externalMatch.homeTeam || !externalMatch.awayTeam) return undefined;
-    
-    const homeCode = externalMatch.homeTeam.tla;
-    const awayCode = externalMatch.awayTeam.tla;
-    
-    if (!homeCode || !awayCode) return undefined;
+export const findInternalMatch = (
+  externalMatch: ExternalMatch,
+  internalMatches: Match[],
+): Match | undefined => {
+  if (!externalMatch.homeTeam || !externalMatch.awayTeam) return undefined;
 
-    return internalMatches.find(m => {
-        return (m.homeTeam.code === homeCode && m.awayTeam.code === awayCode);
-    });
+  const homeCode = externalMatch.homeTeam.tla;
+  const awayCode = externalMatch.awayTeam.tla;
+
+  if (!homeCode || !awayCode) return undefined;
+
+  return internalMatches.find((m) => {
+    return m.homeTeam.code === homeCode && m.awayTeam.code === awayCode;
+  });
 };

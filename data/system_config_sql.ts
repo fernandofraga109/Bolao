@@ -1,4 +1,3 @@
-
 /**
  * EXECUTE ESTE SCRIPT NO SUPABASE SQL EDITOR
  * Para criar a tabela de configurações globais do sistema.
@@ -7,7 +6,7 @@
 export const SYSTEM_CONFIG_SQL = `
 -- Tabela para configurações globais (Singleton)
 CREATE TABLE IF NOT EXISTS public.system_config (
-    id text NOT NULL PRIMARY KEY DEFAULT 'GLOBAL',
+    id uuid NOT NULL PRIMARY KEY,
     is_auto_sync_enabled boolean DEFAULT false,
     sync_interval_ms integer DEFAULT 60000
 );
@@ -28,6 +27,6 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.system_config;
 
 -- Inserir configuração padrão inicial (se não existir)
 INSERT INTO public.system_config (id, is_auto_sync_enabled, sync_interval_ms)
-VALUES ('GLOBAL', false, 60000)
+VALUES ('00000000-0000-0000-0000-000000000001'::uuid, false, 60000)
 ON CONFLICT (id) DO NOTHING;
 `;
