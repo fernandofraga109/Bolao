@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { Match, MatchStatus, Team, TeamDB } from "../types";
-import { Table2, GitMerge, RefreshCw } from "lucide-react";
+import { Table2, GitMerge, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { useDatabase } from "../contexts/DatabaseContext";
 import {
   ExternalStandingGroup,
@@ -351,7 +351,16 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
     setApiStandings(null);
     setStandingsSource("local");
     setStandingsError(null);
-  }, [competitionCode]);
+    
+    // Automatically trigger load when competition changes
+    void loadGroupStandings();
+  }, [competitionCode, loadGroupStandings]);
+
+  const KNOCKOUT_STAGE_PATTERNS = /^(LAST_16|LAST_32|ROUND_OF_16|ROUND_OF_32|QUARTER_FINAL|SEMI_FINAL|FINAL|THIRD_PLACE|PLAY_OFF)/i;
+
+  const isKnockoutGroupName = (name: string) => {
+    return KNOCKOUT_STAGE_PATTERNS.test(name.replace(/\s+/g, "_"));
+  };
 
   const resolvedStandings =
     apiStandings && Object.keys(apiStandings).length > 0
@@ -360,14 +369,71 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
         ? cachedStandings
         : standings;
 
+  // Split standings into group-phase and knockout-phase for correct tab rendering
+  const groupStageStandings = useMemo(() => {
+    const filtered: Record<string, TeamStats[]> = {};
+    Object.entries(resolvedStandings).forEach(([key, val]) => {
+      if (!isKnockoutGroupName(key)) filtered[key] = val;
+    });
+    return filtered;
+  }, [resolvedStandings]);
+
+  const knockoutMatches = useMemo(() => {
+    return matches
+      .filter((m) => isKnockoutGroupName(m.group))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [matches]);
+
+  const groupedKnockoutMatches = useMemo(() => {
+    const groups: Record<string, Match[]> = {};
+    knockoutMatches.forEach((m) => {
+      const gName = m.group || "Eliminatórias";
+      if (!groups[gName]) groups[gName] = [];
+      groups[gName].push(m);
+    });
+    return groups;
+  }, [knockoutMatches]);
+
+  const [openKnockoutGroups, setOpenKnockoutGroups] = useState<Record<string, boolean>>({});
+
+  const toggleKnockoutGroup = (groupName: string) => {
+    setOpenKnockoutGroups(prev => ({
+      ...prev,
+      [groupName]: !prev[groupName]
+    }));
+  };
+
+  useEffect(() => {
+    // Open the latest stage by default
+    const keys = Object.keys(groupedKnockoutMatches);
+    if (keys.length > 0) {
+      setOpenKnockoutGroups(prev => {
+        const next = { ...prev };
+        keys.forEach(k => {
+          if (next[k] === undefined) next[k] = true;
+        });
+        return next;
+      });
+    }
+  }, [groupedKnockoutMatches]);
+
   const isRegularSeason = useMemo(() => {
+    // Check db.competitions for type info (dynamic, from API)
+    const dbComp = db.competitions.find(
+      (c) => c.code.toUpperCase() === competitionCode.toUpperCase()
+    );
+    if (dbComp?.type) {
+      return dbComp.type === "LEAGUE";
+    }
+
+    // Fallback: hardcoded list for when catalog hasn't been synced yet
     const leagueCodes = ["PL", "PD", "SA", "BL1", "FL1", "BSA"];
     if (leagueCodes.includes(competitionCode.toUpperCase())) return true;
 
     const keys = Object.keys(resolvedStandings);
     if (keys.length === 0) return false;
     return keys.length === 1 && (keys[0] === "Temporada Regular" || keys[0] === "Classificacao Geral");
-  }, [resolvedStandings, competitionCode]);
+  }, [resolvedStandings, competitionCode, db.competitions]);
 
   const lastUpdated = useMemo(() => {
     let latest: Date | null = null;
@@ -473,12 +539,12 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
             </div>
           )}
 
-          {Object.keys(resolvedStandings).length === 0 ? (
+          {Object.keys(groupStageStandings).length === 0 ? (
             <div className="text-center text-slate-500 py-10">
               <p>Nenhum jogo cadastrado ainda.</p>
             </div>
           ) : (
-            (Object.entries(resolvedStandings) as [string, TeamStats[]][]).map(
+            (Object.entries(groupStageStandings) as [string, TeamStats[]][]).map(
               ([groupName, teams]) => (
                 <div
                   key={groupName}
@@ -559,100 +625,87 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
         </div>
       )}
 
-      {/* Knockout View - Updated for 2026 Format */}
+      {/* Knockout View - Fully Dynamic */}
       {view === "knockout" && (
-        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 text-center">
-          <h3 className="text-white font-bold mb-4 flex items-center justify-center gap-2">
-            <GitMerge size={20} className="text-brand-green" />
-            Caminho para a Glória
-          </h3>
+        <div className="space-y-4">
+          {Object.keys(groupedKnockoutMatches).length > 0 ? (
+            Object.entries(groupedKnockoutMatches).map(([groupName, stageMatches]) => {
+              const isOpen = openKnockoutGroups[groupName] ?? true;
+              return (
+                <div key={groupName} className="space-y-3">
+                  <button
+                    onClick={() => toggleKnockoutGroup(groupName)}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-1.5 bg-brand-green/10 rounded-lg text-brand-green">
+                        <GitMerge size={16} />
+                      </div>
+                      <h3 className="text-white font-bold text-sm uppercase tracking-wider">
+                        {groupName.replace(/_/g, " ")}
+                      </h3>
+                    </div>
+                    {isOpen ? <ChevronUp size={18} className="text-slate-500" /> : <ChevronDown size={18} className="text-slate-500" />}
+                  </button>
 
-          <div className="flex flex-col gap-5 relative">
-            {/* NOVIDADE: 16-avos de Final */}
-            <div className="space-y-2 relative">
-              <div className="absolute -left-2 top-1/2 -translate-y-1/2 -rotate-90 text-[9px] font-bold text-brand-green tracking-widest whitespace-nowrap hidden sm:block opacity-50">
-                NOVIDADE 2026
+                  {isOpen && (
+                    <div className="grid gap-3 animate-fadeIn">
+                      {stageMatches.map((match) => (
+                        <div 
+                          key={match.id} 
+                          className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 flex items-center justify-between shadow-sm"
+                        >
+                          <div className="flex-1 flex flex-col gap-1">
+                            <div className="flex items-center gap-3">
+                              {match.homeTeam.flag && <img src={match.homeTeam.flag} alt="" className="w-5 h-5 object-contain" />}
+                              <span className="text-sm font-bold text-white">{match.homeTeam.code}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col items-center px-4 min-w-[100px]">
+                            {match.status === MatchStatus.FINISHED ? (
+                              <div className="flex items-center gap-3">
+                                <span className="text-xl font-black text-white">{match.result?.home}</span>
+                                <span className="text-slate-600 font-bold">x</span>
+                                <span className="text-xl font-black text-white">{match.result?.away}</span>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center">
+                                <span className="text-[10px] text-slate-500 uppercase mb-1">
+                                  {new Date(match.date).toLocaleDateString("pt-BR", { day: '2-digit', month: '2-digit' })}
+                                </span>
+                                <span className="text-sm font-black text-brand-green">
+                                  {new Date(match.date).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex-1 flex flex-col items-end gap-1">
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-bold text-white">{match.awayTeam.code}</span>
+                              {match.awayTeam.flag && <img src={match.awayTeam.flag} alt="" className="w-5 h-5 object-contain" />}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-center py-12 bg-slate-800/30 rounded-2xl border-2 border-dashed border-slate-800">
+              <div className="inline-flex p-3 bg-slate-800 rounded-full text-slate-600 mb-3">
+                <GitMerge size={24} />
               </div>
-              <p className="text-xs uppercase text-brand-green font-bold mb-2 tracking-wide">
-                16-avos de Final (32 Times)
-              </p>
-              <BracketPair t1="1º Grupo A" t2="3º Grupo C/D/E" />
-              <BracketPair t1="2º Grupo B" t2="2º Grupo F" />
-              <div className="text-[10px] text-slate-500 py-1.5 bg-slate-900/30 rounded border border-slate-700/50 mx-auto max-w-xs italic">
-                + 14 jogos eliminatórios
-              </div>
+              <p className="text-slate-500 text-sm font-medium">Nenhuma partida eliminatória encontrada para esta competição.</p>
             </div>
-
-            <div className="flex justify-center text-slate-600">
-              <div className="h-4 w-0.5 bg-slate-700"></div>
-            </div>
-
-            {/* Oitavas */}
-            <div className="space-y-2">
-              <p className="text-xs uppercase text-slate-500 font-bold mb-2">
-                Oitavas de Final
-              </p>
-              <BracketPair t1="Vencedor Jogo 1" t2="Vencedor Jogo 2" />
-            </div>
-
-            <div className="flex justify-center text-slate-600">
-              <div className="h-4 w-0.5 bg-slate-700"></div>
-            </div>
-
-            {/* Quartas */}
-            <div className="space-y-2">
-              <p className="text-xs uppercase text-slate-500 font-bold mb-2">
-                Quartas de Final
-              </p>
-              <BracketPair t1="Vencedor Oitavas 1" t2="Vencedor Oitavas 2" />
-            </div>
-
-            <div className="flex justify-center text-slate-600">
-              <div className="h-4 w-0.5 bg-slate-700"></div>
-            </div>
-
-            {/* Semis */}
-            <div className="space-y-2">
-              <p className="text-xs uppercase text-slate-500 font-bold mb-2">
-                Semifinal
-              </p>
-              <BracketPair t1="Vencedor QF1" t2="Vencedor QF2" />
-            </div>
-
-            <div className="mt-4 p-4 bg-gradient-to-t from-slate-900 to-slate-800 rounded-lg border border-yellow-500/20 shadow-lg shadow-black/40">
-              <p className="text-yellow-500 font-bold text-lg mb-1 flex items-center justify-center gap-2">
-                <span className="text-2xl">🏆</span> Grande Final
-              </p>
-              <div className="text-slate-300 font-bold text-sm">
-                19 de Julho de 2026
-              </div>
-              <div className="text-slate-500 text-xs mt-1">
-                New York / New Jersey Stadium
-              </div>
-            </div>
-          </div>
-
-          <p className="text-xs text-slate-500 mt-6 italic px-4">
-            O chaveamento será atualizado automaticamente. Os 8 melhores 3º
-            colocados se juntam aos 1º e 2º de cada grupo nos 16-avos.
-          </p>
+          )}
         </div>
       )}
     </div>
   );
 };
-
-const BracketPair: React.FC<{ t1: string; t2: string }> = ({ t1, t2 }) => (
-  <div className="flex flex-col bg-slate-900/50 rounded-lg border border-slate-700 overflow-hidden w-full max-w-xs mx-auto shadow-sm">
-    <div className="px-3 py-2 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/30">
-      <span className="text-sm font-medium text-slate-300">{t1}</span>
-      <span className="text-xs text-slate-500">-</span>
-    </div>
-    <div className="px-3 py-2 flex justify-between items-center">
-      <span className="text-sm font-medium text-slate-300">{t2}</span>
-      <span className="text-xs text-slate-500">-</span>
-    </div>
-  </div>
-);
 
 export default TournamentStandings;

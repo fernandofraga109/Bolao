@@ -436,27 +436,35 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!currentUser || !currentUser.groupIds.length) return;
+    
+    // Only auto-sync for regular users when they enter/switch.
+    // Admins have manual control and auto-sync settings.
+    if (currentUser.role === "ADMIN") return;
+
     void syncMatchesAndStandings(activeCompetitionCode);
   }, [
     currentUser?.id,
     currentUser?.activeGroupId,
     activeCompetitionCode,
     syncMatchesAndStandings,
+    currentUser?.role
   ]);
 
   // --- Date Grouping Logic ---
   const { pastMatches, todayMatches, futureGroups } = useMemo(() => {
     // 1. Determine "Today" (Reference Date)
-    // If real date is before the first match (June 11, 2026), simulate that today IS June 11.
     const now = new Date();
-    const firstMatchDate = new Date("2026-06-11T00:00:00"); // Use fixed string to compare just date part logic
-
-    // Check if we are really before the cup
-    const isPreCup = now < firstMatchDate;
-
+    
     // Normalize dates to YYYY-MM-DD for comparison
-    const getDayString = (d: Date) => d.toISOString().split("T")[0];
-    const todayStr = getDayString(isPreCup ? firstMatchDate : now);
+    const getDayString = (d: Date) => {
+      try {
+        return d.toISOString().split("T")[0];
+      } catch (e) {
+        return "";
+      }
+    };
+    
+    const todayStr = getDayString(now);
 
     const past: Match[] = [];
     const today: Match[] = [];
@@ -487,7 +495,7 @@ const App: React.FC = () => {
     );
 
     return { pastMatches: past, todayMatches: today, futureGroups: future };
-  }, [matches]);
+  }, [matches, activeCompetitionCode]);
 
   const formatDateTitle = (dateStr: string) => {
     const date = new Date(dateStr + "T12:00:00"); // Force midday to avoid timezone shifts on just date display
@@ -631,8 +639,9 @@ const App: React.FC = () => {
                     style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
                   >
                     {adminActiveCompetitions.map(code => {
-                      const comp = getCompetitionByCode(code);
-                      return <option key={code} value={code} className="bg-slate-900">{comp.name}</option>
+                      const dbComp = db.competitions.find(c => c.code.toUpperCase() === code.toUpperCase());
+                      const name = dbComp?.name || getCompetitionByCode(code).name;
+                      return <option key={code} value={code} className="bg-slate-900">{name}</option>
                     })}
                   </select>
                   <ChevronsUpDown size={14} className="text-brand-green opacity-70 pointer-events-none" />

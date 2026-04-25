@@ -49,6 +49,20 @@ export default defineConfig(({ mode }) => {
         });
       },
     },
+    "/api/competitions": {
+      target: "https://api.football-data.org",
+      changeOrigin: true,
+      secure: true,
+      rewrite: () => "/v4/competitions",
+      configure: (proxy: any) => {
+        proxy.on("proxyReq", (proxyReq: any) => {
+          if (footballDataToken) {
+            proxyReq.setHeader("X-Auth-Token", footballDataToken);
+          }
+          proxyReq.setHeader("Content-Type", "application/json");
+        });
+      },
+    },
   };
 
   return {

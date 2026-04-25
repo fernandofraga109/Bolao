@@ -29,6 +29,7 @@ import { useDatabase } from "../contexts/DatabaseContext";
 import { seedDatabase } from "../services/seeder";
 import { syncTeamRankings } from "../api/sync-team-rankings";
 import { isSupabaseEnabled } from "../services/supabase";
+import { fetchExternalCompetitions } from "../services/liveScoreService";
 import type { CompetitionSyncStatus } from "../hooks/useMatchSystem";
 import ModalShell from "./ui/ModalShell";
 import UserIdentity from "./ui/UserIdentity";
@@ -38,6 +39,7 @@ import {
   DEFAULT_COMPETITION_CODE,
   getCompetitionByCode,
 } from "../data/competitions";
+import type { CompetitionDB } from "../types";
 
 interface AdminDashboardProps {
   users: User[];
@@ -89,6 +91,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // UI States
   const [showSyncMenu, setShowSyncMenu] = useState(false);
   const [syncingCompetitionCode, setSyncingCompetitionCode] = useState<string | null>(null);
+  const [isSyncingCatalog, setIsSyncingCatalog] = useState(false);
 
   const activeCompetitions = React.useMemo(() => {
     const codes = Array.from(
@@ -106,6 +109,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setSyncingCompetitionCode(code);
     await onManualSync(code);
     setSyncingCompetitionCode(null);
+  };
+
+  const handleSyncCatalog = async () => {
+    setIsSyncingCatalog(true);
+    try {
+      const competitions = await fetchExternalCompetitions();
+      if (competitions.length > 0) {
+        await db.upsertCompetitions(competitions);
+        console.log(`✅ Catálogo atualizado: ${competitions.length} competições importadas.`);
+      }
+    } catch (err) {
+      console.error("Erro ao sincronizar catálogo:", err);
+    } finally {
+      setIsSyncingCatalog(false);
+    }
+  };
+
+  // Helper: resolve competition info from db.competitions first, then fallback to static
+  const resolveCompetition = (code: string): { code: string; name: string; emblem: string } => {
+    const fromDb = db.competitions.find((c) => c.code.toUpperCase() === code.toUpperCase());
+    if (fromDb) {
+      return {
+        code: fromDb.code,
+        name: fromDb.name,
+        emblem: fromDb.emblem || getCompetitionByCode(code).emblem,
+      };
+    }
+    return getCompetitionByCode(code);
   };
 
   // Delete Modal States
@@ -628,17 +659,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </h2>
         <div className="flex flex-col gap-3">
           {activeCompetitions.map(code => {
-            const comp = getCompetitionByCode(code);
+            const comp = resolveCompetition(code);
             const status = syncStatusByCompetition[code];
-            const isThisSyncing = syncingCompetitionCode === code || isSyncing;
+            const isThisSyncing = syncingCompetitionCode === code;
             return (
               <div key={code} className="bg-slate-900 border border-slate-700 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:border-slate-500 transition-all shadow-sm gap-4">
                 <div className="flex items-center gap-4">
-                  <img
-                    src={comp.emblem}
-                    alt={comp.name}
-                    className="w-10 h-10 rounded-full border border-slate-700"
-                  />
+                  <div className="w-10 h-10 rounded-full border border-slate-700 bg-white p-1 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+                    <img
+                      src={comp.emblem}
+                      alt={comp.name}
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  </div>
                   <div className="flex flex-col">
                     <h3 className="font-bold text-white text-sm">{comp.name}</h3>
                     <span className="text-[10px] font-mono text-brand-green bg-brand-green/10 px-1.5 py-0.5 rounded border border-brand-green/20 w-fit mt-0.5">{code}</span>
@@ -665,6 +698,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             );
           })}
+        </div>
+
+        {/* Sync Catalog Button */}
+        <div className="mt-4 pt-4 border-t border-slate-700/50 flex items-center justify-between">
+          <p className="text-xs text-slate-400">
+            Atualize o catálogo para importar logos oficiais e tipos de competição.
+          </p>
+          <button
+            onClick={() => void handleSyncCatalog()}
+            disabled={isSyncingCatalog}
+            className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50 shrink-0"
+          >
+            {isSyncingCatalog ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            Atualizar Catálogo
+          </button>
         </div>
       </div>
 
@@ -856,7 +904,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               onChange={(e) => setNewGroupCompetitionCode(e.target.value)}
               className="w-full bg-slate-900 border border-slate-600 text-white px-3 py-2 rounded-lg focus:outline-none focus:border-brand-green"
             >
-              {COMPETITION_OPTIONS.map((competition) => (
+              {(db.competitions.length > 0 ? db.competitions : COMPETITION_OPTIONS).map((competition) => (
                 <option key={competition.code} value={competition.code}>
                   {competition.code} - {competition.name}
                 </option>

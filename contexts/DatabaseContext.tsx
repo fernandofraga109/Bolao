@@ -15,6 +15,7 @@ import {
   PredictionDB,
   TournamentPredictionDB,
   SystemConfigDB,
+  CompetitionDB,
 } from "../types";
 import { INITIAL_DB } from "../data/initialData";
 import { supabase, isSupabaseEnabled } from "../services/supabase";
@@ -85,6 +86,7 @@ const mapLegacyUserToUser = (row: LegacyUserRow): UserDB => ({
 
 interface DatabaseContextType {
   // Tables
+  competitions: CompetitionDB[];
   users: UserDB[];
   groups: GroupDB[];
   userGroups: UserGroupDB[];
@@ -114,6 +116,8 @@ interface DatabaseContextType {
   upsertTournamentPrediction: (pred: TournamentPredictionDB) => Promise<void>;
 
   updateSystemConfig: (data: Partial<SystemConfigDB>) => Promise<void>;
+  
+  upsertCompetitions: (competitions: CompetitionDB[]) => Promise<void>;
 }
 
 const DatabaseContext = createContext<DatabaseContextType | undefined>(
@@ -164,6 +168,16 @@ const mergeGroupIntoList = (list: GroupDB[], incoming: GroupDB): GroupDB[] => {
   return [...list, incoming];
 };
 
+const mergeCompetitionIntoList = (list: CompetitionDB[], incoming: CompetitionDB): CompetitionDB[] => {
+  const idx = list.findIndex((c) => c.code === incoming.code);
+  if (idx >= 0) {
+    const next = [...list];
+    next[idx] = { ...next[idx], ...incoming };
+    return next;
+  }
+  return [...list, incoming];
+};
+
 const mergeUserGroupIntoList = (
   list: UserGroupDB[],
   incoming: UserGroupDB,
@@ -201,6 +215,9 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
+  const [competitions, setCompetitions] = useState<CompetitionDB[]>(() =>
+    loadTable("competitions", [])
+  );
   const [users, setUsers] = useState<UserDB[]>(() =>
     loadTable("users", INITIAL_DB.users),
   );
@@ -260,6 +277,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         predsRes,
         tournPredsRes,
         configRes,
+        competitionsRes,
       ] = await Promise.all([
         isAuthenticated
           ? supabase
@@ -285,6 +303,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
           ? supabase.from("tournament_predictions").select("*")
           : Promise.resolve({ data: null, error: null } as any),
         supabase.from("system_config").select("*").single(),
+        supabase.from("competitions").select("*"),
       ]);
 
       if (!isMounted) return;
@@ -348,6 +367,16 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       if (predsRes.data) setPredictions(predsRes.data);
       if (tournPredsRes.data) setTournamentPredictions(tournPredsRes.data);
       if (configRes.data) setSystemConfig(configRes.data);
+      if (competitionsRes.data) {
+        const mapped = (competitionsRes.data as any[]).map((row) => ({
+          code: row.code,
+          name: row.name,
+          emblem: row.emblem || undefined,
+          type: row.type || undefined,
+          lastUpdated: row.last_updated || row.lastUpdated || undefined,
+        })) as CompetitionDB[];
+        setCompetitions(mapped);
+      }
 
       if (!isAuthenticated) {
         setUsers([]);
@@ -492,6 +521,16 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
           }
           break;
 
+        // --- COMPETITIONS ---
+        case "competitions":
+          if (eventType === "INSERT" || eventType === "UPDATE") {
+            setCompetitions((prev) => mergeCompetitionIntoList(prev, newRecord as CompetitionDB));
+          } else if (eventType === "DELETE") {
+            const deletedCode = oldRecord.code;
+            setCompetitions((prev) => prev.filter((c) => c.code !== deletedCode));
+          }
+          break;
+
         // --- USER_GROUPS ---
         case "user_groups":
           if (eventType === "INSERT") {
@@ -552,6 +591,11 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         { event: "*", schema: "public", table: "system_config" },
         handleRealtimeEvent,
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "competitions" },
+        handleRealtimeEvent,
+      )
       .subscribe((status) => {
         if (status === "SUBSCRIBED")
           console.log("✅ Conectado ao Realtime do Banco de Dados");
@@ -565,6 +609,10 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   }, []);
 
   // --- Persistence Effects (LocalStorage Fallback) ---
+  useEffect(
+    () => localStorage.setItem("bolao_db_competitions", JSON.stringify(competitions)),
+    [competitions],
+  );
   useEffect(
     () => localStorage.setItem("bolao_db_users", JSON.stringify(users)),
     [users],
@@ -807,6 +855,33 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     return team;
   };
 
+  // COMPETITIONS
+  const upsertCompetitions = async (competitionsList: CompetitionDB[]) => {
+    // Optimistic Update
+    setCompetitions((prev) => {
+      let next = [...prev];
+      competitionsList.forEach((incoming) => {
+        next = mergeCompetitionIntoList(next, incoming);
+      });
+      return next;
+    });
+
+    // DB Update — map camelCase to snake_case for Supabase
+    if (isSupabaseEnabled() && supabase && competitionsList.length > 0) {
+      const rows = competitionsList.map((c) => ({
+        code: c.code,
+        name: c.name,
+        emblem: c.emblem || null,
+        type: c.type || null,
+        last_updated: c.lastUpdated || new Date().toISOString(),
+      }));
+      const { error } = await supabase.from("competitions").upsert(rows, { onConflict: "code" });
+      if (error) {
+        console.error("Erro ao fazer upsert de competições:", error.message);
+      }
+    }
+  };
+
   // MATCHES
   const upsertMatch = async (match: MatchDB) => {
     setMatches((prev) => mergeMatchIntoList(prev, match));
@@ -841,23 +916,13 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   // PREDICTIONS
   const upsertPrediction = async (pred: PredictionDB) => {
     if (isSupabaseEnabled() && supabase) {
-      if (pred.groupId) {
-        const { error } = await supabase
-          .from("predictions")
-          .upsert(pred, { onConflict: "userId, groupId, matchId" });
+          const { error } = await supabase
+            .from("predictions")
+            .upsert(pred, { onConflict: '"userId", "matchId"' });
 
-        if (error) {
-          throw new Error(`Erro ao salvar prediction: ${error.message}`);
-        }
-      } else {
-        const { error } = await supabase
-          .from("predictions")
-          .upsert(pred, { onConflict: "userId, matchId" });
-
-        if (error) {
-          throw new Error(`Erro ao salvar prediction: ${error.message}`);
-        }
-      }
+          if (error) {
+            throw new Error(`Erro ao salvar prediction: ${error.message}`);
+          }
     }
 
     setPredictions((prev) => {
@@ -900,6 +965,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   return (
     <DatabaseContext.Provider
       value={{
+        competitions,
         users,
         groups,
         userGroups,
@@ -922,6 +988,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         upsertPrediction,
         upsertTournamentPrediction,
         updateSystemConfig,
+        upsertCompetitions,
       }}
     >
       {children}

@@ -12,6 +12,14 @@ export interface SystemConfigDB {
   sync_interval_ms: number;
 }
 
+export interface CompetitionDB {
+  code: string;
+  name: string;
+  emblem?: string;
+  type?: "LEAGUE" | "CUP" | string;
+  lastUpdated?: string;
+}
+
 export interface StadiumDB {
   id: string;
   name: string;

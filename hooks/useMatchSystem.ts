@@ -352,11 +352,16 @@ export const useMatchSystem = (
               internalMatch?.group ?? existingByExternalId?.group;
             const groupChanged = currentGroup !== newGroup;
 
-            if (scoreChanged || statusChanged || groupChanged) {
+            const currentDate =
+              internalMatch?.date ?? existingByExternalId?.date;
+            const dateChanged = extMatch.utcDate && currentDate !== extMatch.utcDate;
+
+            if (scoreChanged || statusChanged || groupChanged || dateChanged) {
               await currentDb.updateMatch(targetId, {
                 status: newStatus,
                 group: newGroup,
                 competitionCode: normalizedCompetitionCode,
+                date: extMatch.utcDate,
                 // Use null coalescing to ensure undefined if null, or the value
                 resultHome: extHome ?? undefined,
                 resultAway: extAway ?? undefined,

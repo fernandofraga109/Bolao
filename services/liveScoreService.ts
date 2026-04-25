@@ -1,4 +1,4 @@
-import { Match, MatchStatus } from "../types";
+import { Match, MatchStatus, CompetitionDB } from "../types";
 
 /**
  * SERVIÇO DE PLACARES AO VIVO (SEGURO)
@@ -176,6 +176,49 @@ export const fetchExternalStandings = async (
       error,
     );
     return null;
+  }
+};
+
+// --- COMPETITIONS ---
+
+export interface ExternalCompetition {
+  id: number;
+  code: string;
+  name: string;
+  emblem?: string;
+  type?: string; // "LEAGUE" | "CUP"
+  lastUpdated?: string;
+}
+
+export const fetchExternalCompetitions = async (): Promise<CompetitionDB[]> => {
+  try {
+    const response = await fetch("/api/competitions");
+    const contentType = response.headers.get("content-type") || "";
+
+    if (!contentType.includes("application/json")) {
+      console.error("[COMPETITIONS] Resposta não-JSON do proxy.");
+      return [];
+    }
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      console.error(`[COMPETITIONS] Erro (${response.status}):`, payload.message || payload.error);
+      return [];
+    }
+
+    const competitions: ExternalCompetition[] = payload.competitions || [];
+
+    return competitions.map((c) => ({
+      code: c.code,
+      name: c.name,
+      emblem: c.emblem || undefined,
+      type: c.type || undefined,
+      lastUpdated: c.lastUpdated || new Date().toISOString(),
+    }));
+  } catch (error) {
+    console.error("[COMPETITIONS] Falha ao buscar competições:", error);
+    return [];
   }
 };
 
