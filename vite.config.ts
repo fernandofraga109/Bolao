@@ -15,7 +15,11 @@ export default defineConfig(({ mode }) => {
         const [, search = ""] = incomingPath.split("?");
         const params = new URLSearchParams(search);
         const competition = (params.get("competition") || "WC").toUpperCase();
-        return `/v4/competitions/${competition}/matches`;
+        const season = params.get("season");
+        const seasonQuery = season
+          ? `?season=${encodeURIComponent(season)}`
+          : "";
+        return `/v4/competitions/${competition}/matches${seasonQuery}`;
       },
       configure: (proxy: any) => {
         proxy.on("proxyReq", (proxyReq: any) => {

@@ -92,7 +92,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
   }, [match.id]);
 
   const handlePredict = async () => {
-    if (isSavingPrediction) return;
+    if (isSavingPrediction || isPredictionDisabled) return;
     if (homeInput === "" || awayInput === "") return;
     const h = parseInt(homeInput);
     const a = parseInt(awayInput);
@@ -167,33 +167,42 @@ const MatchCard: React.FC<MatchCardProps> = ({
   let pointsClass = "";
 
   if ((isFinished || isLive) && match.result && userPrediction) {
-    pointsEarned = calculatePoints(
-      userPrediction.homeScore,
-      userPrediction.awayScore,
-      match.result.home,
-      match.result.away,
-      match.homeTeam.ranking,
-      match.awayTeam.ranking,
-    );
-
-    // Extract bonus for display
-    if (
-      pointsEarned > 0 &&
-      match.homeTeam.ranking &&
-      match.awayTeam.ranking &&
-      match.result.home !== match.result.away
-    ) {
-      const winnerRank =
-        match.result.home > match.result.away
-          ? match.homeTeam.ranking
-          : match.awayTeam.ranking;
-      const loserRank =
-        match.result.home > match.result.away
-          ? match.awayTeam.ranking
-          : match.homeTeam.ranking;
-      bonusEarned = calculateUnderdogBonus(winnerRank, loserRank);
+    if (userPrediction.points !== undefined) {
+      pointsEarned = userPrediction.points;
+      
+      // Extract bonus for display if possible
+      if (
+        pointsEarned > 0 && 
+        match.homeTeam?.ranking && 
+        match.awayTeam?.ranking && 
+        match.result.home !== match.result.away
+      ) {
+          const winnerRank = match.result.home > match.result.away ? match.homeTeam.ranking : match.awayTeam.ranking;
+          const loserRank = match.result.home > match.result.away ? match.awayTeam.ranking : match.homeTeam.ranking;
+          bonusEarned = calculateUnderdogBonus(winnerRank, loserRank);
+      }
+    } else {
+      pointsEarned = calculatePoints(
+        userPrediction.homeScore,
+        userPrediction.awayScore,
+        match.result.home,
+        match.result.away,
+        match.homeTeam?.ranking,
+        match.awayTeam?.ranking
+      );
+      
+      // Calculate bonus for display
+      if (
+        pointsEarned > 0 && 
+        match.homeTeam?.ranking && 
+        match.awayTeam?.ranking && 
+        match.result.home !== match.result.away
+      ) {
+          const winnerRank = match.result.home > match.result.away ? match.homeTeam.ranking : match.awayTeam.ranking;
+          const loserRank = match.result.home > match.result.away ? match.awayTeam.ranking : match.homeTeam.ranking;
+          bonusEarned = calculateUnderdogBonus(winnerRank, loserRank);
+      }
     }
-
     pointsClass = getPointsStyle(pointsEarned);
   }
 
@@ -208,29 +217,37 @@ const MatchCard: React.FC<MatchCardProps> = ({
       let friendBonus = 0;
 
       if ((isLive || isFinished) && match.result) {
-        currentPoints = calculatePoints(
-          pred.home,
-          pred.away,
-          match.result.home,
-          match.result.away,
-          match.homeTeam.ranking,
-          match.awayTeam.ranking,
-        );
-        if (
-          currentPoints > 0 &&
-          match.homeTeam.ranking &&
-          match.awayTeam.ranking &&
-          match.result.home !== match.result.away
-        ) {
-          const winnerRank =
-            match.result.home > match.result.away
-              ? match.homeTeam.ranking
-              : match.awayTeam.ranking;
-          const loserRank =
-            match.result.home > match.result.away
-              ? match.awayTeam.ranking
-              : match.homeTeam.ranking;
-          friendBonus = calculateUnderdogBonus(winnerRank, loserRank);
+        if (pred.points !== undefined) {
+          currentPoints = pred.points;
+          if (
+            currentPoints > 0 && 
+            match.homeTeam?.ranking && 
+            match.awayTeam?.ranking && 
+            match.result.home !== match.result.away
+          ) {
+            const winnerRank = match.result.home > match.result.away ? match.homeTeam.ranking : match.awayTeam.ranking;
+            const loserRank = match.result.home > match.result.away ? match.awayTeam.ranking : match.homeTeam.ranking;
+            friendBonus = calculateUnderdogBonus(winnerRank, loserRank);
+          }
+        } else {
+          currentPoints = calculatePoints(
+            pred.home,
+            pred.away,
+            match.result.home,
+            match.result.away,
+            match.homeTeam?.ranking,
+            match.awayTeam?.ranking
+          );
+          if (
+            currentPoints > 0 && 
+            match.homeTeam?.ranking && 
+            match.awayTeam?.ranking && 
+            match.result.home !== match.result.away
+          ) {
+            const winnerRank = match.result.home > match.result.away ? match.homeTeam.ranking : match.awayTeam.ranking;
+            const loserRank = match.result.home > match.result.away ? match.awayTeam.ranking : match.homeTeam.ranking;
+            friendBonus = calculateUnderdogBonus(winnerRank, loserRank);
+          }
         }
       }
       return { ...friend, currentMatchPoints: currentPoints, friendBonus };
@@ -257,12 +274,22 @@ const MatchCard: React.FC<MatchCardProps> = ({
       return (
         <div className="flex flex-col items-center gap-2 animate-fadeIn">
           <div className="flex items-center gap-3 text-3xl font-bold font-mono">
-            <span className="text-slate-300">0</span>
-            <span className="text-slate-600 text-xl">x</span>
-            <span className="text-slate-300">0</span>
+            {userPrediction ? (
+              <>
+                <span className="text-slate-300">{userPrediction.homeScore}</span>
+                <span className="text-slate-600 text-xl">x</span>
+                <span className="text-slate-300">{userPrediction.awayScore}</span>
+              </>
+            ) : (
+              <>
+                <span className="text-slate-500">-</span>
+                <span className="text-slate-600 text-xl">x</span>
+                <span className="text-slate-500">-</span>
+              </>
+            )}
           </div>
           <div className="text-[10px] uppercase tracking-wider text-slate-400">
-            Palpite encerrado
+            {userPrediction ? "Seu palpite" : "Sem palpite"}
           </div>
           <div className="flex items-center gap-2 text-sm font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">
             <CheckCircle size={14} />
@@ -401,7 +428,6 @@ const MatchCard: React.FC<MatchCardProps> = ({
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm ${pointsClass} transition-all`}
                   >
                     <Trophy size={14} />
-
                     {bonusEarned > 0 ? (
                       <span className="flex items-center gap-1">
                         <span>{basePoints}</span>

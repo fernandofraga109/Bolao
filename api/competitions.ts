@@ -4,6 +4,8 @@
  * Local: /api/competitions.ts
  */
 
+export const config = { runtime: "edge" };
+
 export default async function handler(req: Request) {
   const API_TOKEN = process.env.FOOTBALL_DATA_TOKEN;
   const BASE_URL = "https://api.football-data.org/v4";

@@ -17,7 +17,7 @@ export interface CompetitionDB {
   name: string;
   emblem?: string;
   type?: "LEAGUE" | "CUP" | string;
-  lastUpdated?: string;
+  lastSync?: string;
 }
 
 export interface StadiumDB {
@@ -66,6 +66,8 @@ export interface MatchDB {
   status: MatchStatus;
   resultHome?: number;
   resultAway?: number;
+  stage?: string;
+  matchday?: number;
 }
 
 export interface PredictionDB {
@@ -152,9 +154,10 @@ export interface User {
   status: UserStatus;
   groupIds: string[];
   activeGroupId?: string;
-  predictions: Record<string, { home: number; away: number }>; // matchId -> score
+  predictions: Record<string, { home: number; away: number; points?: number }>; // matchId -> score
   tournamentPredictions?: TournamentPredictions;
   totalPoints: number;
+  predictionsCount?: number;
 }
 
 export interface Match {
@@ -168,6 +171,8 @@ export interface Match {
   stadiumId?: string;
   status: MatchStatus;
   result?: { home: number; away: number };
+  stage?: string;
+  matchday?: number;
 }
 
 export type Group = GroupDB;

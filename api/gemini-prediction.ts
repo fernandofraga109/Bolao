@@ -43,6 +43,8 @@ const sanitizePrediction = (input: any): AIPredictionResult | null => {
   };
 };
 
+export const config = { runtime: "edge" };
+
 export default async function handler(req: Request) {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {

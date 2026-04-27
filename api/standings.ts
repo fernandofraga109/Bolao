@@ -4,15 +4,18 @@
  * Local: /api/standings.ts
  */
 
+export const config = { runtime: "edge" };
+
 export default async function handler(req: Request) {
   const API_TOKEN = process.env.FOOTBALL_DATA_TOKEN;
   const BASE_URL = "https://api.football-data.org/v4";
 
-  const url = new URL(req.url);
+  const url = new URL(req.url, "http://localhost");
   const competitionCode = (
     url.searchParams.get("competition") || "WC"
   ).toUpperCase();
-  const season = url.searchParams.get("season") || "2026";
+  const season =
+    url.searchParams.get("season") || new Date().getFullYear().toString();
 
   const targetUrl = `${BASE_URL}/competitions/${competitionCode}/standings?season=${encodeURIComponent(season)}`;
 
@@ -20,74 +23,51 @@ export default async function handler(req: Request) {
     return new Response(
       JSON.stringify({
         error: "Configuração Incompleta",
-        message:
-          "A variável FOOTBALL_DATA_TOKEN não foi encontrada no ambiente da Vercel.",
+        message: "A variável FOOTBALL_DATA_TOKEN não foi encontrada.",
       }),
       { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 
   try {
-    console.log(`[PROXY] Consultando standings: ${targetUrl}`);
-
-    let response = await fetch(targetUrl, {
-      method: "GET",
-      headers: {
-        "X-Auth-Token": API_TOKEN,
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (response.status === 404) {
-      console.log(`[PROXY] 404 com season=${season}. Tentando sem season para ${competitionCode}...`);
-      const fallbackUrl = `${BASE_URL}/competitions/${competitionCode}/standings`;
-      response = await fetch(fallbackUrl, {
+    const data = await (async () => {
+      // Tentativa 1: Com Temporada (ano atual por padrão)
+      console.log(`[PROXY] Standings Tentativa 1: ${targetUrl}`);
+      const res1 = await fetch(targetUrl, {
         method: "GET",
         headers: {
           "X-Auth-Token": API_TOKEN,
           "Content-Type": "application/json",
         },
       });
-    }
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.warn(
-        "[PROXY] Aviso da API Football-Data (standings):",
-        response.status,
-        errorData,
-      );
+      if (res1.ok) return res1.json();
 
-      // Se for 404 ou 403, retornamos sucesso com array vazio para não quebrar o frontend
-      if (response.status === 404 || response.status === 403) {
-        return new Response(
-          JSON.stringify({
-            standings: [],
-            message: "Tabela não disponível ou acesso restrito pela API externa.",
-            isFallback: true
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
+      // Se der 404 ou 403, tenta sem a temporada
+      if (res1.status === 404 || res1.status === 403) {
+        const fallbackUrl = `${BASE_URL}/competitions/${competitionCode}/standings`;
+        console.log(`[PROXY] Standings Tentativa 2 (Fallback): ${fallbackUrl}`);
+        const res2 = await fetch(fallbackUrl, {
+          method: "GET",
+          headers: {
+            "X-Auth-Token": API_TOKEN,
+            "Content-Type": "application/json",
           },
-        );
+        });
+
+        if (res2.ok) return res2.json();
+
+        // Se falhar tudo, retornamos algo vazio para não quebrar a UI
+        return {
+          standings: [],
+          message: "Tabela indisponível na API externa.",
+        };
       }
 
-      return new Response(
-        JSON.stringify({
-          error: `Erro na API externa (${response.status})`,
-          message:
-            errorData.message || "Recurso não encontrado ou acesso negado.",
-          hint: "Verifique o plano da Football-Data.org para standings da competição.",
-        }),
-        {
-          status: response.status,
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-    }
+      const errorData = await res1.json().catch(() => ({}));
+      throw new Error(errorData.message || `Erro API (Status ${res1.status})`);
+    })();
 
-    const data = await response.json();
     return new Response(JSON.stringify(data), {
       status: 200,
       headers: { "Content-Type": "application/json" },

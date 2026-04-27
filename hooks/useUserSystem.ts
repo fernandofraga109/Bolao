@@ -96,6 +96,7 @@ export const useUserSystem = () => {
           myPredictionsMap[p.matchId] = {
             home: p.homeScore,
             away: p.awayScore,
+            points: p.points,
           };
         });
 

@@ -90,7 +90,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // UI States
   const [showSyncMenu, setShowSyncMenu] = useState(false);
-  const [syncingCompetitionCode, setSyncingCompetitionCode] = useState<string | null>(null);
+  const [syncingCompetitionCode, setSyncingCompetitionCode] = useState<
+    string | null
+  >(null);
   const [isSyncingCatalog, setIsSyncingCatalog] = useState(false);
 
   const activeCompetitions = React.useMemo(() => {
@@ -106,9 +108,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleTriggerManualSync = async (code: string) => {
     if (!onManualSync) return;
-    setSyncingCompetitionCode(code);
     await onManualSync(code);
-    setSyncingCompetitionCode(null);
   };
 
   const handleSyncCatalog = async () => {
@@ -116,8 +116,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     try {
       const competitions = await fetchExternalCompetitions();
       if (competitions.length > 0) {
-        await db.upsertCompetitions(competitions);
-        console.log(`✅ Catálogo atualizado: ${competitions.length} competições importadas.`);
+        const catalogRows: CompetitionDB[] = competitions.map((c) => ({
+          code: c.code,
+          name: c.name,
+          emblem: c.emblem,
+          type: c.type,
+        }));
+        await db.upsertCompetitions(catalogRows);
+        console.log(
+          `✅ Catálogo atualizado: ${competitions.length} competições importadas.`,
+        );
       }
     } catch (err) {
       console.error("Erro ao sincronizar catálogo:", err);
@@ -127,8 +135,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   // Helper: resolve competition info from db.competitions first, then fallback to static
-  const resolveCompetition = (code: string): { code: string; name: string; emblem: string } => {
-    const fromDb = db.competitions.find((c) => c.code.toUpperCase() === code.toUpperCase());
+  const resolveCompetition = (
+    code: string,
+  ): { code: string; name: string; emblem: string } => {
+    const fromDb = db.competitions.find(
+      (c) => c.code.toUpperCase() === code.toUpperCase(),
+    );
     if (fromDb) {
       return {
         code: fromDb.code,
@@ -637,15 +649,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* HEADER & SYNC PANEL */}
       <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl overflow-hidden relative">
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-brand-green/5 rounded-full blur-3xl pointer-events-none"></div>
-        
+
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
           <div className="flex items-center gap-4">
             <div className="bg-slate-900 p-3 rounded-xl border border-slate-700 text-brand-green shadow-inner">
               <Shield size={28} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white tracking-tight">Painel de Administração</h1>
-              <p className="text-slate-400 text-sm">Controle total do sistema e sincronização</p>
+              <h1 className="text-2xl font-bold text-white tracking-tight">
+                Painel de Administração
+              </h1>
+              <p className="text-slate-400 text-sm">
+                Controle total do sistema e sincronização
+              </p>
             </div>
           </div>
         </div>
@@ -658,12 +674,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           Sincronização de Competições
         </h2>
         <div className="flex flex-col gap-3">
-          {activeCompetitions.map(code => {
+          {activeCompetitions.map((code) => {
             const comp = resolveCompetition(code);
             const status = syncStatusByCompetition[code];
-            const isThisSyncing = syncingCompetitionCode === code;
+            const isThisSyncing = status?.isSyncing;
             return (
-              <div key={code} className="bg-slate-900 border border-slate-700 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:border-slate-500 transition-all shadow-sm gap-4">
+              <div
+                key={code}
+                className="bg-slate-900 border border-slate-700 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:border-slate-500 transition-all shadow-sm gap-4"
+              >
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-full border border-slate-700 bg-white p-1 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
                     <img
@@ -673,16 +692,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     />
                   </div>
                   <div className="flex flex-col">
-                    <h3 className="font-bold text-white text-sm">{comp.name}</h3>
-                    <span className="text-[10px] font-mono text-brand-green bg-brand-green/10 px-1.5 py-0.5 rounded border border-brand-green/20 w-fit mt-0.5">{code}</span>
+                    <h3 className="font-bold text-white text-sm">
+                      {comp.name}
+                    </h3>
+                    <span className="text-[10px] font-mono text-brand-green bg-brand-green/10 px-1.5 py-0.5 rounded border border-brand-green/20 w-fit mt-0.5">
+                      {code}
+                    </span>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
                   <div className="text-[10px] text-slate-400 bg-slate-800 px-3 py-1.5 rounded-lg flex flex-col border border-slate-700/50 min-w-[140px]">
-                    <span className="uppercase font-bold tracking-wider mb-0.5">Última Atualização</span>
-                    <span className={`font-medium ${status?.lastSuccess ? "text-green-400" : "text-amber-400"}`}>
-                      {status?.lastSuccessAt ? formatRelativeSyncTime(status.lastSuccessAt) : "Nunca"}
+                    <span className="uppercase font-bold tracking-wider mb-0.5">
+                      Última Atualização
+                    </span>
+                    <span
+                      className={`font-medium ${status?.lastSuccess ? "text-green-400" : "text-amber-400"}`}
+                    >
+                      {status?.lastSuccessAt
+                        ? formatRelativeSyncTime(status.lastSuccessAt)
+                        : "Nunca"}
                     </span>
                   </div>
                   <button
@@ -691,7 +720,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     className="bg-brand-green hover:bg-emerald-400 text-slate-900 px-4 py-2 rounded-lg font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm shadow-md shadow-brand-green/10 shrink-0"
                     title={`Sincronizar ${comp.name}`}
                   >
-                    {isThisSyncing ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
+                    {isThisSyncing ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Zap size={16} />
+                    )}
                     <span className="hidden sm:inline">Sincronizar</span>
                   </button>
                 </div>
@@ -703,14 +736,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Sync Catalog Button */}
         <div className="mt-4 pt-4 border-t border-slate-700/50 flex items-center justify-between">
           <p className="text-xs text-slate-400">
-            Atualize o catálogo para importar logos oficiais e tipos de competição.
+            Atualize o catálogo para importar logos oficiais e tipos de
+            competição.
           </p>
           <button
             onClick={() => void handleSyncCatalog()}
             disabled={isSyncingCatalog}
             className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50 shrink-0"
           >
-            {isSyncingCatalog ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            {isSyncingCatalog ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Download size={14} />
+            )}
             Atualizar Catálogo
           </button>
         </div>
@@ -719,8 +757,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* ADVANCED SETTINGS BAR */}
       <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-3 px-2">
-           <Settings size={18} className="text-slate-400" />
-           <h3 className="text-slate-300 font-bold text-sm">Configurações de Sistema</h3>
+          <Settings size={18} className="text-slate-400" />
+          <h3 className="text-slate-300 font-bold text-sm">
+            Configurações de Sistema
+          </h3>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {/* SYNC WIDGET (Unified) */}
@@ -728,144 +768,144 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <button
               onClick={() => setShowSyncMenu(!showSyncMenu)}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg border transition-all ${
-              isAutoSyncEnabled
-                ? "bg-slate-800 border-green-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
-                : "bg-slate-800 border-slate-700 hover:border-slate-600"
-            }`}
-          >
-            <div
-              className={`p-1.5 rounded-full ${isAutoSyncEnabled ? "bg-green-500/20 text-green-500" : "bg-slate-700 text-slate-400"}`}
+                isAutoSyncEnabled
+                  ? "bg-slate-800 border-green-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                  : "bg-slate-800 border-slate-700 hover:border-slate-600"
+              }`}
             >
-              <RefreshCw
-                size={16}
-                className={isSyncing ? "animate-spin" : ""}
-              />
-            </div>
-            <div className="text-left">
-              <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                Sincronização
-              </div>
               <div
-                className={`text-xs font-bold ${isAutoSyncEnabled ? "text-white" : "text-slate-400"}`}
+                className={`p-1.5 rounded-full ${isAutoSyncEnabled ? "bg-green-500/20 text-green-500" : "bg-slate-700 text-slate-400"}`}
               >
-                {isAutoSyncEnabled ? "Automática: ON" : "Manual / Parada"}
+                <RefreshCw
+                  size={16}
+                  className={isSyncing ? "animate-spin" : ""}
+                />
               </div>
-            </div>
-            {showSyncMenu ? (
-              <ChevronUp size={16} className="text-slate-500" />
-            ) : (
-              <ChevronDown size={16} className="text-slate-500" />
+              <div className="text-left">
+                <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                  Sincronização
+                </div>
+                <div
+                  className={`text-xs font-bold ${isAutoSyncEnabled ? "text-white" : "text-slate-400"}`}
+                >
+                  {isAutoSyncEnabled ? "Automática: ON" : "Manual / Parada"}
+                </div>
+              </div>
+              {showSyncMenu ? (
+                <ChevronUp size={16} className="text-slate-500" />
+              ) : (
+                <ChevronDown size={16} className="text-slate-500" />
+              )}
+            </button>
+
+            {/* Dropdown Menu */}
+            {showSyncMenu && (
+              <div className="absolute top-full right-0 mt-2 w-80 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden animate-fadeIn">
+                <div className="p-4 space-y-4">
+                  {/* Toggle Area */}
+                  <div className="flex justify-between items-center pb-4 border-b border-slate-700">
+                    <div className="flex flex-col">
+                      <span className="text-sm text-white font-bold">
+                        Atualização em Tempo Real
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        Puxa placares da API oficial
+                      </span>
+                    </div>
+                    <button
+                      onClick={toggleAutoSync}
+                      className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center ${isAutoSyncEnabled ? "bg-green-600" : "bg-slate-600"}`}
+                    >
+                      <div
+                        className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${isAutoSyncEnabled ? "translate-x-6" : "translate-x-0"}`}
+                      ></div>
+                    </button>
+                  </div>
+
+                  {/* Interval Settings */}
+                  <div className="space-y-2">
+                    <label className="text-xs text-slate-500 uppercase font-bold flex items-center gap-2">
+                      <Clock size={12} /> Intervalo de Busca
+                    </label>
+                    <select
+                      value={db.systemConfig.sync_interval_ms}
+                      onChange={handleUpdateInterval}
+                      className="w-full bg-slate-900 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-brand-green"
+                    >
+                      <option value={15000}>15 segundos (Rápido)</option>
+                      <option value={30000}>30 segundos</option>
+                      <option value={60000}>1 minuto (Recomendado)</option>
+                      <option value={300000}>5 minutos</option>
+                      <option value={600000}>10 minutos</option>
+                    </select>
+                  </div>
+
+                  {/* Note */}
+                  <div className="bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/20 flex gap-2">
+                    <div className="mt-0.5">
+                      <Clock size={12} className="text-indigo-400" />
+                    </div>
+                    <p className="text-[10px] text-indigo-200 leading-relaxed">
+                      A atualização consome cotas da API. Use "15 segundos"
+                      apenas durante jogos importantes.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs text-slate-500 uppercase font-bold tracking-wider">
+                      Ultima sincronizacao por competicao
+                    </label>
+
+                    {Object.keys(syncStatusByCompetition).length === 0 ? (
+                      <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 text-[11px] text-slate-400">
+                        Nenhuma sincronizacao registrada ainda.
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                        {Object.values(syncStatusByCompetition)
+                          .sort((a, b) => {
+                            const aTime = a.lastAttemptAt
+                              ? new Date(a.lastAttemptAt).getTime()
+                              : 0;
+                            const bTime = b.lastAttemptAt
+                              ? new Date(b.lastAttemptAt).getTime()
+                              : 0;
+                            return bTime - aTime;
+                          })
+                          .map((status) => (
+                            <div
+                              key={status.competitionCode}
+                              className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs font-mono text-brand-green">
+                                  {status.competitionCode}
+                                </span>
+                                <span
+                                  className={`text-[10px] px-2 py-0.5 rounded-full border ${status.lastSuccess ? "text-green-300 bg-green-900/20 border-green-700/50" : "text-amber-300 bg-amber-900/20 border-amber-700/50"}`}
+                                >
+                                  {status.lastSuccess ? "ok" : "atencao"}
+                                </span>
+                              </div>
+                              <div className="mt-1 text-[10px] text-slate-400">
+                                {status.lastSuccess
+                                  ? `sincronizado ${formatRelativeSyncTime(status.lastSuccessAt)}`
+                                  : `ultima tentativa ${formatRelativeSyncTime(status.lastAttemptAt)}`}
+                              </div>
+                              {status.lastMessage && (
+                                <p className="mt-1 text-[10px] text-slate-500 line-clamp-2">
+                                  {status.lastMessage}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             )}
-          </button>
-
-          {/* Dropdown Menu */}
-          {showSyncMenu && (
-            <div className="absolute top-full right-0 mt-2 w-80 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden animate-fadeIn">
-              <div className="p-4 space-y-4">
-                {/* Toggle Area */}
-                <div className="flex justify-between items-center pb-4 border-b border-slate-700">
-                  <div className="flex flex-col">
-                    <span className="text-sm text-white font-bold">
-                      Atualização em Tempo Real
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      Puxa placares da API oficial
-                    </span>
-                  </div>
-                  <button
-                    onClick={toggleAutoSync}
-                    className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center ${isAutoSyncEnabled ? "bg-green-600" : "bg-slate-600"}`}
-                  >
-                    <div
-                      className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${isAutoSyncEnabled ? "translate-x-6" : "translate-x-0"}`}
-                    ></div>
-                  </button>
-                </div>
-
-                {/* Interval Settings */}
-                <div className="space-y-2">
-                  <label className="text-xs text-slate-500 uppercase font-bold flex items-center gap-2">
-                    <Clock size={12} /> Intervalo de Busca
-                  </label>
-                  <select
-                    value={db.systemConfig.sync_interval_ms}
-                    onChange={handleUpdateInterval}
-                    className="w-full bg-slate-900 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-brand-green"
-                  >
-                    <option value={15000}>15 segundos (Rápido)</option>
-                    <option value={30000}>30 segundos</option>
-                    <option value={60000}>1 minuto (Recomendado)</option>
-                    <option value={300000}>5 minutos</option>
-                    <option value={600000}>10 minutos</option>
-                  </select>
-                </div>
-
-                {/* Note */}
-                <div className="bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/20 flex gap-2">
-                  <div className="mt-0.5">
-                    <Clock size={12} className="text-indigo-400" />
-                  </div>
-                  <p className="text-[10px] text-indigo-200 leading-relaxed">
-                    A atualização consome cotas da API. Use "15 segundos" apenas
-                    durante jogos importantes.
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs text-slate-500 uppercase font-bold tracking-wider">
-                    Ultima sincronizacao por competicao
-                  </label>
-
-                  {Object.keys(syncStatusByCompetition).length === 0 ? (
-                    <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 text-[11px] text-slate-400">
-                      Nenhuma sincronizacao registrada ainda.
-                    </div>
-                  ) : (
-                    <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
-                      {Object.values(syncStatusByCompetition)
-                        .sort((a, b) => {
-                          const aTime = a.lastAttemptAt
-                            ? new Date(a.lastAttemptAt).getTime()
-                            : 0;
-                          const bTime = b.lastAttemptAt
-                            ? new Date(b.lastAttemptAt).getTime()
-                            : 0;
-                          return bTime - aTime;
-                        })
-                        .map((status) => (
-                          <div
-                            key={status.competitionCode}
-                            className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2"
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-xs font-mono text-brand-green">
-                                {status.competitionCode}
-                              </span>
-                              <span
-                                className={`text-[10px] px-2 py-0.5 rounded-full border ${status.lastSuccess ? "text-green-300 bg-green-900/20 border-green-700/50" : "text-amber-300 bg-amber-900/20 border-amber-700/50"}`}
-                              >
-                                {status.lastSuccess ? "ok" : "atencao"}
-                              </span>
-                            </div>
-                            <div className="mt-1 text-[10px] text-slate-400">
-                              {status.lastSuccess
-                                ? `sincronizado ${formatRelativeSyncTime(status.lastSuccessAt)}`
-                                : `ultima tentativa ${formatRelativeSyncTime(status.lastAttemptAt)}`}
-                            </div>
-                            {status.lastMessage && (
-                              <p className="mt-1 text-[10px] text-slate-500 line-clamp-2">
-                                {status.lastMessage}
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
 
           {/* DB Inspector Button */}
           <button
@@ -904,7 +944,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               onChange={(e) => setNewGroupCompetitionCode(e.target.value)}
               className="w-full bg-slate-900 border border-slate-600 text-white px-3 py-2 rounded-lg focus:outline-none focus:border-brand-green"
             >
-              {(db.competitions.length > 0 ? db.competitions : COMPETITION_OPTIONS).map((competition) => (
+              {(db.competitions.length > 0
+                ? db.competitions
+                : COMPETITION_OPTIONS
+              ).map((competition) => (
                 <option key={competition.code} value={competition.code}>
                   {competition.code} - {competition.name}
                 </option>

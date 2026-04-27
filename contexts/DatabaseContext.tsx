@@ -108,6 +108,8 @@ interface DatabaseContextType {
   addUserToGroup: (relation: UserGroupDB) => Promise<void>;
   removeUserFromGroup: (userId: string, groupId: string) => Promise<void>;
 
+  upsertCompetitions: (competitionsList: CompetitionDB[]) => Promise<void>;
+  updateCompetitionSync: (code: string, timestamp: string) => Promise<void>;
   upsertTeam: (team: TeamDB) => Promise<TeamDB>;
   upsertMatch: (match: MatchDB) => Promise<void>;
   updateMatch: (id: string, data: Partial<MatchDB>) => Promise<void>;
@@ -116,8 +118,6 @@ interface DatabaseContextType {
   upsertTournamentPrediction: (pred: TournamentPredictionDB) => Promise<void>;
 
   updateSystemConfig: (data: Partial<SystemConfigDB>) => Promise<void>;
-  
-  upsertCompetitions: (competitions: CompetitionDB[]) => Promise<void>;
 }
 
 const DatabaseContext = createContext<DatabaseContextType | undefined>(
@@ -168,7 +168,23 @@ const mergeGroupIntoList = (list: GroupDB[], incoming: GroupDB): GroupDB[] => {
   return [...list, incoming];
 };
 
-const mergeCompetitionIntoList = (list: CompetitionDB[], incoming: CompetitionDB): CompetitionDB[] => {
+const mapCompetitionRow = (row: any): CompetitionDB => ({
+  code: row.code,
+  name: row.name,
+  emblem: row.emblem || undefined,
+  type: row.type || undefined,
+  lastSync:
+    row.last_sync ||
+    row.lastSync ||
+    row.last_updated ||
+    row.lastUpdated ||
+    undefined,
+});
+
+const mergeCompetitionIntoList = (
+  list: CompetitionDB[],
+  incoming: CompetitionDB,
+): CompetitionDB[] => {
   const idx = list.findIndex((c) => c.code === incoming.code);
   if (idx >= 0) {
     const next = [...list];
@@ -216,7 +232,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const [competitions, setCompetitions] = useState<CompetitionDB[]>(() =>
-    loadTable("competitions", [])
+    loadTable("competitions", []),
   );
   const [users, setUsers] = useState<UserDB[]>(() =>
     loadTable("users", INITIAL_DB.users),
@@ -268,7 +284,6 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
 
       const [
         rolesRes,
-        legacyUsersRes,
         teamsRes,
         stadiumsRes,
         groupsRes,
@@ -280,12 +295,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         competitionsRes,
       ] = await Promise.all([
         isAuthenticated
-          ? supabase
-              .from("user_roles")
-              .select('"userId", "displayName", avatar, role')
-          : Promise.resolve({ data: null, error: null } as any),
-        isAuthenticated
-          ? supabase.from("users").select("*")
+          ? supabase.from("user_roles").select("*")
           : Promise.resolve({ data: null, error: null } as any),
         supabase.from("teams").select("*"),
         supabase.from("stadiums").select("*"),
@@ -313,28 +323,6 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       if (Array.isArray(rolesRes.data)) {
         (rolesRes.data as UserRoleRow[]).forEach((row) => {
           usersById.set(row.userId, mapUserRoleToUser(row));
-        });
-      }
-
-      if (Array.isArray(legacyUsersRes.data)) {
-        (legacyUsersRes.data as LegacyUserRow[]).forEach((row) => {
-          const current = usersById.get(row.id);
-          const legacyUser = mapLegacyUserToUser(row);
-          usersById.set(
-            row.id,
-            current
-              ? {
-                  ...legacyUser,
-                  ...current,
-                  activeGroupId:
-                    current.activeGroupId || legacyUser.activeGroupId,
-                  totalPoints:
-                    (current.totalPoints || 0) > 0
-                      ? current.totalPoints
-                      : legacyUser.totalPoints,
-                }
-              : legacyUser,
-          );
         });
       }
 
@@ -368,13 +356,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       if (tournPredsRes.data) setTournamentPredictions(tournPredsRes.data);
       if (configRes.data) setSystemConfig(configRes.data);
       if (competitionsRes.data) {
-        const mapped = (competitionsRes.data as any[]).map((row) => ({
-          code: row.code,
-          name: row.name,
-          emblem: row.emblem || undefined,
-          type: row.type || undefined,
-          lastUpdated: row.last_updated || row.lastUpdated || undefined,
-        })) as CompetitionDB[];
+        const mapped = (competitionsRes.data as any[]).map(mapCompetitionRow);
         setCompetitions(mapped);
       }
 
@@ -524,10 +506,14 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         // --- COMPETITIONS ---
         case "competitions":
           if (eventType === "INSERT" || eventType === "UPDATE") {
-            setCompetitions((prev) => mergeCompetitionIntoList(prev, newRecord as CompetitionDB));
+            setCompetitions((prev) =>
+              mergeCompetitionIntoList(prev, mapCompetitionRow(newRecord)),
+            );
           } else if (eventType === "DELETE") {
             const deletedCode = oldRecord.code;
-            setCompetitions((prev) => prev.filter((c) => c.code !== deletedCode));
+            setCompetitions((prev) =>
+              prev.filter((c) => c.code !== deletedCode),
+            );
           }
           break;
 
@@ -610,7 +596,11 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
 
   // --- Persistence Effects (LocalStorage Fallback) ---
   useEffect(
-    () => localStorage.setItem("bolao_db_competitions", JSON.stringify(competitions)),
+    () =>
+      localStorage.setItem(
+        "bolao_db_competitions",
+        JSON.stringify(competitions),
+      ),
     [competitions],
   );
   useEffect(
@@ -660,15 +650,42 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
 
   // USERS
   const addUser = async (user: UserDB) => {
+    // 1. Optimistic Update
     setUsers((prev) => mergeUserIntoList(prev, user));
+
+    // 2. Database Sync
     if (isSupabaseEnabled() && supabase) {
-      await supabase.from("user_roles").upsert({
-        userId: user.id,
-        displayName: user.name,
-        email: user.email,
-        avatar: user.avatar,
-        role: user.role,
-      });
+      try {
+        // Check if user already has a role to avoid overwriting ADMIN status during race conditions
+        const { data: existingRole } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("userId", user.id)
+          .single();
+
+        if (existingRole) {
+          // Update other fields but NOT the role if it's already set (to prevent demotion)
+          await supabase
+            .from("user_roles")
+            .update({
+              displayName: user.name,
+              email: user.email,
+              avatar: user.avatar,
+            })
+            .eq("userId", user.id);
+        } else {
+          // New user, safe to insert with default role
+          await supabase.from("user_roles").insert({
+            userId: user.id,
+            displayName: user.name,
+            email: user.email,
+            avatar: user.avatar,
+            role: user.role,
+          });
+        }
+      } catch (err) {
+        console.error("Error ensuring user profile:", err);
+      }
     }
   };
   const updateUser = async (id: string, data: Partial<UserDB>) => {
@@ -868,31 +885,106 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
 
     // DB Update — map camelCase to snake_case for Supabase
     if (isSupabaseEnabled() && supabase && competitionsList.length > 0) {
-      const rows = competitionsList.map((c) => ({
-        code: c.code,
-        name: c.name,
-        emblem: c.emblem || null,
-        type: c.type || null,
-        last_updated: c.lastUpdated || new Date().toISOString(),
-      }));
-      const { error } = await supabase.from("competitions").upsert(rows, { onConflict: "code" });
+      const rows = competitionsList.map((c) => {
+        const row: any = { code: c.code, name: c.name };
+        if (c.emblem !== undefined) row.emblem = c.emblem;
+        if (c.type !== undefined) row.type = c.type;
+        if (c.lastSync !== undefined) row.last_sync = c.lastSync;
+        return row;
+      });
+      const { error } = await supabase
+        .from("competitions")
+        .upsert(rows, { onConflict: "code" });
       if (error) {
         console.error("Erro ao fazer upsert de competições:", error.message);
       }
     }
   };
 
+  const updateCompetitionSync = async (code: string, timestamp: string) => {
+    setCompetitions((prev) =>
+      prev.map((c) => (c.code === code ? { ...c, lastSync: timestamp } : c)),
+    );
+    if (isSupabaseEnabled() && supabase) {
+      const { error } = await supabase
+        .from("competitions")
+        .update({ last_sync: timestamp })
+        .eq("code", code);
+      if (error) {
+        console.error("Erro ao atualizar sync da competição:", error.message);
+      }
+    }
+  };
+
   // MATCHES
-  const upsertMatch = async (match: MatchDB) => {
-    setMatches((prev) => mergeMatchIntoList(prev, match));
+  const upsertMatch = async (match: MatchDB | MatchDB[]) => {
+    const matchesArray = Array.isArray(match) ? match : [match];
+    if (matchesArray.length === 0) return;
+
+    const hasExternalId = matchesArray.every((m) => m.externalMatchId);
+    const conflictTarget = hasExternalId ? "externalMatchId" : "id";
+
+    const byId = new Map<string, MatchDB>();
+    const byExternalId = new Map<string, MatchDB>();
+    let droppedDuplicates = 0;
+
+    for (const item of matchesArray) {
+      const idKey = item.id;
+      const extKey = item.externalMatchId ? String(item.externalMatchId) : null;
+
+      const existingById = byId.get(idKey);
+      if (existingById) {
+        // Same PK in payload. Keep the last item only if external id is compatible.
+        if (
+          existingById.externalMatchId &&
+          extKey &&
+          String(existingById.externalMatchId) !== extKey
+        ) {
+          droppedDuplicates++;
+          continue;
+        }
+      }
+
+      if (extKey) {
+        const existingByExt = byExternalId.get(extKey);
+        if (existingByExt && existingByExt.id !== idKey) {
+          // Same external id mapped to different PKs in a single batch.
+          droppedDuplicates++;
+          continue;
+        }
+      }
+
+      byId.set(idKey, item);
+      if (extKey) {
+        byExternalId.set(extKey, item);
+      }
+    }
+
+    const upsertPayload = Array.from(byId.values());
+
+    setMatches((prev) => {
+      let next = [...prev];
+      upsertPayload.forEach((m) => {
+        next = mergeMatchIntoList(next, m);
+      });
+      return next;
+    });
 
     if (isSupabaseEnabled() && supabase) {
-      const conflictTarget = match.externalMatchId ? "externalMatchId" : "id";
+      if (
+        upsertPayload.length !== matchesArray.length ||
+        droppedDuplicates > 0
+      ) {
+        console.warn(
+          `[MATCHES] Duplicatas removidas antes do upsert: ${matchesArray.length - upsertPayload.length + droppedDuplicates}`,
+        );
+      }
+
       const { error } = await supabase
         .from("matches")
-        .upsert(match, { onConflict: conflictTarget });
+        .upsert(upsertPayload, { onConflict: conflictTarget });
       if (error) {
-        throw new Error(`Erro ao salvar match: ${error.message}`);
+        throw new Error(`Erro ao salvar matches em lote: ${error.message}`);
       }
     }
   };
@@ -914,28 +1006,36 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   // PREDICTIONS
-  const upsertPrediction = async (pred: PredictionDB) => {
-    if (isSupabaseEnabled() && supabase) {
-          const { error } = await supabase
-            .from("predictions")
-            .upsert(pred, { onConflict: '"userId", "matchId"' });
-
-          if (error) {
-            throw new Error(`Erro ao salvar prediction: ${error.message}`);
-          }
-    }
+  const upsertPrediction = async (
+    prediction: PredictionDB | PredictionDB[],
+  ) => {
+    const predsArray = Array.isArray(prediction) ? prediction : [prediction];
+    if (predsArray.length === 0) return;
 
     setPredictions((prev) => {
-      const index = prev.findIndex(
-        (p) => predictionIdentityKey(p) === predictionIdentityKey(pred),
-      );
-      if (index >= 0) {
-        const newArr = [...prev];
-        newArr[index] = { ...newArr[index], ...pred };
-        return newArr;
-      }
-      return [...prev, pred];
+      let next = [...prev];
+      predsArray.forEach((pred) => {
+        const index = next.findIndex(
+          (p) => predictionIdentityKey(p) === predictionIdentityKey(pred),
+        );
+        if (index >= 0) {
+          next[index] = { ...next[index], ...pred };
+        } else {
+          next.push(pred);
+        }
+      });
+      return next;
     });
+
+    if (isSupabaseEnabled() && supabase) {
+      const { error } = await supabase
+        .from("predictions")
+        .upsert(predsArray, { onConflict: '"userId", "matchId"' });
+
+      if (error) {
+        throw new Error(`Erro ao salvar predictions em lote: ${error.message}`);
+      }
+    }
   };
 
   const upsertTournamentPrediction = async (pred: TournamentPredictionDB) => {
@@ -982,13 +1082,14 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         deleteGroup,
         addUserToGroup,
         removeUserFromGroup,
+        upsertCompetitions,
+        updateCompetitionSync,
         upsertTeam,
         upsertMatch,
         updateMatch,
         upsertPrediction,
         upsertTournamentPrediction,
         updateSystemConfig,
-        upsertCompetitions,
       }}
     >
       {children}

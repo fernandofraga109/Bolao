@@ -1,12 +1,15 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { Match, MatchStatus, TeamDB, TournamentPredictions } from "../types";
+import { calculatePoints } from "../utils/scoring";
 import { useDatabase } from "../contexts/DatabaseContext";
 import {
   fetchExternalStandings,
   fetchExternalMatches,
   findInternalMatch,
+  getCurrentSeason,
   mapExternalStatusToInternal,
 } from "../services/liveScoreService";
+import { supabase } from "../services/supabase";
 
 const normalizeCompetitionCode = (value?: string) =>
   (value || "WC").toUpperCase();
@@ -44,8 +47,49 @@ export const useMatchSystem = (
     }
   });
   const dbRef = useRef(db);
-  const isSyncingRef = useRef(false);
+  const syncingCompetitionsRef = useRef<Set<string>>(new Set());
   const nextAllowedSyncAtRef = useRef(0);
+  const wcRankingMapRef = useRef<Record<string, number> | null>(null);
+
+  const getWcRankingMap = useCallback(async (): Promise<
+    Record<string, number>
+  > => {
+    if (wcRankingMapRef.current) {
+      return wcRankingMapRef.current;
+    }
+
+    try {
+      const rankingFileUrl = new URL(
+        "../data/team-ranking.json",
+        import.meta.url,
+      );
+      const response = await fetch(rankingFileUrl);
+
+      if (!response.ok) {
+        console.warn(
+          `[RANKING] Falha ao carregar team-ranking.json (HTTP ${response.status}).`,
+        );
+        return {};
+      }
+
+      const payload = await response.json().catch(() => ({}));
+      const rankingMap: Record<string, number> = {};
+
+      (payload.Results || []).forEach((team: any) => {
+        const code = String(team?.IdCountry || "").toUpperCase();
+        const rank = Number(team?.Rank);
+        if (code && Number.isFinite(rank) && rank > 0) {
+          rankingMap[code] = rank;
+        }
+      });
+
+      wcRankingMapRef.current = rankingMap;
+      return rankingMap;
+    } catch (error) {
+      console.warn("[RANKING] Erro ao processar team-ranking.json:", error);
+      return {};
+    }
+  }, []);
 
   const updateSyncStatus = useCallback(
     (
@@ -107,6 +151,8 @@ export const useMatchSystem = (
           location: stadium ? stadium.name : "Unknown",
           stadiumId: m.stadiumId,
           status: m.status,
+          stage: m.stage,
+          matchday: m.matchday,
           result:
             m.resultHome != null && m.resultAway != null
               ? { home: m.resultHome, away: m.resultAway }
@@ -148,20 +194,7 @@ export const useMatchSystem = (
   }, [db.tournamentPredictions]);
 
   const simulateLiveGame = () => {
-    const scheduledMatches = db.matches.filter(
-      (m) => m.status === MatchStatus.SCHEDULED,
-    );
-    if (scheduledMatches.length > 0) {
-      const randomMatch = scheduledMatches[0];
-      const simHome = Math.floor(Math.random() * 4);
-      const simAway = Math.floor(Math.random() * 4);
-
-      db.updateMatch(randomMatch.id, {
-        status: MatchStatus.FINISHED,
-        resultHome: simHome,
-        resultAway: simAway,
-      });
-    }
+    console.log("Simulação desativada para proteger integridade dos dados.");
   };
 
   // --- SYNC EXTERNAL API ---
@@ -179,14 +212,18 @@ export const useMatchSystem = (
       }
 
       // Prevent multiple overlapping calls
-      if (isSyncingRef.current) {
+      if (syncingCompetitionsRef.current.has(normalizedCompetitionCode)) {
         updateSyncStatus(normalizedCompetitionCode, {
           lastOperation: "matches",
           lastAttemptAt: new Date().toISOString(),
           lastSuccess: false,
-          lastMessage: "Sincronizacao ignorada: ja existe uma em andamento.",
+          lastMessage:
+            "Sincronizacao ignorada: esta competicao ja esta em andamento.",
         });
-        return { success: false, message: "Já está sincronizando." };
+        return {
+          success: false,
+          message: "Esta competição já está sincronizando.",
+        };
       }
 
       const now = Date.now();
@@ -206,7 +243,7 @@ export const useMatchSystem = (
         };
       }
 
-      isSyncingRef.current = true;
+      syncingCompetitionsRef.current.add(normalizedCompetitionCode);
       setIsSyncing(true);
       updateSyncStatus(normalizedCompetitionCode, {
         lastOperation: "matches",
@@ -214,6 +251,9 @@ export const useMatchSystem = (
         isSyncing: true,
       });
       try {
+        const isWorldCupSync = normalizedCompetitionCode === "WC";
+        const wcRankingMap = isWorldCupSync ? await getWcRankingMap() : {};
+
         const externalMatches = await fetchExternalMatches(
           normalizedCompetitionCode,
         );
@@ -221,8 +261,6 @@ export const useMatchSystem = (
           console.log(
             "Nenhum jogo retornado pela API externa (ou token inválido/rate limit).",
           );
-          isSyncingRef.current = false;
-          setIsSyncing(false);
           updateSyncStatus(normalizedCompetitionCode, {
             lastOperation: "matches",
             lastSuccess: false,
@@ -238,6 +276,7 @@ export const useMatchSystem = (
         let insertedCount = 0;
         let skippedUndefinedTeams = 0;
         const ensuredTeams = new Map<string, string>();
+        const matchesToUpsert: any[] = [];
 
         const normalizeMatchGroup = (group?: string | null, stage?: string) => {
           const raw = (group || stage || "Copa do Mundo").trim();
@@ -253,32 +292,91 @@ export const useMatchSystem = (
         // Use matchesRef.current to ensure we are comparing against the latest state
         const currentMatches = matchesRef.current;
 
+        const buildUniqueTeamCode = (
+          baseCode: string,
+          externalId?: number,
+          preferredName?: string,
+        ) => {
+          const cleanedBase =
+            (baseCode || "TBD")
+              .toUpperCase()
+              .replace(/[^A-Z0-9]/g, "")
+              .slice(0, 3) || "TBD";
+
+          const codeExists = (value: string) =>
+            currentDb.teams.some((t) => t.code.toUpperCase() === value);
+
+          if (!codeExists(cleanedBase)) {
+            return cleanedBase;
+          }
+
+          const acronym = (preferredName || "")
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((part) => part[0])
+            .join("")
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, "")
+            .slice(0, 3);
+
+          if (acronym && !codeExists(acronym)) {
+            return acronym;
+          }
+
+          if (typeof externalId === "number") {
+            const suffix = String(externalId).slice(-3);
+            const withId = `${cleanedBase}${suffix}`.slice(0, 6);
+            if (!codeExists(withId)) {
+              return withId;
+            }
+          }
+
+          let idx = 1;
+          while (idx < 1000) {
+            const candidate = `${cleanedBase}${idx}`.slice(0, 6);
+            if (!codeExists(candidate)) {
+              return candidate;
+            }
+            idx += 1;
+          }
+
+          return `${cleanedBase}${Date.now()}`.slice(0, 10);
+        };
+
         for (const extMatch of externalMatches) {
           if (!extMatch.homeTeam?.tla || !extMatch.awayTeam?.tla) {
             skippedUndefinedTeams++;
             continue;
           }
 
-          const homeCode = extMatch.homeTeam.tla.toLowerCase();
-          const awayCode = extMatch.awayTeam.tla.toLowerCase();
+          const ensureTeam = async (team: {
+            id: number;
+            name: string;
+            shortName?: string;
+            tla: string;
+            crest?: string;
+          }) => {
+            const normalizedCode = (team.tla || "TBD").toUpperCase();
+            const externalId =
+              typeof team.id === "number" && Number.isFinite(team.id)
+                ? team.id
+                : undefined;
+            const cacheKey = externalId
+              ? `ext:${externalId}`
+              : `code:${normalizedCode}`;
 
-          const ensureTeam = async (
-            code: string,
-            team: {
-              id: number;
-              name: string;
-              shortName?: string;
-              tla: string;
-              crest?: string;
-            },
-          ) => {
-            const normalizedCode = code.toUpperCase();
-            const cachedId = ensuredTeams.get(normalizedCode);
+            const cachedId = ensuredTeams.get(cacheKey);
             if (cachedId) return cachedId;
 
-            const existing = currentDb.teams.find(
-              (t) => t.id === code || t.code.toLowerCase() === code,
-            );
+            const existing =
+              (typeof externalId === "number"
+                ? currentDb.teams.find((t) => t.externalTeamId === externalId)
+                : undefined) ||
+              (!externalId
+                ? currentDb.teams.find(
+                    (t) => t.code.toUpperCase() === normalizedCode,
+                  )
+                : undefined);
 
             const crestUrl =
               team.crest ||
@@ -288,112 +386,128 @@ export const useMatchSystem = (
             const teamName = team.name || team.shortName || team.tla;
 
             if (existing) {
-              if (crestUrl && existing.flag !== crestUrl) {
+              const rankingFromMap = wcRankingMap[normalizedCode];
+              const shouldRefreshRanking =
+                isWorldCupSync &&
+                rankingFromMap > 0 &&
+                (!existing.ranking || existing.ranking === 999);
+
+              const shouldBackfillExternalId =
+                typeof externalId === "number" &&
+                existing.externalTeamId == null;
+
+              if (
+                (crestUrl && existing.flag !== crestUrl) ||
+                shouldRefreshRanking ||
+                shouldBackfillExternalId
+              ) {
                 const updated = await currentDb.upsertTeam({
                   ...existing,
                   flag: crestUrl,
+                  ranking: shouldRefreshRanking
+                    ? rankingFromMap
+                    : existing.ranking,
+                  externalTeamId: shouldBackfillExternalId
+                    ? externalId
+                    : existing.externalTeamId,
                 });
-                ensuredTeams.set(normalizedCode, updated.id);
+                ensuredTeams.set(cacheKey, updated.id);
                 return updated.id;
               }
-              ensuredTeams.set(normalizedCode, existing.id);
+              ensuredTeams.set(cacheKey, existing.id);
               return existing.id;
             }
+
+            const uniqueCode = buildUniqueTeamCode(
+              normalizedCode,
+              externalId,
+              teamName,
+            );
 
             const newTeam: TeamDB = {
               id: crypto.randomUUID(),
               name: teamName,
-              code: code.toUpperCase(),
+              code: uniqueCode,
               flag: crestUrl || "/favicon.ico",
-              ranking: 999,
+              ranking: wcRankingMap[normalizedCode] || 999,
               pot: 4,
+              externalTeamId: externalId,
             };
 
             const persisted = await currentDb.upsertTeam(newTeam);
-            ensuredTeams.set(normalizedCode, persisted.id);
+            ensuredTeams.set(cacheKey, persisted.id);
             return persisted.id;
           };
 
-          const homeTeamId = await ensureTeam(homeCode, extMatch.homeTeam);
-          const awayTeamId = await ensureTeam(awayCode, extMatch.awayTeam);
+          const homeTeamId = await ensureTeam(extMatch.homeTeam);
+          const awayTeamId = await ensureTeam(extMatch.awayTeam);
+
+          if (!homeTeamId || !awayTeamId) {
+            skippedUndefinedTeams++;
+            continue;
+          }
 
           const existingByExternalId = currentDb.matches.find(
             (m) => m.externalMatchId === String(extMatch.id),
           );
-          const internalMatch = findInternalMatch(extMatch, currentMatches);
+          const internalMatch = existingByExternalId
+            ? undefined
+            : findInternalMatch(extMatch, currentMatches);
+          const targetId = existingByExternalId?.id || internalMatch?.id;
+          const status = mapExternalStatusToInternal(extMatch.status);
 
-          if (internalMatch || existingByExternalId) {
-            const targetId = internalMatch?.id || existingByExternalId!.id;
-            const newStatus = mapExternalStatusToInternal(extMatch.status);
-            const newGroup = normalizeMatchGroup(
-              extMatch.group,
-              extMatch.stage,
-            );
+          // Safety: Only accept scores if match is LIVE or FINISHED
+          const isGameInPlay =
+            status === MatchStatus.LIVE || status === MatchStatus.FINISHED;
+          const resHome = isGameInPlay ? extMatch.score?.fullTime?.home : null;
+          const resAway = isGameInPlay ? extMatch.score?.fullTime?.away : null;
 
-            // Safe access to scores with optional chaining
-            const extHome = extMatch.score?.fullTime?.home;
-            const extAway = extMatch.score?.fullTime?.away;
+          const matchData = {
+            id: targetId || crypto.randomUUID(),
+            status: status,
+            group: normalizeMatchGroup(extMatch.group, extMatch.stage),
+            competitionCode: normalizedCompetitionCode,
+            date: extMatch.utcDate,
+            stage: extMatch.stage,
+            matchday: extMatch.matchday,
+            resultHome: resHome ?? undefined,
+            resultAway: resAway ?? undefined,
+            homeTeamId,
+            awayTeamId,
+            externalMatchId: String(extMatch.id),
+          };
 
-            // Atualiza apenas se mudou status ou placar
-            const currentHome =
-              internalMatch?.result?.home ?? existingByExternalId?.resultHome;
-            const currentAway =
-              internalMatch?.result?.away ?? existingByExternalId?.resultAway;
+          if (targetId) {
+            const existing = currentMatches.find((m) => m.id === targetId);
+            const hasChanged =
+              !existing ||
+              existing.status !== matchData.status ||
+              (existing.result?.home !== matchData.resultHome &&
+                matchData.resultHome !== undefined) ||
+              (existing.result?.away !== matchData.resultAway &&
+                matchData.resultAway !== undefined) ||
+              existing.group !== matchData.group ||
+              existing.date !== matchData.date;
 
-            const scoreChanged =
-              (extHome != null && currentHome !== extHome) ||
-              (extAway != null && currentAway !== extAway);
-
-            const currentStatus =
-              internalMatch?.status ?? existingByExternalId?.status;
-            const statusChanged = currentStatus !== newStatus;
-
-            const currentGroup =
-              internalMatch?.group ?? existingByExternalId?.group;
-            const groupChanged = currentGroup !== newGroup;
-
-            const currentDate =
-              internalMatch?.date ?? existingByExternalId?.date;
-            const dateChanged = extMatch.utcDate && currentDate !== extMatch.utcDate;
-
-            if (scoreChanged || statusChanged || groupChanged || dateChanged) {
-              await currentDb.updateMatch(targetId, {
-                status: newStatus,
-                group: newGroup,
-                competitionCode: normalizedCompetitionCode,
-                date: extMatch.utcDate,
-                // Use null coalescing to ensure undefined if null, or the value
-                resultHome: extHome ?? undefined,
-                resultAway: extAway ?? undefined,
-              });
+            if (hasChanged) {
+              matchesToUpsert.push({ ...matchData, id: targetId } as any);
               updatedCount++;
             }
           } else {
-            const newStatus = mapExternalStatusToInternal(extMatch.status);
-            const extHome = extMatch.score?.fullTime?.home;
-            const extAway = extMatch.score?.fullTime?.away;
-
-            const newMatchId = crypto.randomUUID();
-
-            await currentDb.upsertMatch({
-              id: newMatchId,
-              externalMatchId: String(extMatch.id),
-              homeTeamId,
-              awayTeamId,
-              date: extMatch.utcDate,
-              group: normalizeMatchGroup(extMatch.group, extMatch.stage),
-              competitionCode: normalizedCompetitionCode,
+            matchesToUpsert.push({
+              ...matchData,
+              id: crypto.randomUUID(),
               stadiumId: null,
-              status: newStatus,
-              resultHome: extHome ?? undefined,
-              resultAway: extAway ?? undefined,
-            });
+            } as any);
             insertedCount++;
           }
         }
 
-        isSyncingRef.current = false;
-        setIsSyncing(false);
+        // 2. Batch Update to Database
+        if (matchesToUpsert.length > 0) {
+          await currentDb.upsertMatch(matchesToUpsert);
+        }
+
         const successMessage = `${updatedCount} atualizados, ${insertedCount} inseridos${skippedUndefinedTeams > 0 ? `, ${skippedUndefinedTeams} pulados (times indefinidos)` : ""}.`;
         updateSyncStatus(normalizedCompetitionCode, {
           lastOperation: "matches",
@@ -405,6 +519,7 @@ export const useMatchSystem = (
         return {
           success: true,
           message: successMessage,
+          updatedMatches: matchesToUpsert, // Return for point processing
         };
       } catch (error: any) {
         console.error("Erro no Sync:", error);
@@ -416,8 +531,6 @@ export const useMatchSystem = (
           normalizedMessage.includes("permission denied") &&
           normalizedMessage.includes("teams")
         ) {
-          isSyncingRef.current = false;
-          setIsSyncing(false);
           updateSyncStatus(normalizedCompetitionCode, {
             lastOperation: "matches",
             lastSuccess: false,
@@ -438,8 +551,6 @@ export const useMatchSystem = (
           nextAllowedSyncAtRef.current = Date.now() + waitSeconds * 1000;
         }
 
-        isSyncingRef.current = false;
-        setIsSyncing(false);
         updateSyncStatus(normalizedCompetitionCode, {
           lastOperation: "matches",
           lastSuccess: false,
@@ -450,9 +561,12 @@ export const useMatchSystem = (
           success: false,
           message: error?.message || "Erro ao salvar dados no banco.",
         };
+      } finally {
+        syncingCompetitionsRef.current.delete(normalizedCompetitionCode);
+        setIsSyncing(syncingCompetitionsRef.current.size > 0);
       }
     },
-    [activeCompetitionCode, canWriteData, updateSyncStatus],
+    [canWriteData, getWcRankingMap, updateSyncStatus],
   );
 
   const normalizeGroupName = useCallback((groupName: string) => {
@@ -480,9 +594,12 @@ export const useMatchSystem = (
         isSyncing: true,
       });
       try {
+        const isWorldCupSync = normalizedCompetitionCode === "WC";
+        const wcRankingMap = isWorldCupSync ? await getWcRankingMap() : {};
+        const season = getCurrentSeason();
         const data = await fetchExternalStandings(
           normalizedCompetitionCode,
-          "2026",
+          season,
         );
         if (!data || !Array.isArray(data.standings)) {
           updateSyncStatus(normalizedCompetitionCode, {
@@ -524,23 +641,28 @@ export const useMatchSystem = (
             const code = (row.team?.tla || "").toUpperCase();
             if (!code) continue;
 
-            const existing = currentDb.teams.find(
-              (t) =>
-                t.code.toUpperCase() === code ||
-                (typeof row.team?.id === "number" &&
-                  t.externalTeamId === row.team.id),
-            );
+            const existing =
+              (typeof row.team?.id === "number"
+                ? currentDb.teams.find((t) => t.externalTeamId === row.team.id)
+                : undefined) ||
+              currentDb.teams.find((t) => t.code.toUpperCase() === code);
+
+            const rankingFromMap = wcRankingMap[code];
+            const resolvedRanking =
+              existing?.ranking && existing.ranking !== 999
+                ? existing.ranking
+                : rankingFromMap || existing?.ranking || 999;
 
             const payload: TeamDB = {
               id: existing?.id || crypto.randomUUID(),
               name: row.team?.name || existing?.name || code,
-              code,
+              code: existing?.code || code,
               flag: row.team?.crest || existing?.flag || "/favicon.ico",
-              ranking: existing?.ranking || 999,
+              ranking: resolvedRanking,
               pot: existing?.pot,
               externalTeamId: row.team?.id,
               standingsCompetitionCode: normalizedCompetitionCode,
-              standingsSeason: "2026",
+              standingsSeason: data.filters?.season || season,
               standingsStage: groupEntry.stage,
               standingsType: groupEntry.type,
               standingsGroup: resolvedStandingsGroup,
@@ -557,8 +679,17 @@ export const useMatchSystem = (
               standingsUpdatedAt: updatedAt,
             };
 
-            await currentDb.upsertTeam(payload);
-            upsertedTeams++;
+            const hasChanged =
+              !existing ||
+              existing.standingsPoints !== payload.standingsPoints ||
+              existing.standingsPosition !== payload.standingsPosition ||
+              existing.standingsPlayedGames !== payload.standingsPlayedGames ||
+              existing.standingsForm !== payload.standingsForm;
+
+            if (hasChanged) {
+              await currentDb.upsertTeam(payload);
+              upsertedTeams++;
+            }
           }
         }
 
@@ -587,64 +718,129 @@ export const useMatchSystem = (
         };
       }
     },
-    [activeCompetitionCode, canWriteData, normalizeGroupName, updateSyncStatus],
+    [canWriteData, getWcRankingMap, normalizeGroupName, updateSyncStatus],
   );
 
+  const batchProcessPointsForMatches = async (finishedMatches: Match[]) => {
+    if (finishedMatches.length === 0) return;
+
+    // 1. Get all match IDs
+    const matchIds = finishedMatches.map((m) => m.id);
+
+    // 2. Get all predictions for these matches
+    const { data: predictions, error: pError } = await supabase
+      .from("predictions")
+      .select("*")
+      .in("matchId", matchIds);
+
+    if (pError || !predictions || predictions.length === 0) return;
+
+    const updatesToUpsert: any[] = [];
+
+    for (const pred of predictions) {
+      const match = finishedMatches.find((m) => m.id === pred.matchId);
+      if (!match || !match.result || !match.homeTeam || !match.awayTeam)
+        continue;
+
+      const hR = match.result.home;
+      const aR = match.result.away;
+
+      // 3. Calculate points using centralized utility (including rankings for Zebra bonus)
+      const pts = calculatePoints(
+        pred.homeScore,
+        pred.awayScore,
+        hR,
+        aR,
+        match.homeTeam?.ranking || 999,
+        match.awayTeam?.ranking || 999,
+      );
+
+      // 4. Collect update if changed
+      if (pred.points !== pts) {
+        updatesToUpsert.push({
+          userId: pred.userId,
+          matchId: pred.matchId,
+          homeScore: pred.homeScore,
+          awayScore: pred.awayScore,
+          points: pts,
+          groupId: pred.groupId,
+        });
+      }
+    }
+
+    // 5. Batch update
+    if (updatesToUpsert.length > 0) {
+      await dbRef.current.upsertPrediction(updatesToUpsert);
+      console.log(
+        `✨ Processamento em lote concluído: ${updatesToUpsert.length} palpites atualizados.`,
+      );
+    }
+  };
+
   const syncMatchesAndStandings = useCallback(
-    async (competitionCode = activeCompetitionCode) => {
-      const normalizedCompetitionCode =
-        normalizeCompetitionCode(competitionCode);
+    async (competitionCode: string) => {
+      const normalizedCode = competitionCode.toUpperCase();
       const runStartedAt = new Date().toISOString();
 
-      if (!canWriteData) {
-        return {
-          success: false,
-          message:
-            "Somente administradores podem sincronizar e persistir dados no banco.",
-          matchesResult: {
-            success: false,
-            message:
-              "Operacao bloqueada para usuario sem permissao de escrita.",
-          },
-          standingsResult: {
-            success: false,
-            message:
-              "Operacao bloqueada para usuario sem permissao de escrita.",
-          },
-        };
+      updateSyncStatus(normalizedCode, { isSyncing: true });
+
+      try {
+        // 1. Sync Matches
+        const matchRes = await syncWithExternalApi(normalizedCode);
+
+        // 2. After sync, trigger points processing for any newly FINISHED match
+        const freshMatches = (matchRes as any).updatedMatches || [];
+        const newlyFinished = freshMatches
+          .filter(
+            (m: any) =>
+              m.status === MatchStatus.FINISHED &&
+              (m.resultHome !== undefined || m.resultAway !== undefined),
+          )
+          .map((m: any) => ({
+            id: m.id,
+            result: { home: m.resultHome, away: m.resultAway },
+          }));
+
+        if (newlyFinished.length > 0) {
+          await batchProcessPointsForMatches(newlyFinished as any);
+        }
+
+        // 3. Sync Standings
+        const standingRes = await syncStandingsWithExternalApi(normalizedCode);
+
+        const combinedSuccess = matchRes.success || standingRes.success;
+        const combinedMessage = `Jogos: ${matchRes.message} | Tabela: ${standingRes.message}`;
+
+        updateSyncStatus(normalizedCode, {
+          lastOperation: "combined",
+          lastAttemptAt: runStartedAt,
+          lastSuccess: combinedSuccess,
+          lastSuccessAt: combinedSuccess ? new Date().toISOString() : undefined,
+          lastMessage: combinedMessage,
+          isSyncing: false,
+        });
+
+        // 4. Persist sync timestamp in database for this competition
+        if (combinedSuccess && canWriteData) {
+          await dbRef.current.updateCompetitionSync(
+            normalizedCode,
+            new Date().toISOString(),
+          );
+        }
+
+        return { success: combinedSuccess, message: combinedMessage };
+      } catch (err: any) {
+        updateSyncStatus(normalizedCode, {
+          isSyncing: false,
+          lastMessage: err.message,
+        });
+        return { success: false, message: err.message };
       }
-
-      const standingsResult = await syncStandingsWithExternalApi(
-        normalizedCompetitionCode,
-      );
-      const matchesResult = await syncWithExternalApi(
-        normalizedCompetitionCode,
-      );
-
-      const combinedSuccess = matchesResult.success || standingsResult.success;
-      const combinedMessage = `Jogos: ${matchesResult.message} | Tabela: ${standingsResult.message}`;
-
-      updateSyncStatus(normalizedCompetitionCode, {
-        lastOperation: "combined",
-        lastAttemptAt: runStartedAt,
-        lastSuccess: combinedSuccess,
-        lastSuccessAt: combinedSuccess ? new Date().toISOString() : undefined,
-        lastMessage: combinedMessage,
-        isSyncing: false,
-      });
-
-      return {
-        success: combinedSuccess,
-        message: combinedMessage,
-        matchesResult,
-        standingsResult,
-      };
     },
     [
-      activeCompetitionCode,
-      canWriteData,
-      syncStandingsWithExternalApi,
       syncWithExternalApi,
+      syncStandingsWithExternalApi,
+      matches,
       updateSyncStatus,
     ],
   );
@@ -654,15 +850,28 @@ export const useMatchSystem = (
     let intervalId: any;
 
     if (canWriteData && isAutoSyncEnabled) {
-      console.log(
-        `🔄 Auto-Sync ATIVO via Banco de Dados. Intervalo: ${syncInterval}ms`,
-      );
-      // Run immediately
-      void syncWithExternalApi(activeCompetitionCode);
+      console.log(`🔄 Auto-Sync GLOBAL ATIVO. Intervalo: ${syncInterval}ms`);
+
+      const runGlobalSync = async () => {
+        // Find all unique competition codes from existing groups
+        const activeCodes = Array.from(
+          new Set(
+            db.groups.map((g) => (g.competitionCode || "WC").toUpperCase()),
+          ),
+        );
+
+        console.log(
+          `🔄 Auto-Sync: Atualizando ${activeCodes.length} competições...`,
+          activeCodes,
+        );
+
+        for (const code of activeCodes) {
+          await syncWithExternalApi(code);
+        }
+      };
 
       intervalId = setInterval(() => {
-        console.log("🔄 Auto-Sync: Buscando atualizações...");
-        void syncWithExternalApi(activeCompetitionCode);
+        void runGlobalSync();
       }, syncInterval || 60000);
     } else {
       console.log("⏹️ Auto-Sync PARADO (Configuração Global)");
@@ -672,11 +881,11 @@ export const useMatchSystem = (
       if (intervalId) clearInterval(intervalId);
     };
   }, [
-    activeCompetitionCode,
     canWriteData,
     isAutoSyncEnabled,
     syncInterval,
     syncWithExternalApi,
+    db.groups,
   ]);
 
   const toggleAutoSync = useCallback(() => {

@@ -97,7 +97,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections }) => {
                         {user.name}
                       </h3>
                       <span className="text-xs text-slate-400">
-                        Palpites feitos: {Object.keys(user.predictions).length}
+                        Palpites feitos: {user.predictionsCount ?? Object.keys(user.predictions).length}
                       </span>
                     </div>
                   </div>

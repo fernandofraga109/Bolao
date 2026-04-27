@@ -269,6 +269,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>("matches");
   const [groupError, setGroupError] = useState<string | null>(null);
   const [isGroupSwitcherOpen, setIsGroupSwitcherOpen] = useState(false);
+  const [isPastMatchesOpen, setIsPastMatchesOpen] = useState(false);
   const [isAdminSyncingAll, setIsAdminSyncingAll] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<{
     isOpen: boolean;
@@ -331,20 +332,26 @@ const App: React.FC = () => {
       .map((user) => {
         let total = 0;
         matches.forEach((match) => {
+          const pred = user.predictions[match.id];
           if (
             match.status === MatchStatus.FINISHED &&
             match.result &&
-            user.predictions[match.id]
+            pred
           ) {
-            const pred = user.predictions[match.id];
-            total += calculatePoints(
-              pred.home,
-              pred.away,
-              match.result.home,
-              match.result.away,
-              match.homeTeam.ranking,
-              match.awayTeam.ranking,
-            );
+            // Priority: Persisted points in DB
+            if (typeof pred.points === "number") {
+              total += pred.points;
+            } else {
+              // Fallback: On-the-fly calculation if not yet synced to DB
+              total += calculatePoints(
+                pred.home,
+                pred.away,
+                match.result.home,
+                match.result.away,
+                match.homeTeam.ranking,
+                match.awayTeam.ranking,
+              );
+            }
           }
         });
 
@@ -408,6 +415,9 @@ const App: React.FC = () => {
                 typeof groupPoints === "number"
                   ? groupPoints
                   : user.totalPoints,
+              predictionsCount: db.predictions.filter(
+                (p) => p.userId === user.id && p.groupId === groupId,
+              ).length,
             };
           });
 
@@ -425,7 +435,13 @@ const App: React.FC = () => {
         };
       })
       .filter((section) => section.users.length > 0);
-  }, [currentUser, usersWithCalculatedPoints, db.userGroups, groups]);
+  }, [
+    currentUser,
+    usersWithCalculatedPoints,
+    db.userGroups,
+    groups,
+    db.predictions,
+  ]);
 
   const resolvedActiveGroupId =
     currentUser?.activeGroupId || currentUser?.groupIds?.[0];
@@ -451,22 +467,22 @@ const App: React.FC = () => {
   ]);
 
   // --- Date Grouping Logic ---
-  const { pastMatches, todayMatches, futureGroups } = useMemo(() => {
+  const { pastGroups, todayMatches, futureGroups } = useMemo(() => {
     // 1. Determine "Today" (Reference Date)
     const now = new Date();
     
     // Normalize dates to YYYY-MM-DD for comparison
     const getDayString = (d: Date) => {
-      try {
-        return d.toISOString().split("T")[0];
-      } catch (e) {
-        return "";
-      }
+      // Use local date (YYYY-MM-DD) instead of UTC to avoid timezone shifts
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
     };
     
     const todayStr = getDayString(now);
 
-    const past: Match[] = [];
+    const past: Record<string, Match[]> = {};
     const today: Match[] = [];
     const future: Record<string, Match[]> = {};
 
@@ -475,7 +491,14 @@ const App: React.FC = () => {
       const mDateStr = getDayString(mDate);
 
       if (mDateStr < todayStr) {
-        past.push(match);
+        let key = "Anteriores";
+        if (match.stage === "REGULAR_SEASON" && match.matchday) {
+          key = `Rodada ${match.matchday}`;
+        } else if (match.group) {
+          key = match.group;
+        }
+        if (!past[key]) past[key] = [];
+        past[key].push(match);
       } else if (mDateStr === todayStr) {
         today.push(match);
       } else {
@@ -484,17 +507,12 @@ const App: React.FC = () => {
       }
     });
 
-    // Sort past matches (newest first usually better for history, or oldest first? let's do oldest first for schedule)
-    past.sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-    );
-
     // Sort today matches by time
     today.sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
     );
 
-    return { pastMatches: past, todayMatches: today, futureGroups: future };
+    return { pastGroups: past, todayMatches: today, futureGroups: future };
   }, [matches, activeCompetitionCode]);
 
   const formatDateTitle = (dateStr: string) => {
@@ -758,19 +776,46 @@ const App: React.FC = () => {
               />
             )}
 
-            {/* 1. Past Matches Group */}
-            {pastMatches.length > 0 && (
-              <MatchGroup
-                title="Jogos Anteriores"
-                matches={pastMatches}
-                isOpenDefault={false}
-                icon={<History size={18} className="text-slate-400" />}
-                userPredictions={myPredictionsMap}
-                leaderboardData={leaderboardData}
-                onPredict={predictMatch}
-                isAdmin={currentUser.role === "ADMIN"}
-                onFinishMatch={adminControls.finishMatch}
-              />
+            {/* 1. Past Matches Grouped by Matchday/Phase (Wrapped in one main container) */}
+            {Object.keys(pastGroups).length > 0 && (
+              <div className="mb-6">
+                <button
+                  onClick={() => setIsPastMatchesOpen(!isPastMatchesOpen)}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:bg-slate-800 transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    <History size={18} />
+                    <span className="font-bold text-sm">Ver Jogos Anteriores</span>
+                  </div>
+                  {isPastMatchesOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+
+                {isPastMatchesOpen && (
+                  <div className="mt-4 space-y-4 pl-2 border-l-2 border-slate-800 ml-4 animate-fadeIn">
+                    {Object.entries(pastGroups)
+                      .sort(([a], [b]) => {
+                        const numA = parseInt(a.replace(/\D/g, ""));
+                        const numB = parseInt(b.replace(/\D/g, ""));
+                        if (!isNaN(numA) && !isNaN(numB)) return numB - numA;
+                        return b.localeCompare(a);
+                      })
+                      .map(([title, groupMatches]) => (
+                        <MatchGroup
+                          key={title}
+                          title={title}
+                          matches={groupMatches}
+                          isOpenDefault={false}
+                          icon={<History size={14} className="text-slate-500" />}
+                          userPredictions={myPredictionsMap}
+                          leaderboardData={leaderboardData}
+                          onPredict={predictMatch}
+                          isAdmin={currentUser.role === "ADMIN"}
+                          onFinishMatch={adminControls.finishMatch}
+                        />
+                      ))}
+                  </div>
+                )}
+              </div>
             )}
 
             {/* 2. Today's Matches Group (Highlighted) */}
@@ -789,7 +834,7 @@ const App: React.FC = () => {
 
             {/* Fallback if todayMatches is empty (e.g. rest day) */}
             {todayMatches.length === 0 &&
-              pastMatches.length > 0 &&
+              Object.keys(pastGroups).length > 0 &&
               Object.keys(futureGroups).length > 0 && (
                 <div className="text-center py-8 border border-slate-700 rounded-xl bg-slate-800/50 border-dashed">
                   <p className="text-slate-400 text-sm">
