@@ -26,6 +26,7 @@ DROP TABLE IF EXISTS public.user_roles CASCADE;
 DROP TABLE IF EXISTS public.groups CASCADE;
 DROP TABLE IF EXISTS public.profiles CASCADE;
 DROP TABLE IF EXISTS public.stadiums CASCADE;
+DROP TABLE IF EXISTS public.team_standings CASCADE;
 DROP TABLE IF EXISTS public.teams CASCADE;
 
 
@@ -41,22 +42,29 @@ CREATE TABLE IF NOT EXISTS public.teams (
     flag text NOT NULL,
     ranking integer,
     pot integer,
-    "externalTeamId" integer,
-    "standingsSeason" text,
-    "standingsStage" text,
-    "standingsType" text,
-    "standingsGroup" text,
-    "standingsPosition" integer,
-    "standingsPlayedGames" integer,
-    "standingsForm" text,
-    "standingsWon" integer,
-    "standingsDraw" integer,
-    "standingsLost" integer,
-    "standingsPoints" integer,
-    "standingsGoalsFor" integer,
-    "standingsGoalsAgainst" integer,
-    "standingsGoalDifference" integer,
-    "standingsUpdatedAt" text
+    "externalTeamId" integer
+);
+
+-- 1.A TABELA TEAM_STANDINGS (Tabela de Classificações por Competição)
+CREATE TABLE IF NOT EXISTS public.team_standings (
+    "teamId" text NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
+    "competitionCode" text NOT NULL,
+    "season" text,
+    "stage" text,
+    "type" text,
+    "group" text,
+    "position" integer,
+    "playedGames" integer,
+    "form" text,
+    "won" integer,
+    "draw" integer,
+    "lost" integer,
+    "points" integer,
+    "goalsFor" integer,
+    "goalsAgainst" integer,
+    "goalDifference" integer,
+    "updatedAt" text,
+    PRIMARY KEY ("teamId", "competitionCode")
 );
 
 -- 2. TABELA STADIUMS
@@ -120,10 +128,11 @@ CREATE TABLE IF NOT EXISTS public.matches (
 CREATE TABLE IF NOT EXISTS public.predictions (
     "userId" uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     "matchId" text NOT NULL REFERENCES public.matches(id) ON DELETE CASCADE,
+    "groupId" text NOT NULL REFERENCES public.groups(id) ON DELETE CASCADE,
     "homeScore" integer NOT NULL,
     "awayScore" integer NOT NULL,
     timestamp text,
-    PRIMARY KEY ("userId", "matchId")
+    PRIMARY KEY ("userId", "matchId", "groupId")
 );
 
 -- 9. TABELA TOURNAMENT_PREDICTIONS (Palpites Campeão/Artilheiro)
@@ -139,6 +148,7 @@ CREATE TABLE IF NOT EXISTS public.tournament_predictions (
 
 -- Row Level Security (Básico)
 ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.team_standings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stadiums ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
@@ -153,6 +163,9 @@ DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'teams' AND policyname = 'Public Access Teams') THEN
         CREATE POLICY "Public Access Teams" ON public.teams FOR ALL USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'team_standings' AND policyname = 'Public Access Team Standings') THEN
+        CREATE POLICY "Public Access Team Standings" ON public.team_standings FOR ALL USING (true);
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'stadiums' AND policyname = 'Public Access Stadiums') THEN
         CREATE POLICY "Public Access Stadiums" ON public.stadiums FOR ALL USING (true);
@@ -192,6 +205,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.groups;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.user_groups;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.matches;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.predictions;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.team_standings;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.tournament_predictions;
 
 
@@ -346,11 +360,11 @@ INSERT INTO public.user_groups ("userId", "groupId", "joinedAt", role) VALUES
 ON CONFLICT ("userId", "groupId") DO NOTHING;
 
 -- 7. PREDICTIONS
-INSERT INTO public.predictions ("userId", "matchId", "homeScore", "awayScore", timestamp) VALUES
-('33333333-3333-4333-8333-333333333333', 'm1', 2, 1, '2025-01-01T12:00:00'),
-('44444444-4444-4444-8444-444444444444', 'm1', 3, 1, '2025-01-01T14:00:00'),
-('55555555-5555-4555-8555-555555555555', 'm1', 0, 1, '2025-01-01T15:00:00')
-ON CONFLICT ("userId", "matchId") DO NOTHING;
+INSERT INTO public.predictions ("userId", "matchId", "groupId", "homeScore", "awayScore", timestamp) VALUES
+('33333333-3333-4333-8333-333333333333', 'm1', 'g1', 2, 1, '2025-01-01T12:00:00'),
+('44444444-4444-4444-8444-444444444444', 'm1', 'g1', 3, 1, '2025-01-01T14:00:00'),
+('55555555-5555-4555-8555-555555555555', 'm1', 'g1', 0, 1, '2025-01-01T15:00:00')
+ON CONFLICT ("userId", "matchId", "groupId") DO NOTHING;
 
 -- 8. TOURNAMENT_PREDICTIONS
 INSERT INTO public.tournament_predictions ("userId", "championTeamId", "topScorerPlayer", "topScorerGoals", "bestPlayer", "bestGoalkeeper") VALUES

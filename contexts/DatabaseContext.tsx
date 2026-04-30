@@ -10,6 +10,7 @@ import {
   GroupDB,
   UserGroupDB,
   MatchDB,
+  Team,
   TeamDB,
   StadiumDB,
   PredictionDB,
@@ -110,7 +111,7 @@ interface DatabaseContextType {
 
   upsertCompetitions: (competitionsList: CompetitionDB[]) => Promise<void>;
   updateCompetitionSync: (code: string, timestamp: string) => Promise<void>;
-  upsertTeam: (team: TeamDB) => Promise<TeamDB>;
+  upsertTeam: (team: Team) => Promise<TeamDB>;
   upsertMatch: (match: MatchDB) => Promise<void>;
   updateMatch: (id: string, data: Partial<MatchDB>) => Promise<void>;
 
@@ -804,36 +805,20 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   // TEAMS
-  const upsertTeam = async (team: TeamDB) => {
+  const upsertTeam = async (team: Team) => {
     if (isSupabaseEnabled() && supabase) {
-      const payload = {
+      const teamPayload = {
         name: team.name,
         code: team.code,
         flag: team.flag,
         ranking: team.ranking,
         pot: team.pot,
         externalTeamId: team.externalTeamId,
-        standingsCompetitionCode: team.standingsCompetitionCode,
-        standingsSeason: team.standingsSeason,
-        standingsStage: team.standingsStage,
-        standingsType: team.standingsType,
-        standingsGroup: team.standingsGroup,
-        standingsPosition: team.standingsPosition,
-        standingsPlayedGames: team.standingsPlayedGames,
-        standingsForm: team.standingsForm,
-        standingsWon: team.standingsWon,
-        standingsDraw: team.standingsDraw,
-        standingsLost: team.standingsLost,
-        standingsPoints: team.standingsPoints,
-        standingsGoalsFor: team.standingsGoalsFor,
-        standingsGoalsAgainst: team.standingsGoalsAgainst,
-        standingsGoalDifference: team.standingsGoalDifference,
-        standingsUpdatedAt: team.standingsUpdatedAt,
       };
 
-      const { data, error } = await supabase
+      const { data: persistedTeam, error } = await supabase
         .from("teams")
-        .upsert(payload, { onConflict: "code" })
+        .upsert(teamPayload, { onConflict: "code" })
         .select("*")
         .single();
 
@@ -841,7 +826,31 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         throw new Error(`Erro ao salvar team: ${error.message}`);
       }
 
-      const persistedTeam = data as TeamDB;
+      // Upsert Standings if available
+      if (team.standingsCompetitionCode && persistedTeam) {
+        const standingsPayload = {
+          teamId: persistedTeam.id,
+          competitionCode: team.standingsCompetitionCode,
+          season: team.standingsSeason,
+          stage: team.standingsStage,
+          type: team.standingsType,
+          group: team.standingsGroup,
+          position: team.standingsPosition,
+          playedGames: team.standingsPlayedGames,
+          form: team.standingsForm,
+          won: team.standingsWon,
+          draw: team.standingsDraw,
+          lost: team.standingsLost,
+          points: team.standingsPoints,
+          goalsFor: team.standingsGoalsFor,
+          goalsAgainst: team.standingsGoalsAgainst,
+          goalDifference: team.standingsGoalDifference,
+          updatedAt: team.standingsUpdatedAt,
+        };
+        
+        await supabase.from("team_standings").upsert(standingsPayload, { onConflict: "teamId,competitionCode" });
+      }
+
       setTeams((prev) => {
         const idx = prev.findIndex(
           (t) => t.id === persistedTeam.id || t.code === persistedTeam.code,
@@ -851,10 +860,10 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
           next[idx] = { ...next[idx], ...persistedTeam };
           return next;
         }
-        return [...prev, persistedTeam];
+        return [...prev, persistedTeam as TeamDB];
       });
 
-      return persistedTeam;
+      return persistedTeam as TeamDB;
     }
 
     setTeams((prev) => {
@@ -1030,7 +1039,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     if (isSupabaseEnabled() && supabase) {
       const { error } = await supabase
         .from("predictions")
-        .upsert(predsArray, { onConflict: '"userId", "matchId"' });
+        .upsert(predsArray, { onConflict: '"userId", "matchId", "groupId"' });
 
       if (error) {
         throw new Error(`Erro ao salvar predictions em lote: ${error.message}`);

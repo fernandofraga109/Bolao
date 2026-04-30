@@ -29,22 +29,29 @@ CREATE TABLE IF NOT EXISTS public.teams (
     flag text NOT NULL,
     ranking integer,
     pot integer,
-    "externalTeamId" integer,
-    "standingsSeason" text,
-    "standingsStage" text,
-    "standingsType" text,
-    "standingsGroup" text,
-    "standingsPosition" integer,
-    "standingsPlayedGames" integer,
-    "standingsForm" text,
-    "standingsWon" integer,
-    "standingsDraw" integer,
-    "standingsLost" integer,
-    "standingsPoints" integer,
-    "standingsGoalsFor" integer,
-    "standingsGoalsAgainst" integer,
-    "standingsGoalDifference" integer,
-    "standingsUpdatedAt" text
+    "externalTeamId" integer
+);
+
+-- 1.A TABELA TEAM_STANDINGS (Tabela de Classificações por Competição)
+CREATE TABLE IF NOT EXISTS public.team_standings (
+    "teamId" text NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
+    "competitionCode" text NOT NULL,
+    "season" text,
+    "stage" text,
+    "type" text,
+    "group" text,
+    "position" integer,
+    "playedGames" integer,
+    "form" text,
+    "won" integer,
+    "draw" integer,
+    "lost" integer,
+    "points" integer,
+    "goalsFor" integer,
+    "goalsAgainst" integer,
+    "goalDifference" integer,
+    "updatedAt" text,
+    PRIMARY KEY ("teamId", "competitionCode")
 );
 
 -- 2. TABELA STADIUMS
@@ -110,10 +117,11 @@ CREATE TABLE IF NOT EXISTS public.matches (
 CREATE TABLE IF NOT EXISTS public.predictions (
     "userId" uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     "matchId" text NOT NULL REFERENCES public.matches(id) ON DELETE CASCADE,
+    "groupId" text NOT NULL REFERENCES public.groups(id) ON DELETE CASCADE,
     "homeScore" integer NOT NULL,
     "awayScore" integer NOT NULL,
     timestamp text,
-    PRIMARY KEY ("userId", "matchId")
+    PRIMARY KEY ("userId", "matchId", "groupId")
 );
 
 -- 9. TABELA TOURNAMENT_PREDICTIONS (Palpites Campeão/Artilheiro)
@@ -128,6 +136,7 @@ CREATE TABLE IF NOT EXISTS public.tournament_predictions (
 
 -- Habilitar Row Level Security (Opcional, mas recomendado para produção)
 ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.team_standings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stadiums ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
@@ -140,6 +149,7 @@ ALTER TABLE public.tournament_predictions ENABLE ROW LEVEL SECURITY;
 -- Políticas de acesso LIBERADAS (Para desenvolvimento inicial)
 -- IMPORTANTE: Em produção, você deve restringir quem pode editar o quê.
 CREATE POLICY "Public Read Teams" ON public.teams FOR SELECT USING (true);
+CREATE POLICY "Public Read Team Standings" ON public.team_standings FOR SELECT USING (true);
 CREATE POLICY "Public Read Stadiums" ON public.stadiums FOR SELECT USING (true);
 CREATE POLICY "Public Access Profiles" ON public.profiles FOR ALL USING (true);
 CREATE POLICY "Public Access UserRoles" ON public.user_roles FOR ALL USING (true);

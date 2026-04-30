@@ -36,22 +36,26 @@ export interface TeamDB {
   ranking: number;
   pot?: 1 | 2 | 3 | 4;
   externalTeamId?: number;
-  standingsCompetitionCode?: string;
-  standingsSeason?: string;
-  standingsStage?: string;
-  standingsType?: string;
-  standingsGroup?: string;
-  standingsPosition?: number;
-  standingsPlayedGames?: number;
-  standingsForm?: string | null;
-  standingsWon?: number;
-  standingsDraw?: number;
-  standingsLost?: number;
-  standingsPoints?: number;
-  standingsGoalsFor?: number;
-  standingsGoalsAgainst?: number;
-  standingsGoalDifference?: number;
-  standingsUpdatedAt?: string;
+}
+
+export interface TeamStandingsDB {
+  teamId: string;
+  competitionCode: string;
+  season?: string;
+  stage?: string;
+  type?: string;
+  group?: string;
+  position?: number;
+  playedGames?: number;
+  form?: string | null;
+  won?: number;
+  draw?: number;
+  lost?: number;
+  points?: number;
+  goalsFor?: number;
+  goalsAgainst?: number;
+  goalDifference?: number;
+  updatedAt?: string;
 }
 
 export interface MatchDB {
@@ -72,11 +76,12 @@ export interface MatchDB {
 
 export interface PredictionDB {
   userId: string;
-  groupId?: string;
+  groupId: string;
   matchId: string;
   homeScore: number;
   awayScore: number;
   timestamp: string;
+  points?: number;
 }
 
 export interface TournamentPredictionDB {
@@ -119,8 +124,28 @@ export interface UserGroupDB {
 
 // --- UI MODELS (Hydrated Data for Components) ---
 
-// Alias Team to TeamDB for UI simplicity as they are mostly same
-export type Team = TeamDB;
+// "Hydrated" Team including standings dictionary indexed by competition code
+export interface Team extends TeamDB {
+  standings?: Record<string, TeamStandingsDB>;
+  
+  // Retrocompatibilidade UI
+  standingsCompetitionCode?: string;
+  standingsSeason?: string;
+  standingsStage?: string;
+  standingsType?: string;
+  standingsGroup?: string;
+  standingsPosition?: number;
+  standingsPlayedGames?: number;
+  standingsForm?: string | null;
+  standingsWon?: number;
+  standingsDraw?: number;
+  standingsLost?: number;
+  standingsPoints?: number;
+  standingsGoalsFor?: number;
+  standingsGoalsAgainst?: number;
+  standingsGoalDifference?: number;
+  standingsUpdatedAt?: string;
+}
 export type Stadium = StadiumDB;
 export type UserRole = UserDB["role"];
 export type UserStatus = UserDB["status"];

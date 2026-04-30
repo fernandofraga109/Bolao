@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
-import { Match, MatchStatus, TeamDB, TournamentPredictions } from "../types";
+import { Match, MatchStatus, Team, TeamDB, TournamentPredictions } from "../types";
 import { calculatePoints } from "../utils/scoring";
 import { useDatabase } from "../contexts/DatabaseContext";
 import {
@@ -490,7 +490,7 @@ export const useMatchSystem = (
               existing.date !== matchData.date;
 
             if (hasChanged) {
-              matchesToUpsert.push({ ...matchData, id: targetId } as any);
+              matchesToUpsert.push({ ...matchData, id: targetId });
               updatedCount++;
             }
           } else {
@@ -498,14 +498,14 @@ export const useMatchSystem = (
               ...matchData,
               id: crypto.randomUUID(),
               stadiumId: null,
-            } as any);
+            });
             insertedCount++;
           }
         }
 
         // 2. Batch Update to Database
         if (matchesToUpsert.length > 0) {
-          await currentDb.upsertMatch(matchesToUpsert);
+          await currentDb.upsertMatch(matchesToUpsert as any);
         }
 
         const successMessage = `${updatedCount} atualizados, ${insertedCount} inseridos${skippedUndefinedTeams > 0 ? `, ${skippedUndefinedTeams} pulados (times indefinidos)` : ""}.`;
@@ -653,7 +653,7 @@ export const useMatchSystem = (
                 ? existing.ranking
                 : rankingFromMap || existing?.ranking || 999;
 
-            const payload: TeamDB = {
+            const payload: Team = {
               id: existing?.id || crypto.randomUUID(),
               name: row.team?.name || existing?.name || code,
               code: existing?.code || code,
