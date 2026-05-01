@@ -134,7 +134,7 @@ const App: React.FC = () => {
 
     setIsAdminSyncingAll(true);
     try {
-      const result = await syncMatchesAndStandings(competitionCode);
+      const result = await syncMatchesAndStandings(competitionCode, true);
       setSyncFeedback({
         isOpen: true,
         title: result.success

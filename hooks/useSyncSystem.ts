@@ -1,13 +1,15 @@
-import { useState, useCallback, useRef, useEffect } from "react";
-import { Match, MatchStatus, TeamDB, TournamentPredictions } from "../types";
+import { useState, useCallback, useRef } from "react";
+import { Match, MatchStatus } from "../types";
 import {
   fetchExternalStandings,
   fetchExternalMatches,
+  fetchCompetitionTeams,
   findInternalMatch,
   getCurrentSeason,
   mapExternalStatusToInternal,
+  type ExternalTeam,
 } from "../services/liveScoreService";
-import { supabase } from "../services/supabase";
+import { supabase, isSupabaseEnabled } from "../services/supabase";
 
 const normalizeCompetitionCode = (value?: string) =>
   (value || "WC").toUpperCase();
@@ -26,13 +28,72 @@ export interface CompetitionSyncStatus {
 
 const SYNC_STATUS_STORAGE_KEY = "bolao_sync_status_by_competition";
 
+// ---------------------------------------------------------------------------
+// buildTeamMap — given API teams + what we already know in memory,
+// returns a map from externalTeamId → internal team record.
+// Also returns a list of teams that need to be upserted into the DB.
+// ---------------------------------------------------------------------------
+function buildExternalTeamMap(
+  externalTeams: ExternalTeam[],
+  memoryTeams: any[],
+): {
+  teamByExtId: Map<number, any>;
+  teamByCode: Map<string, any>;
+  newTeamPayloads: any[];
+} {
+  const teamByExtId = new Map<number, any>();
+  const teamByCode = new Map<string, any>();
+  const newTeamPayloads: any[] = [];
+
+  // Index memory teams for fast lookup
+  for (const t of memoryTeams) {
+    if (t.externalTeamId) teamByExtId.set(t.externalTeamId, t);
+    if (t.code) teamByCode.set(t.code.toUpperCase(), t);
+  }
+
+  // Merge API teams into the map
+  for (const et of externalTeams) {
+    const tlaUpper = et.tla?.toUpperCase();
+    const existing =
+      (et.id ? teamByExtId.get(et.id) : undefined) ||
+      (tlaUpper ? teamByCode.get(tlaUpper) : undefined);
+
+    if (existing) {
+      // Already known — just ensure both indexes are populated
+      if (et.id) teamByExtId.set(et.id, existing);
+      if (tlaUpper) teamByCode.set(tlaUpper, existing);
+    } else {
+      // New team discovered via /teams endpoint — schedule for creation
+      const teamName = et.name || "TBD";
+      const teamCode = et.tla || teamName.substring(0, 3).toUpperCase();
+      
+      const payload = {
+        name: teamName,
+        code: teamCode,
+        flag: et.crest || "/favicon.ico",
+        externalTeamId: et.id,
+        ranking: 999,
+      };
+      
+      newTeamPayloads.push(payload);
+      
+      // CRITICAL: Update maps immediately so subsequent duplicates in the same list 
+      // are skipped (marked as 'existing' but not yet in DB)
+      if (et.id) teamByExtId.set(et.id, payload);
+      if (payload.code) teamByCode.set(payload.code.toUpperCase(), payload);
+    }
+  }
+
+  return { teamByExtId, teamByCode, newTeamPayloads };
+}
+
 export const useSyncSystem = (
   activeCompetitionCode: string,
   canWriteData: boolean,
   dbRef: any,
   getWcRankingMap: () => Promise<Record<string, number>>,
   batchProcessPointsForMatches: (matches: Match[]) => Promise<void>,
-  recalculateUserGroupPoints: (groupIds: string[]) => Promise<void>
+  recalculateUserGroupPoints: (groupIds: string[]) => Promise<void>,
 ) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatusByCompetition, setSyncStatusByCompetition] = useState<
@@ -62,9 +123,7 @@ export const useSyncSystem = (
         const next = {
           ...prev,
           [normalizedCode]: {
-            ...(prev[normalizedCode] || {
-              competitionCode: normalizedCode,
-            }),
+            ...(prev[normalizedCode] || { competitionCode: normalizedCode }),
             ...patch,
             lastAttemptAt: new Date().toISOString(),
           },
@@ -76,10 +135,18 @@ export const useSyncSystem = (
     [],
   );
 
-  const syncWithExternalApi = useCallback(
-    async (competitionCode: string) => {
+  // ---------------------------------------------------------------------------
+  // syncMatchesAndStandings — MAIN PIPELINE
+  // 1. Parallel fetch (teams + matches + standings)
+  // 2. Build team map from memory + API teams, batch-upsert new ones
+  // 3. Diff matches → batch upsert changed/new
+  // 4. Batch upsert standings (1 request)
+  // 5. Recalculate points
+  // ---------------------------------------------------------------------------
+  const syncMatchesAndStandings = useCallback(
+    async (competitionCode: string, isManualRequest: boolean = false) => {
       const normalizedCode = normalizeCompetitionCode(competitionCode);
-      const isManual = competitionCode === activeCompetitionCode;
+      const isManual = isManualRequest || normalizedCode === normalizeCompetitionCode(activeCompetitionCode);
 
       if (!canWriteData) {
         return {
@@ -101,33 +168,98 @@ export const useSyncSystem = (
       }
 
       syncingCompetitionsRef.current.add(normalizedCode);
+      setIsSyncing(true);
       updateSyncStatus(normalizedCode, {
         isSyncing: true,
-        lastOperation: "matches",
+        lastOperation: "combined",
       });
-      setIsSyncing(true);
 
       try {
-        const externalMatches = await fetchExternalMatches(normalizedCode);
+        const season = getCurrentSeason();
+
+        // ── FASE 1: Fetch Paralelo ──────────────────────────────────────────
+        console.log(`[SYNC] Iniciando fetch paralelo para ${normalizedCode}...`);
+        const [externalTeams, externalMatches, standingsData] = await Promise.all([
+          fetchCompetitionTeams(normalizedCode, season),
+          fetchExternalMatches(normalizedCode, season),
+          fetchExternalStandings(normalizedCode, season),
+        ]);
+
         if (!externalMatches || externalMatches.length === 0) {
           throw new Error("Nenhum jogo encontrado na API externa.");
         }
 
-        const rankingMap =
-          normalizedCode === "WC" ? await getWcRankingMap() : {};
+        // ── FASE 2: Construir mapa de times ─────────────────────────────────
+        // Start with what we already have in memory
+        const { teamByExtId, teamByCode, newTeamPayloads } = buildExternalTeamMap(
+          externalTeams,
+          dbRef.current.teams,
+        );
 
-        const matchesToProcess = externalMatches.map((em) => {
-          const status = mapExternalStatusToInternal(em.status);
-          const result = em.score?.fullTime?.home != null ? {
-            home: em.score.fullTime.home,
-            away: em.score.fullTime.away,
-          } : undefined;
+        // Collect ALL teams referenced in matches and standings that aren't in the map yet
+        const allReferencedExternalTeams = [
+          ...externalMatches.flatMap((em) => [em.homeTeam, em.awayTeam]),
+          ...(standingsData?.standings ?? []).flatMap((g) =>
+            g.table.map((row) => row.team)
+          ),
+        ].filter(Boolean);
 
-          return { em, status, result };
-        });
+        for (const et of allReferencedExternalTeams) {
+          if (!et) continue;
+          const tlaUpper = et.tla?.toUpperCase();
+          const alreadyMapped =
+            (et.id && teamByExtId.has(et.id)) ||
+            (tlaUpper && teamByCode.has(tlaUpper));
 
-        let updatedCount = 0;
-        const finishedMatches: Match[] = [];
+          if (!alreadyMapped) {
+            const teamName = (et as any).name || "TBD";
+            const teamCode = et.tla || teamName.substring(0, 3).toUpperCase();
+            const payload = {
+              name: teamName,
+              code: teamCode,
+              flag: (et as any).crest || "/favicon.ico",
+              externalTeamId: et.id,
+              ranking: 999,
+            };
+            newTeamPayloads.push(payload);
+            // Pre-mark to avoid duplicates in this same loop
+            if (et.id) teamByExtId.set(et.id, payload);
+            if (payload.code) teamByCode.set(payload.code.toUpperCase(), payload);
+          }
+        }
+
+        // Deduplicate payloads by code (handles TBD teams and other code collisions)
+        const uniquePayloadsByCode = new Map<string, any>();
+        for (const p of newTeamPayloads) {
+          if (!uniquePayloadsByCode.has(p.code)) {
+            uniquePayloadsByCode.set(p.code, p);
+          }
+        }
+        const deduplicatedPayloads = Array.from(uniquePayloadsByCode.values());
+
+        // Batch upsert all unknown teams (1 request)
+        if (deduplicatedPayloads.length > 0 && isSupabaseEnabled() && supabase) {
+          console.log(`[SYNC] Inserindo ${deduplicatedPayloads.length} times novos/atualizados...`);
+          const { data: savedTeams, error: teamsError } = await supabase
+            .from("teams")
+            .upsert(deduplicatedPayloads, { onConflict: "code" })
+            .select("*");
+
+          if (teamsError) {
+            console.warn("[SYNC] Erro ao inserir times:", teamsError.message);
+          } else if (savedTeams) {
+            // CRITICAL: Re-index maps with REAL DB records that have actual UUID ids.
+            // Before this point the map had placeholder payloads (no id).
+            for (const t of savedTeams) {
+              if (t.externalTeamId) teamByExtId.set(t.externalTeamId, t);
+              if (t.code) teamByCode.set(t.code.toUpperCase(), t);
+            }
+          }
+        }
+
+
+        // ── FASE 3: Processar Matches ────────────────────────────────────────
+        const rankingMap = normalizedCode === "WC" ? await getWcRankingMap() : {};
 
         const hydratedInternalMatches = dbRef.current.matches.map((m: any) => ({
           ...m,
@@ -135,7 +267,16 @@ export const useSyncSystem = (
           awayTeam: dbRef.current.teams.find((t: any) => t.id === m.awayTeamId),
         }));
 
-        for (const { em, status, result } of matchesToProcess) {
+        const matchUpserts: any[] = [];
+        const finishedMatchesForPoints: Match[] = [];
+
+        for (const em of externalMatches) {
+          const status = mapExternalStatusToInternal(em.status);
+          const result =
+            em.score?.fullTime?.home != null
+              ? { home: em.score.fullTime.home, away: em.score.fullTime.away }
+              : undefined;
+
           const existing = findInternalMatch(em, hydratedInternalMatches);
 
           if (existing) {
@@ -145,101 +286,212 @@ export const useSyncSystem = (
               existing.result?.away !== result?.away;
 
             if (hasChanged) {
-              const updatedMatch = {
-                ...existing,
+              matchUpserts.push({
+                id: existing.id,
                 status,
-                result,
-                date: em.utcDate,
-              };
-
-              await dbRef.current.updateMatch(existing.id, {
-                status,
-                resultHome: result?.home,
-                resultAway: result?.away,
+                resultHome: result?.home ?? null,
+                resultAway: result?.away ?? null,
                 date: em.utcDate,
               });
 
               if (status === MatchStatus.FINISHED && result) {
-                finishedMatches.push(updatedMatch as Match);
+                finishedMatchesForPoints.push({
+                  ...existing,
+                  status,
+                  result,
+                } as Match);
               }
-              updatedCount++;
             }
-          } else if (isSupabaseEnabled() && supabase) {
-            // Match does NOT exist, CREATE it
-            const getOrCreateTeam = async (externalTeam: any) => {
-              if (!externalTeam) return null;
-              
-              // Find in memory
-              let team = dbRef.current.teams.find(t => t.externalTeamId === externalTeam.id || t.code === externalTeam.tla);
-              if (team) return team;
+          } else if (em.homeTeam && em.awayTeam) {
+            // Novo jogo — resolve times pelo mapa
+            const resolveTeam = (et: any) =>
+              (et.id && teamByExtId.get(et.id)) ||
+              (et.tla && teamByCode.get(et.tla.toUpperCase())) ||
+              null;
 
-              // Find in DB
-              const { data: remoteTeam } = await supabase
-                .from("teams")
-                .select("*")
-                .or(`code.eq.${externalTeam.tla},externalTeamId.eq.${externalTeam.id}`)
-                .maybeSingle();
-              if (remoteTeam) return remoteTeam;
-
-              // Create it
-              const newTeamPayload = {
-                name: externalTeam.name,
-                code: externalTeam.tla || (externalTeam.name || "TBD").substring(0, 3).toUpperCase(),
-                flag: externalTeam.crest || "/favicon.ico",
-                externalTeamId: externalTeam.id,
-                ranking: 999
-              };
-              const { data: createdTeam } = await supabase
-                .from("teams")
-                .upsert(newTeamPayload, { onConflict: "code" })
-                .select("*")
-                .single();
-              return createdTeam;
-            };
-
-            const homeTeam = await getOrCreateTeam(em.homeTeam);
-            const awayTeam = await getOrCreateTeam(em.awayTeam);
+            const homeTeam = resolveTeam(em.homeTeam);
+            const awayTeam = resolveTeam(em.awayTeam);
 
             if (homeTeam && awayTeam) {
-              const newMatchData = {
+              matchUpserts.push({
                 externalMatchId: String(em.id),
                 homeTeamId: homeTeam.id,
                 awayTeamId: awayTeam.id,
                 date: em.utcDate,
                 group: em.group || em.stage || "Campeonato",
                 competitionCode: normalizedCode,
-                status: status,
-                resultHome: result?.home,
-                resultAway: result?.away,
+                status,
+                resultHome: result?.home ?? null,
+                resultAway: result?.away ?? null,
                 stage: em.stage,
-                matchday: em.matchday
-              };
-
-              await dbRef.current.upsertMatch(newMatchData as any);
-              updatedCount++;
+                matchday: em.matchday,
+              });
             }
           }
         }
 
-        if (finishedMatches.length > 0) {
-          await batchProcessPointsForMatches(finishedMatches);
+        // Batch upsert matches (1 request!)
+        let matchesUpdated = 0;
+        if (matchUpserts.length > 0) {
+          console.log(`[SYNC] Fazendo upsert de ${matchUpserts.length} jogos...`);
+
+          // Separate updates (have id) from inserts (no id)
+          // Deduplicate updates by internal ID
+          const updateMap = new Map();
+          matchUpserts.filter(m => m.id).forEach(m => updateMap.set(m.id, m));
+          const toUpdate = Array.from(updateMap.values());
+
+          // Deduplicate inserts by externalMatchId
+          const insertMap = new Map();
+          matchUpserts.filter(m => !m.id).forEach(m => insertMap.set(m.externalMatchId, m));
+          const toInsert = Array.from(insertMap.values());
+
+          if (toUpdate.length > 0) {
+            const { data: savedUpdates, error } = await supabase!
+              .from("matches")
+              .upsert(toUpdate, { onConflict: "id" })
+              .select("*");
+            if (error) console.warn("[SYNC] Erro ao atualizar matches:", error.message);
+            else if (savedUpdates) {
+              matchesUpdated += savedUpdates.length;
+              if (dbRef.current.updateLocalMatches) {
+                dbRef.current.updateLocalMatches(savedUpdates);
+              }
+            }
+          }
+
+          if (toInsert.length > 0 && isSupabaseEnabled()) {
+            const { data: savedInserts, error } = await supabase!
+              .from("matches")
+              .upsert(toInsert, { onConflict: "externalMatchId" })
+              .select("*");
+            if (error) console.warn("[SYNC] Erro ao inserir matches:", error.message);
+            else if (savedInserts) {
+              matchesUpdated += savedInserts.length;
+              if (dbRef.current.updateLocalMatches) {
+                dbRef.current.updateLocalMatches(savedInserts);
+              }
+            }
+          }
         }
 
-        const message =
-          updatedCount > 0
-            ? `${updatedCount} jogos atualizados.`
+        // Process points for finished matches
+        if (finishedMatchesForPoints.length > 0) {
+          await batchProcessPointsForMatches(finishedMatchesForPoints);
+        }
+
+        const matchesMessage =
+          matchesUpdated > 0
+            ? `${matchesUpdated} jogos atualizados.`
             : "Todos os jogos já estão atualizados.";
+
+        // ── FASE 4: Batch Standings ──────────────────────────────────────────
+        let standingsMessage = "Classificação não disponível.";
+        let standingsSuccess = false;
+
+        if (standingsData?.standings) {
+          const standingUpserts: any[] = [];
+
+          for (const group of standingsData.standings) {
+            if (group.type !== "TOTAL") continue;
+
+            for (const row of group.table) {
+              const team =
+                (row.team.id && teamByExtId.get(row.team.id)) ||
+                (row.team.tla && teamByCode.get(row.team.tla.toUpperCase()));
+
+              if (!team) {
+                console.warn(`[SYNC] Time não encontrado para standings: ${row.team.name}`);
+                continue;
+              }
+
+              standingUpserts.push({
+                teamId: team.id,
+                competitionCode: normalizedCode,
+                season: standingsData.filters?.season || season,
+                stage: group.stage,
+                type: group.type,
+                group: group.group || "Temporada Regular",
+                position: row.position,
+                playedGames: row.playedGames,
+                form: row.form,
+                won: row.won,
+                draw: row.draw,
+                lost: row.lost,
+                points: row.points,
+                goalsFor: row.goalsFor,
+                goalsAgainst: row.goalsAgainst,
+                goalDifference: row.goalDifference,
+                updatedAt: new Date().toISOString(),
+              });
+            }
+          }
+
+          if (standingUpserts.length > 0 && isSupabaseEnabled() && supabase) {
+            // Deduplicate by composite key (teamId|competitionCode|group)
+            // Some APIs return the same team+group combination multiple times
+            const uniqueStandings = new Map<string, any>();
+            for (const s of standingUpserts) {
+              const key = `${s.teamId}|${s.competitionCode}|${s.group}`;
+              // Last entry wins (most up-to-date data)
+              uniqueStandings.set(key, s);
+            }
+            const deduplicatedStandings = Array.from(uniqueStandings.values());
+
+            console.log(`[SYNC] Fazendo upsert de ${deduplicatedStandings.length} linhas de standings (${standingUpserts.length - deduplicatedStandings.length} duplicatas removidas)...`);
+            const { error: standingsError } = await supabase
+              .from("team_standings")
+              .upsert(deduplicatedStandings, {
+                onConflict: "teamId, competitionCode, group",
+              });
+
+            if (standingsError) {
+              console.warn("[SYNC] Erro ao fazer upsert de standings:", standingsError.message);
+              standingsMessage = `Erro nos standings: ${standingsError.message}`;
+            } else {
+              standingsMessage = "Classificação sincronizada com sucesso.";
+              standingsSuccess = true;
+            }
+          } else {
+            standingsMessage = "Classificação sincronizada (sem dados para upsert).";
+            standingsSuccess = true;
+          }
+        }
+
+        // ── FASE 5: Recalcular Pontos + Atualizar competição ─────────────────
+        const combinedSuccess = matchesUpdated >= 0 && standingsSuccess;
+
+        if (combinedSuccess && canWriteData) {
+          await dbRef.current.updateCompetitionSync(
+            normalizedCode,
+            new Date().toISOString(),
+          );
+        }
+
+        const affectedGroupIds = dbRef.current.groups
+          .filter(
+            (g: any) =>
+              (g.competitionCode || "WC").toUpperCase() === normalizedCode,
+          )
+          .map((g: any) => g.id);
+
+        if (affectedGroupIds.length > 0) {
+          await recalculateUserGroupPoints(affectedGroupIds);
+        }
+
+        const combinedMessage = `${matchesMessage} ${standingsMessage}`;
+        nextAllowedSyncAtRef.current = Date.now() + 30000;
 
         updateSyncStatus(normalizedCode, {
           isSyncing: false,
-          lastSuccess: true,
-          lastSuccessAt: new Date().toISOString(),
-          lastMessage: message,
+          lastSuccess: combinedSuccess,
+          lastSuccessAt: combinedSuccess ? new Date().toISOString() : undefined,
+          lastMessage: combinedMessage,
         });
 
-        nextAllowedSyncAtRef.current = Date.now() + 30000;
-        return { success: true, message };
+        return { success: combinedSuccess, message: combinedMessage };
       } catch (err: any) {
+        console.error("[SYNC] Erro no pipeline:", err);
         updateSyncStatus(normalizedCode, {
           isSyncing: false,
           lastSuccess: false,
@@ -258,185 +510,29 @@ export const useSyncSystem = (
       getWcRankingMap,
       updateSyncStatus,
       batchProcessPointsForMatches,
+      recalculateUserGroupPoints,
     ],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Legacy individual functions — kept for compatibility with AdminDashboard
+  // They now delegate to the unified pipeline.
+  // ---------------------------------------------------------------------------
+  const syncWithExternalApi = useCallback(
+    async (competitionCode: string) => {
+      // For individual matches-only sync (legacy call), run the full pipeline.
+      // The pipeline is idempotent so this is safe.
+      return syncMatchesAndStandings(competitionCode);
+    },
+    [syncMatchesAndStandings],
   );
 
   const syncStandingsWithExternalApi = useCallback(
     async (competitionCode: string) => {
-      const normalizedCode = normalizeCompetitionCode(competitionCode);
-
-      if (!canWriteData) {
-        return {
-          success: false,
-          message: "Somente administradores podem salvar no banco.",
-        };
-      }
-
-      updateSyncStatus(normalizedCode, {
-        isSyncing: true,
-        lastOperation: "standings",
-      });
-
-      try {
-        const standingsData = await fetchExternalStandings(normalizedCode);
-        if (!standingsData || !standingsData.standings) {
-          throw new Error("Classificação não disponível para esta competição.");
-        }
-
-        for (const group of standingsData.standings) {
-          // Process only the TOTAL standings table, ignore HOME/AWAY splits
-          if (group.type !== "TOTAL") continue;
-
-          for (const row of group.table) {
-            // 1. Try to find team in current memory
-            let team = dbRef.current.teams.find(
-              (t: any) =>
-                t && (t.externalTeamId === row.team.id ||
-                t.code === row.team.tla ||
-                t.name === row.team.name),
-            );
-
-            // 2. If not in memory, try to find in Supabase directly (might be newly created)
-            if (!team && isSupabaseEnabled() && supabase) {
-              const { data: remoteTeam } = await supabase
-                .from("teams")
-                .select("*")
-                .or(`code.eq.${row.team.tla},externalTeamId.eq.${row.team.id}`)
-                .maybeSingle();
-              
-              if (remoteTeam) {
-                team = remoteTeam as any;
-              }
-            }
-
-            // 3. If still not found, create it on the fly
-            if (!team && isSupabaseEnabled() && supabase) {
-              const newTeamPayload = {
-                name: row.team.name,
-                code: row.team.tla || row.team.name.substring(0, 3).toUpperCase(),
-                flag: row.team.crest || "/favicon.ico",
-                externalTeamId: row.team.id,
-                ranking: 999
-              };
-
-              const { data: createdTeam, error: createError } = await supabase
-                .from("teams")
-                .upsert(newTeamPayload, { onConflict: "code" })
-                .select("*")
-                .single();
-              
-              if (!createError && createdTeam) {
-                team = createdTeam as any;
-              }
-            }
-
-            if (team) {
-              const standingData: any = {
-                teamId: team.id,
-                competitionCode: normalizedCode,
-                season: standingsData.filters?.season || getCurrentSeason(),
-                stage: group.stage,
-                type: group.type,
-                group: group.group || "Temporada Regular",
-                position: row.position,
-                playedGames: row.playedGames,
-                form: row.form,
-                won: row.won,
-                draw: row.draw,
-                lost: row.lost,
-                points: row.points,
-                goalsFor: row.goalsFor,
-                goalsAgainst: row.goalsAgainst,
-                goalDifference: row.goalDifference,
-                updatedAt: new Date().toISOString(),
-              };
-
-              await supabase.from("team_standings").upsert(standingData, {
-                onConflict: "teamId, competitionCode",
-              });
-            }
-          }
-        }
-
-        const message = "Classificação sincronizada com sucesso.";
-        updateSyncStatus(normalizedCode, {
-          isSyncing: false,
-          lastSuccess: true,
-          lastSuccessAt: new Date().toISOString(),
-          lastMessage: message,
-        });
-
-        return { success: true, message };
-      } catch (err: any) {
-        updateSyncStatus(normalizedCode, {
-          isSyncing: false,
-          lastSuccess: false,
-          lastMessage: err.message,
-        });
-        return { success: false, message: err.message };
-      }
+      // Also delegates — standings are part of the unified pipeline.
+      return syncMatchesAndStandings(competitionCode);
     },
-    [canWriteData, dbRef, updateSyncStatus],
-  );
-
-  const syncMatchesAndStandings = useCallback(
-    async (competitionCode: string) => {
-      const normalizedCode = normalizeCompetitionCode(competitionCode);
-
-      try {
-        updateSyncStatus(normalizedCode, {
-          isSyncing: true,
-          lastOperation: "combined",
-        });
-
-        const matchResult = await syncWithExternalApi(normalizedCode);
-        const standingsResult = await syncStandingsWithExternalApi(normalizedCode);
-
-        const combinedSuccess = matchResult.success && standingsResult.success;
-        const combinedMessage = `${matchResult.message} ${standingsResult.message}`;
-
-        updateSyncStatus(normalizedCode, {
-          isSyncing: true,
-          lastSuccess: combinedSuccess,
-          lastSuccessAt: combinedSuccess ? new Date().toISOString() : undefined,
-          lastMessage: combinedMessage,
-        });
-
-        if (combinedSuccess && canWriteData) {
-          await dbRef.current.updateCompetitionSync(
-            normalizedCode,
-            new Date().toISOString(),
-          );
-        }
-
-        const affectedGroupIds = dbRef.current.groups
-          .filter(
-            (g: any) => (g.competitionCode || "WC").toUpperCase() === normalizedCode,
-          )
-          .map((g: any) => g.id);
-
-        if (affectedGroupIds.length > 0) {
-          await recalculateUserGroupPoints(affectedGroupIds);
-        }
-
-        updateSyncStatus(normalizedCode, { isSyncing: false });
-        return { success: combinedSuccess, message: combinedMessage };
-      } catch (err: any) {
-        updateSyncStatus(normalizedCode, {
-          isSyncing: false,
-          lastMessage: err.message,
-        });
-        return { success: false, message: err.message };
-      }
-    },
-    [
-      syncWithExternalApi,
-      syncStandingsWithExternalApi,
-      updateSyncStatus,
-      canWriteData,
-      dbRef,
-      recalculateUserGroupPoints,
-    ],
+    [syncMatchesAndStandings],
   );
 
   return {

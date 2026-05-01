@@ -4,6 +4,56 @@ import { Match, MatchStatus, CompetitionDB } from "../types";
  * SERVIÇO DE PLACARES AO VIVO (SEGURO)
  */
 
+// --- TEAMS ---
+
+export interface ExternalTeam {
+  id: number;
+  name: string;
+  shortName?: string;
+  tla: string;
+  crest?: string;
+}
+
+export const fetchCompetitionTeams = async (
+  competitionCode = "WC",
+  season = getCurrentSeason(),
+): Promise<ExternalTeam[]> => {
+  const buildUrl = (withSeason: boolean) => {
+    const params = new URLSearchParams();
+    params.set("competition", (competitionCode || "WC").toUpperCase());
+    if (withSeason) params.set("season", season);
+    return `/api/teams?${params.toString()}`;
+  };
+
+  try {
+    let response = await fetch(buildUrl(true));
+    const contentType = response.headers.get("content-type") || "";
+
+    if (!contentType.includes("application/json")) {
+      console.error("[TEAMS] Resposta não-JSON do proxy.");
+      return [];
+    }
+
+    let payload = await response.json().catch(() => ({}));
+
+    if (!response.ok && (response.status === 404 || response.status === 403)) {
+      console.warn(`[TEAMS] Season ${season} não encontrada para ${competitionCode}. Tentando sem season...`);
+      response = await fetch(buildUrl(false));
+      payload = await response.json().catch(() => ({}));
+    }
+
+    if (!response.ok) {
+      console.error(`[TEAMS] Erro (${response.status}):`, payload.message);
+      return [];
+    }
+
+    return (payload.teams || []) as ExternalTeam[];
+  } catch (error) {
+    console.error("[TEAMS] Falha na comunicação com /api/teams:", error);
+    return [];
+  }
+};
+
 export interface ExternalMatch {
   id: number;
   utcDate: string;

@@ -209,7 +209,8 @@ export const useMatchSystem = (
     simulateLiveGame,
     syncWithExternalApi,
     syncStandingsWithExternalApi,
-    syncMatchesAndStandings,
+    syncMatchesAndStandings: (code: string, manual?: boolean) =>
+      syncMatchesAndStandings(code, manual),
     syncStatusByCompetition: computedSyncStatus,
     isSyncing,
     isAutoSyncEnabled,
