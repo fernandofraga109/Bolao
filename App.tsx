@@ -6,12 +6,16 @@ import { calculatePoints, calculateTournamentPoints } from "./utils/scoring";
 import { useUserSystem } from "./hooks/useUserSystem";
 import { useMatchSystem } from "./hooks/useMatchSystem";
 import { useGroupSystem } from "./hooks/useGroupSystem";
+import { useLeaderboard } from "./hooks/useLeaderboard";
+import { usePasswordRecovery } from "./hooks/usePasswordRecovery";
 import { useDatabase } from "./contexts/DatabaseContext";
 
 // Layout Components
 import Header from "./components/Header";
 import BottomNav from "./components/BottomNav";
 import RulesSection from "./components/RulesSection";
+import SplashScreen from "./components/ui/SplashScreen";
+import ModalShell from "./components/ui/ModalShell";
 
 // Feature Components
 import MatchCard from "./components/MatchCard";
@@ -21,7 +25,7 @@ import Login from "./components/Login";
 import AdminDashboard from "./components/AdminDashboard";
 import GroupSwitcher from "./components/GroupSwitcher";
 import TournamentStandings from "./components/TournamentStandings";
-import ModalShell from "./components/ui/ModalShell";
+import UserStats from "./components/UserStats";
 import { DEFAULT_COMPETITION_CODE, COMPETITION_OPTIONS, getCompetitionByCode } from "./data/competitions";
 import {
   ChevronsUpDown,
@@ -68,11 +72,10 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
     <div className="mb-4">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${
-          isToday
-            ? "bg-brand-green/10 border-brand-green/30 text-white mb-3 shadow-lg shadow-brand-green/5"
-            : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700/80"
-        }`}
+        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${isToday
+          ? "bg-brand-green/10 border-brand-green/30 text-white mb-3 shadow-lg shadow-brand-green/5"
+          : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700/80"
+          }`}
       >
         <div className="flex items-center gap-3">
           {icon}
@@ -103,10 +106,10 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
               userPrediction={
                 userPredictions[match.id]
                   ? {
-                      matchId: match.id,
-                      homeScore: userPredictions[match.id].home,
-                      awayScore: userPredictions[match.id].away,
-                    }
+                    matchId: match.id,
+                    homeScore: userPredictions[match.id].home,
+                    awayScore: userPredictions[match.id].away,
+                  }
                   : undefined
               }
               friends={leaderboardData}
@@ -143,75 +146,7 @@ const App: React.FC = () => {
     adminActions,
   } = useUserSystem();
 
-  const isRecoveryLink = () => {
-    if (typeof window === "undefined") return false;
-
-    const url = new URL(window.location.href);
-
-    // Verificar URL params para modo de recovery explícito (fallback)
-    if (url.searchParams.get("mode") === "recovery") {
-      return true;
-    }
-
-    // Verificar hash params (do redirect do Supabase)
-    const hashParams = new URLSearchParams(
-      window.location.hash.replace("#", ""),
-    );
-    const hashType = (hashParams.get("type") || "").toLowerCase();
-    const hasAccessToken = !!hashParams.get("access_token");
-
-    // Se hash tem type=recovery E access_token, é uma sessão válida de recovery
-    return hashType === "recovery" && hasAccessToken;
-  };
-
-  const [isPasswordRecoveryFlow, setIsPasswordRecoveryFlow] = useState<boolean>(
-    () => isRecoveryLink(),
-  );
-
-  useEffect(() => {
-    const checkRecovery = () => {
-      const isRecovery = isRecoveryLink();
-      console.log(
-        "[Recovery Flow] Detectado:",
-        isRecovery,
-        "Hash:",
-        window.location.hash,
-      );
-      setIsPasswordRecoveryFlow(isRecovery);
-    };
-
-    checkRecovery();
-
-    window.addEventListener("hashchange", checkRecovery);
-    window.addEventListener("popstate", checkRecovery);
-
-    // Verificar novamente após delay para capturar redirects assincronos
-    const timeout = setTimeout(checkRecovery, 500);
-
-    return () => {
-      window.removeEventListener("hashchange", checkRecovery);
-      window.removeEventListener("popstate", checkRecovery);
-      clearTimeout(timeout);
-    };
-  }, []);
-
-  const finishPasswordRecoveryFlow = () => {
-    const url = new URL(window.location.href);
-    url.hash = "";
-    url.searchParams.delete("mode");
-    window.history.replaceState(
-      {},
-      document.title,
-      `${url.pathname}${url.search}`,
-    );
-    setIsPasswordRecoveryFlow(false);
-  };
-
-  useEffect(() => {
-    if (currentUser && isPasswordRecoveryFlow) {
-      finishPasswordRecoveryFlow();
-    }
-  }, [currentUser, isPasswordRecoveryFlow]);
+  const { isPasswordRecoveryFlow, finishPasswordRecoveryFlow } = usePasswordRecovery(currentUser);
 
   const activeGroupIdForContext =
     currentUser?.activeGroupId || currentUser?.groupIds?.[0];
@@ -237,9 +172,9 @@ const App: React.FC = () => {
 
   const activeCompetitionCode = (
     currentUser?.role === "ADMIN"
-    ? adminActiveCompetitionCode
-    : (db.groups.find((g) => g.id === activeGroupIdForContext)?.competitionCode ||
-    DEFAULT_COMPETITION_CODE)
+      ? adminActiveCompetitionCode
+      : (db.groups.find((g) => g.id === activeGroupIdForContext)?.competitionCode ||
+        DEFAULT_COMPETITION_CODE)
   ).toUpperCase();
 
   const canWriteCompetitionData = currentUser?.role === "ADMIN";
@@ -325,123 +260,18 @@ const App: React.FC = () => {
     });
   };
 
-  // --- Calculations (Leaderboard) ---
-  const usersWithCalculatedPoints = useMemo(() => {
-    return users
-      .filter((user) => user.role !== "ADMIN")
-      .map((user) => {
-        let total = 0;
-        matches.forEach((match) => {
-          const pred = user.predictions[match.id];
-          if (
-            match.status === MatchStatus.FINISHED &&
-            match.result &&
-            pred
-          ) {
-            // Priority: Persisted points in DB
-            if (typeof pred.points === "number") {
-              total += pred.points;
-            } else {
-              // Fallback: On-the-fly calculation if not yet synced to DB
-              total += calculatePoints(
-                pred.home,
-                pred.away,
-                match.result.home,
-                match.result.away,
-                match.homeTeam.ranking,
-                match.awayTeam.ranking,
-              );
-            }
-          }
-        });
-
-        if (tournamentResults) {
-          total += calculateTournamentPoints(
-            user.tournamentPredictions,
-            tournamentResults,
-          );
-        }
-
-        return { ...user, totalPoints: total };
-      });
-  }, [matches, users, tournamentResults]);
-
-  const leaderboardData = useMemo(() => {
-    if (!currentUser) return [];
-
-    const activeGroupId =
-      currentUser.activeGroupId || currentUser.groupIds[0] || undefined;
-    if (!activeGroupId) return [];
-
-    return usersWithCalculatedPoints.filter((u) =>
-      u.groupIds.includes(activeGroupId),
-    );
-  }, [currentUser, usersWithCalculatedPoints]);
-
-  const leaderboardSections = useMemo(() => {
-    if (!currentUser) return [];
-
-    const groupPointsMap = new Map<string, number>();
-    db.userGroups.forEach((relation) => {
-      if (typeof relation.points === "number") {
-        groupPointsMap.set(
-          `${relation.userId}:${relation.groupId}`,
-          relation.points,
-        );
-      }
-    });
-
-    const groupNameMap = new Map<string, string>();
-    const groupCompetitionMap = new Map<string, string>();
-    groups.forEach((group) => {
-      groupNameMap.set(group.id, group.name);
-      groupCompetitionMap.set(
-        group.id,
-        (group.competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase(),
-      );
-    });
-
-    return currentUser.groupIds
-      .map((groupId) => {
-        const groupUsers = usersWithCalculatedPoints
-          .filter((u) => u.groupIds.includes(groupId))
-          .map((user) => {
-            const key = `${user.id}:${groupId}`;
-            const groupPoints = groupPointsMap.get(key);
-
-            return {
-              ...user,
-              totalPoints:
-                typeof groupPoints === "number"
-                  ? groupPoints
-                  : user.totalPoints,
-              predictionsCount: db.predictions.filter(
-                (p) => p.userId === user.id && p.groupId === groupId,
-              ).length,
-            };
-          });
-
-        const fallbackGroupName =
-          currentUser.groupIds.length === 1
-            ? "Meu Grupo"
-            : `Grupo ${currentUser.groupIds.indexOf(groupId) + 1}`;
-
-        return {
-          groupId,
-          groupName: groupNameMap.get(groupId) || fallbackGroupName,
-          competitionCode:
-            groupCompetitionMap.get(groupId) || DEFAULT_COMPETITION_CODE,
-          users: groupUsers,
-        };
-      })
-      .filter((section) => section.users.length > 0);
-  }, [
-    currentUser,
+  const {
     usersWithCalculatedPoints,
-    db.userGroups,
-    groups,
-    db.predictions,
-  ]);
+    leaderboardData,
+    leaderboardSections,
+  } = useLeaderboard(
+    users,
+    matches,
+    currentUser,
+    tournamentResults,
+    db,
+    groups
+  );
 
   const resolvedActiveGroupId =
     currentUser?.activeGroupId || currentUser?.groupIds?.[0];
@@ -452,7 +282,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!currentUser || !currentUser.groupIds.length) return;
-    
+
     // Only auto-sync for regular users when they enter/switch.
     // Admins have manual control and auto-sync settings.
     if (currentUser.role === "ADMIN") return;
@@ -470,7 +300,7 @@ const App: React.FC = () => {
   const { pastGroups, todayMatches, futureGroups } = useMemo(() => {
     // 1. Determine "Today" (Reference Date)
     const now = new Date();
-    
+
     // Normalize dates to YYYY-MM-DD for comparison
     const getDayString = (d: Date) => {
       // Use local date (YYYY-MM-DD) instead of UTC to avoid timezone shifts
@@ -479,7 +309,7 @@ const App: React.FC = () => {
       const day = String(d.getDate()).padStart(2, "0");
       return `${year}-${month}-${day}`;
     };
-    
+
     const todayStr = getDayString(now);
 
     const past: Record<string, Match[]> = {};
@@ -515,6 +345,20 @@ const App: React.FC = () => {
     return { pastGroups: past, todayMatches: today, futureGroups: future };
   }, [matches, activeCompetitionCode]);
 
+  const currentUserRank = useMemo(() => {
+    if (!currentUser || !leaderboardData.length) return 0;
+    const sorted = [...leaderboardData].sort((a, b) => b.totalPoints - a.totalPoints);
+    const myPoints = leaderboardData.find(u => u.id === currentUser.id)?.totalPoints;
+    if (myPoints === undefined) return 0;
+    // Rank is number of people with MORE points than me + 1
+    return sorted.filter(u => u.totalPoints > myPoints).length + 1;
+  }, [currentUser, leaderboardData]);
+
+  const currentUserPoints = useMemo(() => {
+    if (!currentUser || !leaderboardData.length) return 0;
+    return leaderboardData.find(u => u.id === currentUser.id)?.totalPoints || 0;
+  }, [currentUser, leaderboardData]);
+
   const formatDateTitle = (dateStr: string) => {
     const date = new Date(dateStr + "T12:00:00"); // Force midday to avoid timezone shifts on just date display
     return date.toLocaleDateString("pt-BR", {
@@ -526,11 +370,7 @@ const App: React.FC = () => {
 
   // --- Render Auth Screen ---
   if (!authReady) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-brand-dark text-white">
-        Carregando autenticação...
-      </div>
-    );
+    return <SplashScreen />;
   }
 
   if (!currentUser || isPasswordRecoveryFlow) {
@@ -638,6 +478,8 @@ const App: React.FC = () => {
         currentUser={currentUser}
         onLogout={logout}
         onUpdateAvatar={updateAvatar}
+        userPoints={currentUserPoints}
+        userRank={currentUserRank}
       />
 
       {/* Group Info Bar OR Call to Action */}
@@ -873,8 +715,13 @@ const App: React.FC = () => {
         )}
 
         {/* Leaderboard Tab */}
-        {activeTab === "leaderboard" && (
+        {activeTab === "leaderboard" && currentUser.role !== "ADMIN" && (
           <Leaderboard sections={leaderboardSections} />
+        )}
+
+        {/* User Stats Tab */}
+        {activeTab === "stats" && currentUser.role !== "ADMIN" && (
+          <UserStats user={currentUser} matches={matches} />
         )}
 
         {/* Admin Tab */}

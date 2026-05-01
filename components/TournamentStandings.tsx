@@ -100,7 +100,7 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
           const code = (row.team?.tla || "").toUpperCase();
           const existing = db.teams.find(
             (t) =>
-              t.code.toUpperCase() === code || t.externalTeamId === row.team.id,
+              t && (t.code.toUpperCase() === code || t.externalTeamId === row.team.id),
           );
 
           const team: Team = existing || {
@@ -133,30 +133,45 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
 
       return mapped;
     },
-    [db.teams],
+    [db.teams, db.teamStandings, competitionCode],
   );
 
   const cachedStandings = useMemo<Record<string, TeamStats[]> | null>(() => {
     const now = Date.now();
     const grouped: Record<string, TeamStats[]> = {};
 
-    db.teams.forEach((team) => {
-      if (!team.standingsGroup) return;
-      if (
-        normalizeCompetition(team.standingsCompetitionCode) !==
-        normalizeCompetition(competitionCode)
-      ) {
-        return;
-      }
-      if (team.standingsSeason && team.standingsSeason !== STANDINGS_SEASON)
-        return;
+    db.teams.forEach((t) => {
+      const standing = db.teamStandings.find(
+        (ts) =>
+          ts.teamId === t.id &&
+          normalizeCompetition(ts.competitionCode) ===
+            normalizeCompetition(competitionCode),
+      );
 
-      // Removida a verificação de TTL (tempo de expiração).
-      // Se os dados existem no banco para este time, confiamos neles como a fonte da verdade da tabela.
-      if (!team.standingsUpdatedAt) return;
+      if (!standing) return;
 
-      const groupName = normalizeGroupName(team.standingsGroup);
+      const groupName = normalizeGroupName(standing.group || "Temporada Regular");
       if (!grouped[groupName]) grouped[groupName] = [];
+
+      const team: Team = {
+        ...t,
+        standingsCompetitionCode: standing.competitionCode,
+        standingsSeason: standing.season,
+        standingsStage: standing.stage,
+        standingsType: standing.type,
+        standingsGroup: standing.group,
+        standingsPosition: standing.position,
+        standingsPlayedGames: standing.playedGames,
+        standingsForm: standing.form,
+        standingsWon: standing.won,
+        standingsDraw: standing.draw,
+        standingsLost: standing.lost,
+        standingsPoints: standing.points,
+        standingsGoalsFor: standing.goalsFor,
+        standingsGoalsAgainst: standing.goalsAgainst,
+        standingsGoalDifference: standing.goalDifference,
+        standingsUpdatedAt: standing.updatedAt,
+      };
 
       grouped[groupName].push({
         team,
@@ -188,7 +203,7 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
     });
 
     return grouped;
-  }, [db.teams, competitionCode]);
+  }, [db.teams, db.teamStandings, competitionCode]);
 
   // --- Calculate Group Standings ---
   const standings = useMemo<Record<string, TeamStats[]>>(() => {
@@ -370,12 +385,18 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
     return KNOCKOUT_STAGE_PATTERNS.test(name.replace(/\s+/g, "_"));
   };
 
-  const resolvedStandings =
-    apiStandings && Object.keys(apiStandings).length > 0
-      ? apiStandings
-      : cachedStandings && Object.keys(cachedStandings).length > 0
-        ? cachedStandings
-        : standings;
+  const resolvedStandings = useMemo(() => {
+    if (apiStandings && Object.keys(apiStandings).length > 0) return apiStandings;
+
+    // Count total teams in cache vs local standings
+    const cacheTeamCount = Object.values(cachedStandings || {}).reduce((acc, teams) => acc + teams.length, 0);
+    const localTeamCount = Object.values(standings).reduce((acc, teams) => acc + teams.length, 0);
+
+    if (cacheTeamCount >= localTeamCount && cacheTeamCount > 0) {
+      return cachedStandings!;
+    }
+    return standings;
+  }, [apiStandings, cachedStandings, standings]);
 
   // Split standings into group-phase and knockout-phase for correct tab rendering
   const groupStageStandings = useMemo(() => {
@@ -458,19 +479,19 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
 
     // Fallback to team updates if competition record doesn't have it yet
     let latest: Date | null = null;
-    db.teams.forEach((t) => {
+    db.teamStandings.forEach((ts) => {
       if (
-        normalizeCompetition(t.standingsCompetitionCode) ===
+        normalizeCompetition(ts.competitionCode) ===
         normalizeCompetition(competitionCode)
       ) {
-        if (t.standingsUpdatedAt) {
-          const d = new Date(t.standingsUpdatedAt);
+        if (ts.updatedAt) {
+          const d = new Date(ts.updatedAt);
           if (!latest || d > latest) latest = d;
         }
       }
     });
     return latest ? latest.toLocaleString("pt-BR") : null;
-  }, [db.competitions, db.teams, competitionCode]);
+  }, [db.competitions, db.teamStandings, competitionCode]);
 
   // Se for temporada regular, garantimos a visualização de grupos (tabela)
   useEffect(() => {
@@ -671,7 +692,7 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
                           <GitMerge size={16} />
                         </div>
                         <h3 className="text-white font-bold text-sm uppercase tracking-wider">
-                          {groupName.replace(/_/g, " ")}
+                          {(groupName === "null" ? "Temporada Regular" : groupName).replace(/_/g, " ")}
                         </h3>
                       </div>
                       {isOpen ? (

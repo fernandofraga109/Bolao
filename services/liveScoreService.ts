@@ -331,6 +331,8 @@ export const findInternalMatch = (
       m.matchday == null ||
       m.matchday === externalMatch.matchday;
 
+    if (!m.homeTeam || !m.awayTeam) return false;
+
     const hasExternalTeams =
       typeof homeExternalId === "number" &&
       typeof awayExternalId === "number" &&

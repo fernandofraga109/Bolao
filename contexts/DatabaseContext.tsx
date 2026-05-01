@@ -3,6 +3,7 @@ import React, {
   useContext,
   useState,
   useEffect,
+  useMemo,
   ReactNode,
 } from "react";
 import {
@@ -17,6 +18,7 @@ import {
   TournamentPredictionDB,
   SystemConfigDB,
   CompetitionDB,
+  TeamStandingsDB,
 } from "../types";
 import { INITIAL_DB } from "../data/initialData";
 import { supabase, isSupabaseEnabled } from "../services/supabase";
@@ -96,6 +98,7 @@ interface DatabaseContextType {
   matches: MatchDB[];
   predictions: PredictionDB[];
   tournamentPredictions: TournamentPredictionDB[];
+  teamStandings: TeamStandingsDB[];
   systemConfig: SystemConfigDB;
 
   // Actions (CRUD)
@@ -119,6 +122,7 @@ interface DatabaseContextType {
   upsertTournamentPrediction: (pred: TournamentPredictionDB) => Promise<void>;
 
   updateSystemConfig: (data: Partial<SystemConfigDB>) => Promise<void>;
+  updateLocalUserGroups: (updates: UserGroupDB[]) => void;
 }
 
 const DatabaseContext = createContext<DatabaseContextType | undefined>(
@@ -263,6 +267,9 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   const [tournamentPredictions, setTournamentPredictions] = useState<
     TournamentPredictionDB[]
   >(() => loadTable("tournamentPredictions", INITIAL_DB.tournamentPredictions));
+  const [teamStandings, setTeamStandings] = useState<TeamStandingsDB[]>(() =>
+    loadTable("teamStandings", []),
+  );
 
   // System Config
   const [systemConfig, setSystemConfig] =
@@ -294,6 +301,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         tournPredsRes,
         configRes,
         competitionsRes,
+        teamStandingsRes,
       ] = await Promise.all([
         isAuthenticated
           ? supabase.from("user_roles").select("*")
@@ -315,6 +323,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
           : Promise.resolve({ data: null, error: null } as any),
         supabase.from("system_config").select("*").single(),
         supabase.from("competitions").select("*"),
+        supabase.from("team_standings").select("*"),
       ]);
 
       if (!isMounted) return;
@@ -360,6 +369,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         const mapped = (competitionsRes.data as any[]).map(mapCompetitionRow);
         setCompetitions(mapped);
       }
+      if (teamStandingsRes.data) setTeamStandings(teamStandingsRes.data);
 
       if (!isAuthenticated) {
         setUsers([]);
@@ -520,7 +530,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
 
         // --- USER_GROUPS ---
         case "user_groups":
-          if (eventType === "INSERT") {
+          if (eventType === "INSERT" || eventType === "UPDATE") {
             setUserGroups((prev) =>
               mergeUserGroupIntoList(prev, newRecord as UserGroupDB),
             );
@@ -537,6 +547,27 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
               );
             }
           }
+          break;
+        // --- TEAM STANDINGS ---
+        case "team_standings":
+          if (eventType === "INSERT" || eventType === "UPDATE") {
+            setTeamStandings((prev) => {
+              const idx = prev.findIndex(
+                (ts) =>
+                  ts.teamId === newRecord.teamId &&
+                  ts.competitionCode === newRecord.competitionCode,
+              );
+              if (idx >= 0) {
+                const next = [...prev];
+                next[idx] = { ...next[idx], ...newRecord };
+                return next;
+              }
+              return [...prev, newRecord];
+            });
+          }
+          break;
+
+        default:
           break;
       }
     };
@@ -1073,7 +1104,51 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
 
   return (
     <DatabaseContext.Provider
-      value={{
+      value={useMemo(() => ({
+        competitions,
+        users,
+        groups,
+        userGroups,
+        teams,
+        stadiums,
+        matches,
+        predictions,
+        tournamentPredictions,
+        teamStandings,
+        systemConfig,
+        addUser,
+        updateUser,
+        deleteUser,
+        addGroup,
+        deleteGroup,
+        addUserToGroup,
+        removeUserFromGroup,
+        updateLocalUserGroups: (updates: UserGroupDB[]) => {
+          setUserGroups((prev) => {
+            const next = [...prev];
+            updates.forEach((update) => {
+              const idx = next.findIndex(
+                (ug) =>
+                  ug.userId === update.userId && ug.groupId === update.groupId,
+              );
+              if (idx >= 0) {
+                next[idx] = { ...next[idx], ...update };
+              } else {
+                next.push(update);
+              }
+            });
+            return next;
+          });
+        },
+        upsertCompetitions,
+        updateCompetitionSync,
+        upsertTeam,
+        upsertMatch,
+        updateMatch,
+        upsertPrediction,
+        upsertTournamentPrediction,
+        updateSystemConfig,
+      }), [
         competitions,
         users,
         groups,
@@ -1099,7 +1174,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         upsertPrediction,
         upsertTournamentPrediction,
         updateSystemConfig,
-      }}
+      ])}
     >
       {children}
     </DatabaseContext.Provider>

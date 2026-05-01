@@ -18,6 +18,11 @@ export interface CompetitionDB {
   emblem?: string;
   type?: "LEAGUE" | "CUP" | string;
   lastSync?: string;
+  topScorerName?: string;
+  topScorerGoals?: number;
+  championTeamId?: string;
+  bestPlayerName?: string;
+  bestGoalkeeperName?: string;
 }
 
 export interface StadiumDB {
@@ -187,12 +192,13 @@ export interface User {
 
 export interface Match {
   id: string;
+  externalMatchId?: string;
   homeTeam: Team;
   awayTeam: Team;
   date: string;
   group: string;
   competitionCode?: string;
-  location: string;
+  location?: string;
   stadiumId?: string;
   status: MatchStatus;
   result?: { home: number; away: number };
@@ -203,7 +209,7 @@ export interface Match {
 export type Group = GroupDB;
 export type Friend = User; // Legacy alias
 
-export type Tab = "matches" | "leaderboard" | "tournament" | "admin";
+export type Tab = "matches" | "leaderboard" | "stats" | "tournament" | "admin";
 
 export interface AIPredictionResult {
   homeScore: number;

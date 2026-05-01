@@ -35,7 +35,7 @@ interface LoginProps {
   onPasswordResetComplete?: () => void;
 }
 
-type AuthMode = "LOGIN" | "REGISTER" | "RESET_PASSWORD";
+type AuthMode = "LOGIN" | "REGISTER" | "RESET_PASSWORD" | "RESET_PASSWORD_CONFIRM";
 
 const Login: React.FC<LoginProps> = ({
   onLogin,

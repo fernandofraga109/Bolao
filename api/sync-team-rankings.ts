@@ -110,9 +110,9 @@ export const syncTeamRankings = async (): Promise<{
         console.error(`Erro atualizando time ${update.id}:`, error);
         const errorMsg = error.message || 'Erro desconhecido';
         
-        // Adicionar contexto ao erro 403
-        if (error.status === 403) {
-          errors.push(`Erro 403 (Forbidden) - Verifique as políticas RLS da tabela 'teams' no Supabase`);
+        // Adicionar contexto ao erro 403 (RLS)
+        if (error.code === '42501') {
+          errors.push(`Erro de Permissão (RLS) - Verifique as políticas da tabela 'teams' no Supabase`);
         } else {
           errors.push(`Erro atualizando time ${update.id}: ${errorMsg}`);
         }
