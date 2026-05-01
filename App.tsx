@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Tab, MatchStatus, Match } from "./types";
-import { calculatePoints, calculateTournamentPoints } from "./utils/scoring";
+import { Tab } from "./types";
 
 // Custom Hooks
 import { useUserSystem } from "./hooks/useUserSystem";
@@ -13,116 +12,28 @@ import { useDatabase } from "./contexts/DatabaseContext";
 // Layout Components
 import Header from "./components/Header";
 import BottomNav from "./components/BottomNav";
-import RulesSection from "./components/RulesSection";
 import SplashScreen from "./components/ui/SplashScreen";
 import ModalShell from "./components/ui/ModalShell";
 
-// Feature Components
-import MatchCard from "./components/MatchCard";
-import Leaderboard from "./components/Leaderboard";
-import TopScorerCard from "./components/TopScorerCard";
+// Auth
 import Login from "./components/Login";
-import AdminDashboard from "./components/AdminDashboard";
 import GroupSwitcher from "./components/GroupSwitcher";
-import TournamentStandings from "./components/TournamentStandings";
-import UserStats from "./components/UserStats";
-import { DEFAULT_COMPETITION_CODE, COMPETITION_OPTIONS, getCompetitionByCode } from "./data/competitions";
+
+// Pages
+import MatchesPage from "./components/pages/MatchesPage";
+import LeaderboardPage from "./components/pages/LeaderboardPage";
+import StatsPage from "./components/pages/StatsPage";
+import TournamentPage from "./components/pages/TournamentPage";
+import AdminPage from "./components/pages/AdminPage";
+
+import { DEFAULT_COMPETITION_CODE, getCompetitionByCode } from "./data/competitions";
 import {
   ChevronsUpDown,
-  ChevronDown,
-  ChevronUp,
-  CalendarDays,
-  History,
   PlusCircle,
   CheckCircle2,
   AlertTriangle,
 } from "lucide-react";
 
-// --- Helper Component for Date Groups ---
-interface MatchGroupProps {
-  title: string;
-  matches: Match[];
-  isOpenDefault?: boolean;
-  icon?: React.ReactNode;
-  userPredictions: Record<string, any>;
-  leaderboardData: any[];
-  onPredict: (id: string, h: number, a: number) => Promise<void>;
-  isAdmin: boolean;
-  onFinishMatch: (id: string, h: number, a: number) => void;
-  isToday?: boolean;
-}
-
-const MatchGroup: React.FC<MatchGroupProps> = ({
-  title,
-  matches,
-  isOpenDefault = false,
-  icon,
-  userPredictions,
-  leaderboardData,
-  onPredict,
-  isAdmin,
-  onFinishMatch,
-  isToday,
-}) => {
-  const [isOpen, setIsOpen] = useState(isOpenDefault);
-
-  if (matches.length === 0) return null;
-
-  return (
-    <div className="mb-4">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${isToday
-          ? "bg-brand-green/10 border-brand-green/30 text-white mb-3 shadow-lg shadow-brand-green/5"
-          : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700/80"
-          }`}
-      >
-        <div className="flex items-center gap-3">
-          {icon}
-          <div className="text-left">
-            <h3 className={`font-bold ${isToday ? "text-lg" : "text-sm"}`}>
-              {title}
-            </h3>
-            {!isOpen && (
-              <span className="text-[10px] opacity-70">
-                {matches.length} jogos
-              </span>
-            )}
-          </div>
-        </div>
-        {isOpen ? (
-          <ChevronUp size={isToday ? 20 : 16} />
-        ) : (
-          <ChevronDown size={isToday ? 20 : 16} />
-        )}
-      </button>
-
-      {isOpen && (
-        <div className="mt-3 space-y-6 animate-fadeIn">
-          {matches.map((match) => (
-            <MatchCard
-              key={match.id}
-              match={match}
-              userPrediction={
-                userPredictions[match.id]
-                  ? {
-                    matchId: match.id,
-                    homeScore: userPredictions[match.id].home,
-                    awayScore: userPredictions[match.id].away,
-                  }
-                  : undefined
-              }
-              friends={leaderboardData}
-              onPredict={onPredict}
-              isAdmin={isAdmin}
-              onFinishMatch={onFinishMatch}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 const App: React.FC = () => {
   const db = useDatabase();
@@ -204,7 +115,6 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>("matches");
   const [groupError, setGroupError] = useState<string | null>(null);
   const [isGroupSwitcherOpen, setIsGroupSwitcherOpen] = useState(false);
-  const [isPastMatchesOpen, setIsPastMatchesOpen] = useState(false);
   const [isAdminSyncingAll, setIsAdminSyncingAll] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<{
     isOpen: boolean;
@@ -296,55 +206,6 @@ const App: React.FC = () => {
     currentUser?.role
   ]);
 
-  // --- Date Grouping Logic ---
-  const { pastGroups, todayMatches, futureGroups } = useMemo(() => {
-    // 1. Determine "Today" (Reference Date)
-    const now = new Date();
-
-    // Normalize dates to YYYY-MM-DD for comparison
-    const getDayString = (d: Date) => {
-      // Use local date (YYYY-MM-DD) instead of UTC to avoid timezone shifts
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    };
-
-    const todayStr = getDayString(now);
-
-    const past: Record<string, Match[]> = {};
-    const today: Match[] = [];
-    const future: Record<string, Match[]> = {};
-
-    matches.forEach((match) => {
-      const mDate = new Date(match.date);
-      const mDateStr = getDayString(mDate);
-
-      if (mDateStr < todayStr) {
-        let key = "Anteriores";
-        if (match.stage === "REGULAR_SEASON" && match.matchday) {
-          key = `Rodada ${match.matchday}`;
-        } else if (match.group) {
-          key = match.group;
-        }
-        if (!past[key]) past[key] = [];
-        past[key].push(match);
-      } else if (mDateStr === todayStr) {
-        today.push(match);
-      } else {
-        if (!future[mDateStr]) future[mDateStr] = [];
-        future[mDateStr].push(match);
-      }
-    });
-
-    // Sort today matches by time
-    today.sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-    );
-
-    return { pastGroups: past, todayMatches: today, futureGroups: future };
-  }, [matches, activeCompetitionCode]);
-
   const currentUserRank = useMemo(() => {
     if (!currentUser || !leaderboardData.length) return 0;
     const sorted = [...leaderboardData].sort((a, b) => b.totalPoints - a.totalPoints);
@@ -358,15 +219,6 @@ const App: React.FC = () => {
     if (!currentUser || !leaderboardData.length) return 0;
     return leaderboardData.find(u => u.id === currentUser.id)?.totalPoints || 0;
   }, [currentUser, leaderboardData]);
-
-  const formatDateTitle = (dateStr: string) => {
-    const date = new Date(dateStr + "T12:00:00"); // Force midday to avoid timezone shifts on just date display
-    return date.toLocaleDateString("pt-BR", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    });
-  };
 
   // --- Render Auth Screen ---
   if (!authReady) {
@@ -587,127 +439,25 @@ const App: React.FC = () => {
       <main className="max-w-2xl mx-auto p-4">
         {/* Matches Tab */}
         {activeTab === "matches" && (
-          <div className="space-y-6">
-            {matches.length === 0 && (
-              <div className="text-center py-8 border border-slate-700 rounded-xl bg-slate-800/50 border-dashed">
-                <p className="text-slate-300 text-sm mb-3">
-                  Nenhum jogo encontrado.
-                </p>
-                <button
-                  onClick={() => void handleManualMatchesSync()}
-                  disabled={isSyncing || !canWriteCompetitionData}
-                  className="bg-brand-green hover:bg-emerald-400 text-slate-900 font-bold px-4 py-2 rounded-lg disabled:opacity-50"
-                >
-                  {!canWriteCompetitionData
-                    ? "Apenas admin sincroniza"
-                    : isSyncing
-                      ? "Sincronizando..."
-                      : "Sincronizar jogos"}
-                </button>
-              </div>
-            )}
-
-            {currentUser.role !== "ADMIN" && <RulesSection />}
-
-            {currentUser.role !== "ADMIN" && (
-              <TopScorerCard
-                prediction={currentUser.tournamentPredictions}
-                onPredict={predictTournament}
-                lockDate={lockDate}
-                finalResult={tournamentResults}
-              />
-            )}
-
-            {/* 1. Past Matches Grouped by Matchday/Phase (Wrapped in one main container) */}
-            {Object.keys(pastGroups).length > 0 && (
-              <div className="mb-6">
-                <button
-                  onClick={() => setIsPastMatchesOpen(!isPastMatchesOpen)}
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:bg-slate-800 transition-all"
-                >
-                  <div className="flex items-center gap-3">
-                    <History size={18} />
-                    <span className="font-bold text-sm">Ver Jogos Anteriores</span>
-                  </div>
-                  {isPastMatchesOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-
-                {isPastMatchesOpen && (
-                  <div className="mt-4 space-y-4 pl-2 border-l-2 border-slate-800 ml-4 animate-fadeIn">
-                    {Object.entries(pastGroups)
-                      .sort(([a], [b]) => {
-                        const numA = parseInt(a.replace(/\D/g, ""));
-                        const numB = parseInt(b.replace(/\D/g, ""));
-                        if (!isNaN(numA) && !isNaN(numB)) return numB - numA;
-                        return b.localeCompare(a);
-                      })
-                      .map(([title, groupMatches]) => (
-                        <MatchGroup
-                          key={title}
-                          title={title}
-                          matches={groupMatches}
-                          isOpenDefault={false}
-                          icon={<History size={14} className="text-slate-500" />}
-                          userPredictions={myPredictionsMap}
-                          leaderboardData={leaderboardData}
-                          onPredict={predictMatch}
-                          isAdmin={currentUser.role === "ADMIN"}
-                          onFinishMatch={adminControls.finishMatch}
-                        />
-                      ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* 2. Today's Matches Group (Highlighted) */}
-            <MatchGroup
-              title="Jogos do Dia"
-              matches={todayMatches}
-              isOpenDefault={true}
-              isToday={true}
-              icon={<CalendarDays size={20} className="text-brand-green" />}
-              userPredictions={myPredictionsMap}
-              leaderboardData={leaderboardData}
-              onPredict={predictMatch}
-              isAdmin={currentUser.role === "ADMIN"}
-              onFinishMatch={adminControls.finishMatch}
-            />
-
-            {/* Fallback if todayMatches is empty (e.g. rest day) */}
-            {todayMatches.length === 0 &&
-              Object.keys(pastGroups).length > 0 &&
-              Object.keys(futureGroups).length > 0 && (
-                <div className="text-center py-8 border border-slate-700 rounded-xl bg-slate-800/50 border-dashed">
-                  <p className="text-slate-400 text-sm">
-                    Nenhum jogo agendado para hoje.
-                  </p>
-                </div>
-              )}
-
-            {/* 3. Future Matches Groups (Accordion by Date) */}
-            {Object.entries(futureGroups)
-              .sort()
-              .map(([dateStr, groupMatches]) => (
-                <MatchGroup
-                  key={dateStr}
-                  title={formatDateTitle(dateStr)}
-                  matches={groupMatches}
-                  isOpenDefault={false}
-                  icon={<CalendarDays size={18} className="text-slate-500" />}
-                  userPredictions={myPredictionsMap}
-                  leaderboardData={leaderboardData}
-                  onPredict={predictMatch}
-                  isAdmin={currentUser.role === "ADMIN"}
-                  onFinishMatch={adminControls.finishMatch}
-                />
-              ))}
-          </div>
+          <MatchesPage
+            matches={matches}
+            userPredictions={myPredictionsMap}
+            leaderboardData={leaderboardData}
+            currentUser={currentUser}
+            isSyncing={isSyncing}
+            canWriteCompetitionData={canWriteCompetitionData}
+            tournamentResults={tournamentResults}
+            lockDate={lockDate}
+            onManualSync={() => void handleManualMatchesSync()}
+            onPredict={predictMatch}
+            onFinishMatch={adminControls.finishMatch}
+            onPredictTournament={predictTournament}
+          />
         )}
 
         {/* Tournament Standings Tab */}
         {activeTab === "tournament" && (
-          <TournamentStandings
+          <TournamentPage
             matches={matches}
             competitionCode={activeCompetitionCode}
             canPersistToDatabase={canWriteCompetitionData}
@@ -716,17 +466,17 @@ const App: React.FC = () => {
 
         {/* Leaderboard Tab */}
         {activeTab === "leaderboard" && currentUser.role !== "ADMIN" && (
-          <Leaderboard sections={leaderboardSections} />
+          <LeaderboardPage sections={leaderboardSections} />
         )}
 
         {/* User Stats Tab */}
         {activeTab === "stats" && currentUser.role !== "ADMIN" && (
-          <UserStats user={currentUser} matches={matches} />
+          <StatsPage user={currentUser} matches={matches} />
         )}
 
         {/* Admin Tab */}
         {activeTab === "admin" && currentUser.role === "ADMIN" && (
-          <AdminDashboard
+          <AdminPage
             users={users}
             groups={groups}
             currentUser={currentUser}
