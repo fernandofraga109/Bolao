@@ -59,7 +59,10 @@ function buildExternalTeamMap(
       (tlaUpper ? teamByCode.get(tlaUpper) : undefined);
 
     if (existing) {
-      // Already known — just ensure both indexes are populated
+      // Se já existe e temos o ID externo, atualizamos o ID externo se estiver faltando
+      if (et.id && !existing.externalTeamId) existing.externalTeamId = et.id;
+      
+      // Indexamos nos dois mapas para garantir consistência
       if (et.id) teamByExtId.set(et.id, existing);
       if (tlaUpper) teamByCode.set(tlaUpper, existing);
     } else {
@@ -83,6 +86,7 @@ function buildExternalTeamMap(
       if (payload.code) teamByCode.set(payload.code.toUpperCase(), payload);
     }
   }
+
 
   return { teamByExtId, teamByCode, newTeamPayloads };
 }
@@ -228,22 +232,26 @@ export const useSyncSystem = (
           }
         }
 
-        // Deduplicate payloads by code (handles TBD teams and other code collisions)
-        const uniquePayloadsByCode = new Map<string, any>();
+        // Deduplicate payloads by code OR externalTeamId to handle collisions like "COR"
+        const uniquePayloads = new Map<string, any>();
         for (const p of newTeamPayloads) {
-          if (!uniquePayloadsByCode.has(p.code)) {
-            uniquePayloadsByCode.set(p.code, p);
+          // A chave de unicidade deve ser o ID externo se disponível, senão o código
+          const key = p.externalTeamId ? `ext_${p.externalTeamId}` : `code_${p.code}`;
+          if (!uniquePayloads.has(key)) {
+            uniquePayloads.set(key, p);
           }
         }
-        const deduplicatedPayloads = Array.from(uniquePayloadsByCode.values());
+        const deduplicatedPayloads = Array.from(uniquePayloads.values());
+
 
         // Batch upsert all unknown teams (1 request)
         if (deduplicatedPayloads.length > 0 && isSupabaseEnabled() && supabase) {
           console.log(`[SYNC] Inserindo ${deduplicatedPayloads.length} times novos/atualizados...`);
           const { data: savedTeams, error: teamsError } = await supabase
             .from("teams")
-            .upsert(deduplicatedPayloads, { onConflict: "code" })
+            .upsert(deduplicatedPayloads, { onConflict: "externalTeamId" })
             .select("*");
+
 
           if (teamsError) {
             console.warn("[SYNC] Erro ao inserir times:", teamsError.message);
@@ -272,27 +280,42 @@ export const useSyncSystem = (
 
         for (const em of externalMatches) {
           const status = mapExternalStatusToInternal(em.status);
-          const result =
-            em.score?.fullTime?.home != null
-              ? { home: em.score.fullTime.home, away: em.score.fullTime.away }
-              : undefined;
+          
+          // Extração robusta do placar (tenta fullTime, depois regularTime)
+          const homeScore = em.score?.fullTime?.home ?? em.score?.regularTime?.home;
+          const awayScore = em.score?.fullTime?.away ?? em.score?.regularTime?.away;
+          
+          const result = homeScore != null ? { home: homeScore, away: awayScore } : undefined;
 
           const existing = findInternalMatch(em, hydratedInternalMatches);
 
           if (existing) {
+            // Log para depuração se necessário
+            // console.log(`[SYNC] Comparando ${em.homeTeam?.name}: API(${homeScore}) vs DB(${existing.resultHome})`);
+
             const hasChanged =
               existing.status !== status ||
-              existing.result?.home !== result?.home ||
-              existing.result?.away !== result?.away;
+              (homeScore != null && existing.resultHome !== homeScore) ||
+              (awayScore != null && existing.resultAway !== awayScore);
+
+
 
             if (hasChanged) {
+              // Removemos campos virtuais (objetos hidratados) antes de enviar para o banco
+              const { homeTeam, awayTeam, result, ...pureMatch } = existing;
+
               matchUpserts.push({
-                id: existing.id,
+                ...pureMatch,
+                externalMatchId: String(em.id),
                 status,
-                resultHome: result?.home ?? null,
-                resultAway: result?.away ?? null,
+                resultHome: homeScore ?? null,
+                resultAway: awayScore ?? null,
                 date: em.utcDate,
               });
+
+
+
+
 
               if (status === MatchStatus.FINISHED && result) {
                 finishedMatchesForPoints.push({
@@ -326,9 +349,14 @@ export const useSyncSystem = (
                 stage: em.stage,
                 matchday: em.matchday,
               });
+            } else {
+              console.warn(`[SYNC] Não foi possível resolver times para o jogo ${em.id}: ${em.homeTeam?.name} vs ${em.awayTeam?.name}`);
             }
+          } else {
+            console.warn(`[SYNC] Jogo da API não encontrado no banco local: ${em.homeTeam?.name} vs ${em.awayTeam?.name} (${em.utcDate}). Verifique se a data/fuso-horário coincide.`);
           }
         }
+
 
         // Batch upsert matches (1 request!)
         let matchesUpdated = 0;
@@ -347,16 +375,19 @@ export const useSyncSystem = (
           const toInsert = Array.from(insertMap.values());
 
           if (toUpdate.length > 0) {
+            console.log("[SYNC] Enviando atualizações de placar para o banco:", toUpdate);
             const { data: savedUpdates, error } = await supabase!
               .from("matches")
               .upsert(toUpdate, { onConflict: "id" })
               .select("*");
+
             if (error) console.warn("[SYNC] Erro ao atualizar matches:", error.message);
             else if (savedUpdates) {
               matchesUpdated += savedUpdates.length;
-              if (dbRef.current.updateLocalMatches) {
-                dbRef.current.updateLocalMatches(savedUpdates);
+              if (dbRef.current.upsertMatch) {
+                dbRef.current.upsertMatch(savedUpdates);
               }
+
             }
           }
 

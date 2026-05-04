@@ -182,13 +182,14 @@ const PredictionCard: React.FC<{ entry: PredictionEntry }> = ({ entry }) => {
       <div className="px-4 py-3 flex items-center gap-3">
         {/* Home team */}
         <div className="flex-1 flex items-center gap-2 min-w-0">
-          {match.homeTeam.flag && (
+          <div className="w-8 h-8 flex items-center justify-center bg-slate-900/50 rounded-lg border border-slate-700/50 shrink-0 overflow-hidden">
             <img
               src={match.homeTeam.flag}
               alt={match.homeTeam.code}
-              className="w-6 h-4 object-cover rounded shadow-sm shrink-0"
+              className="w-full h-full object-contain"
             />
-          )}
+          </div>
+
           <span className="text-sm font-bold text-white truncate">
             {match.homeTeam.name}
           </span>
@@ -236,13 +237,14 @@ const PredictionCard: React.FC<{ entry: PredictionEntry }> = ({ entry }) => {
           <span className="text-sm font-bold text-white truncate text-right">
             {match.awayTeam.name}
           </span>
-          {match.awayTeam.flag && (
+          <div className="w-8 h-8 flex items-center justify-center bg-slate-900/50 rounded-lg border border-slate-700/50 shrink-0 overflow-hidden">
             <img
               src={match.awayTeam.flag}
               alt={match.awayTeam.code}
-              className="w-6 h-4 object-cover rounded shadow-sm shrink-0"
+              className="w-6 h-6 object-contain"
             />
-          )}
+          </div>
+
         </div>
       </div>
 

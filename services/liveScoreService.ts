@@ -357,43 +357,42 @@ export const findInternalMatch = (
   const homeExternalId = externalMatch.homeTeam.id;
   const awayExternalId = externalMatch.awayTeam.id;
 
-  if (!homeCode || !awayCode) return undefined;
-
   return internalMatches.find((m) => {
-    // Exact match by external ID is the best
+    // 1. Prioridade absoluta: Match ID externo
     if (
       m.externalMatchId &&
+      externalMatch.id &&
       String(m.externalMatchId) === String(externalMatch.id)
-    )
+    ) {
       return true;
+    }
 
-    // Fallback: match by teams + same day and compatible stage/matchday.
-    // This avoids collisions in league competitions where the same teams play multiple times per year.
+    // 2. Fallback: Data + Times (Considerando IDs de times se disponíveis)
     const sameDay =
       new Date(m.date).toISOString().slice(0, 10) ===
       new Date(externalMatch.utcDate).toISOString().slice(0, 10);
 
-    const sameStage =
-      !externalMatch.stage || !m.stage || m.stage === externalMatch.stage;
+    if (!sameDay) return false;
 
-    const sameMatchday =
-      externalMatch.matchday == null ||
-      m.matchday == null ||
-      m.matchday === externalMatch.matchday;
+    // Se temos IDs externos nos dois lados, comparamos por ID (evita erro de TLA duplicado como "COR")
+    const hasExternalTeamIds = 
+      homeExternalId != null && 
+      awayExternalId != null && 
+      m.homeTeam?.externalTeamId != null && 
+      m.awayTeam?.externalTeamId != null;
 
-    if (!m.homeTeam || !m.awayTeam) return false;
-
-    const hasExternalTeams =
-      typeof homeExternalId === "number" &&
-      typeof awayExternalId === "number" &&
-      typeof m.homeTeam.externalTeamId === "number" &&
-      typeof m.awayTeam.externalTeamId === "number";
-
-    const sameTeams = hasExternalTeams
-      ? m.homeTeam.externalTeamId === homeExternalId &&
+    if (hasExternalTeamIds) {
+      return (
+        m.homeTeam.externalTeamId === homeExternalId &&
         m.awayTeam.externalTeamId === awayExternalId
-      : m.homeTeam.code === homeCode && m.awayTeam.code === awayCode;
+      );
+    }
 
-    return sameTeams && sameDay && sameStage && sameMatchday;
+    // Último recurso: TLA (Sujeito a colisões como Corinthians/Coritiba se os IDs não estiverem presentes)
+    return (
+      m.homeTeam?.code === homeCode &&
+      m.awayTeam?.code === awayCode
+    );
   });
 };
+

@@ -849,9 +849,10 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
 
       const { data: persistedTeam, error } = await supabase
         .from("teams")
-        .upsert(teamPayload, { onConflict: "code" })
+        .upsert(teamPayload, { onConflict: team.externalTeamId ? "externalTeamId" : "code" })
         .select("*")
         .single();
+
 
       if (error) {
         throw new Error(`Erro ao salvar team: ${error.message}`);

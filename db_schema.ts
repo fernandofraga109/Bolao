@@ -29,8 +29,9 @@ CREATE TABLE IF NOT EXISTS public.teams (
     flag text NOT NULL,
     ranking integer,
     pot integer,
-    "externalTeamId" integer
+    "externalTeamId" integer UNIQUE
 );
+
 
 -- 1.A TABELA TEAM_STANDINGS (Tabela de Classificações por Competição)
 CREATE TABLE IF NOT EXISTS public.team_standings (
@@ -110,8 +111,10 @@ CREATE TABLE IF NOT EXISTS public.matches (
     "stadiumId" text, -- Pode ser null se não definido
     status text NOT NULL,
     "resultHome" integer,
-    "resultAway" integer
+    "resultAway" integer,
+    "externalMatchId" text UNIQUE
 );
+
 
 -- 8. TABELA PREDICTIONS (Palpites dos Jogos)
 CREATE TABLE IF NOT EXISTS public.predictions (

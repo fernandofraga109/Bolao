@@ -638,11 +638,14 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
                                 {index + 1}
                               </span>
                               <div className="flex items-center gap-2">
-                                <img
-                                  src={stats.team.flag}
-                                  alt={stats.team.code}
-                                  className="w-5 h-3.5 object-cover rounded shadow-sm"
-                                />
+                                <div className="w-6 h-6 flex items-center justify-center bg-slate-900/40 rounded border border-slate-700/30 overflow-hidden">
+                                  <img
+                                    src={stats.team.flag}
+                                    alt={stats.team.code}
+                                    className="w-4 h-4 object-contain"
+                                  />
+                                </div>
+
                                 <span
                                   className={`font-semibold ${index < 2 ? "text-white" : "text-slate-300"}`}
                                 >

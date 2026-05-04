@@ -190,88 +190,90 @@ const MatchCard: React.FC<MatchCardProps> = ({
         <div className="flex items-center justify-between gap-4 mb-6">
           {/* Home Team */}
           <div className="flex-1 flex flex-col items-center gap-3">
-            <div className="relative group/flag">
+            <div className="relative group/flag w-16 h-16 flex items-center justify-center bg-slate-900/50 rounded-2xl border border-slate-700 overflow-hidden transition-all group-hover/flag:border-slate-500">
               <img
                 src={match.homeTeam.flag}
                 alt={match.homeTeam.name}
-                className="w-16 h-10 object-cover rounded-xl shadow-xl border border-slate-700 transition-transform group-hover/flag:scale-110"
+                className="w-12 h-12 object-contain transition-transform group-hover/flag:scale-110"
               />
-              <div className="absolute inset-0 rounded-xl bg-black/5 group-hover/flag:bg-transparent transition-colors"></div>
             </div>
+
             <span className="text-xs font-black text-center text-slate-200 uppercase tracking-tight leading-none h-8 flex items-center">
               {match.homeTeam.name}
             </span>
           </div>
 
           {/* Inputs/Results Container */}
-          <div className="flex flex-col items-center gap-2">
-             <div className="flex items-center gap-3">
-                {isFinished && !isAdmin ? (
-                   <div className="flex items-center gap-4 animate-fadeIn">
-                      <div className="flex flex-col items-center">
-                        <span className="text-4xl font-black text-white tracking-tighter">
-                          {userPrediction?.homeScore ?? "-"}
-                        </span>
-                        <span className="text-[9px] font-bold text-slate-500 uppercase">Seu</span>
-                      </div>
-                      <div className="w-px h-8 bg-slate-700"></div>
-                      <div className="flex flex-col items-center">
-                        <span className="text-4xl font-black text-brand-green tracking-tighter">
-                          {match.result?.home ?? 0}
-                        </span>
-                        <span className="text-[9px] font-bold text-brand-green uppercase">Final</span>
-                      </div>
-                   </div>
-                ) : (
-                  <>
-                    <input
-                      type="number"
-                      value={homeInput}
-                      onChange={(e) => setHomeInput(e.target.value)}
-                      disabled={isPredictionDisabled}
-                      className="w-14 h-14 text-center font-black text-2xl rounded-2xl bg-slate-900 border border-slate-700 focus:border-brand-green focus:ring-4 focus:ring-brand-green/10 transition-all outline-none disabled:opacity-50 disabled:bg-slate-800/50"
-                      placeholder="-"
-                    />
-                    <span className="text-slate-600 font-black text-xl tracking-tighter">VS</span>
-                    <input
-                      type="number"
-                      value={awayInput}
-                      onChange={(e) => setAwayInput(e.target.value)}
-                      disabled={isPredictionDisabled}
-                      className="w-14 h-14 text-center font-black text-2xl rounded-2xl bg-slate-900 border border-slate-700 focus:border-brand-green focus:ring-4 focus:ring-brand-green/10 transition-all outline-none disabled:opacity-50 disabled:bg-slate-800/50"
-                      placeholder="-"
-                    />
-                  </>
-                )}
-             </div>
-             
-             {isFinished && !isAdmin && (
-                <div className="flex items-center gap-4 animate-fadeIn mt-1">
-                   <div className="flex flex-col items-center">
-                     <span className="text-4xl font-black text-white tracking-tighter">
-                       {userPrediction?.awayScore ?? "-"}
-                     </span>
-                   </div>
-                   <div className="w-px h-8 bg-transparent"></div>
-                   <div className="flex flex-col items-center">
-                     <span className="text-4xl font-black text-brand-green tracking-tighter">
-                       {match.result?.away ?? 0}
-                     </span>
-                   </div>
+          <div className="flex flex-col items-center gap-4">
+            {isFinished && !isAdmin ? (
+              <div className="flex flex-col items-center gap-3 animate-fadeIn">
+                {/* Resultado Final */}
+                <div className="flex flex-col items-center">
+                  <div className="flex items-center gap-3">
+                    <span className="text-4xl font-black text-white tracking-tighter">
+                      {match.result?.home ?? 0}
+                    </span>
+                    <span className="text-xl font-black text-slate-600">×</span>
+                    <span className="text-4xl font-black text-white tracking-tighter">
+                      {match.result?.away ?? 0}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">Resultado</span>
                 </div>
-             )}
+
+                {/* Palpite do Usuário */}
+                <div className="flex flex-col items-center mt-1">
+                  <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/50 border border-slate-700/50">
+                    <span className="text-xl font-black text-brand-green tracking-tighter">
+                      {userPrediction?.homeScore ?? "-"}
+                    </span>
+                    <span className="text-sm font-bold text-slate-600">×</span>
+                    <span className="text-xl font-black text-brand-green tracking-tighter">
+                      {userPrediction?.awayScore ?? "-"}
+                    </span>
+                  </div>
+                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">Seu Palpite</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    value={homeInput}
+                    onChange={(e) => setHomeInput(e.target.value)}
+                    disabled={isPredictionDisabled}
+                    className="w-14 h-14 text-center font-black text-2xl rounded-2xl bg-slate-900 border border-slate-700 focus:border-brand-green focus:ring-4 focus:ring-brand-green/10 transition-all outline-none disabled:opacity-50 disabled:bg-slate-800/50"
+                    placeholder="-"
+                  />
+                  <span className="text-slate-600 font-black text-xl tracking-tighter">×</span>
+                  <input
+                    type="number"
+                    value={awayInput}
+                    onChange={(e) => setAwayInput(e.target.value)}
+                    disabled={isPredictionDisabled}
+                    className="w-14 h-14 text-center font-black text-2xl rounded-2xl bg-slate-900 border border-slate-700 focus:border-brand-green focus:ring-4 focus:ring-brand-green/10 transition-all outline-none disabled:opacity-50 disabled:bg-slate-800/50"
+                    placeholder="-"
+                  />
+                </div>
+                {!isPredictionDisabled && (
+                   <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Sua Aposta</span>
+                )}
+              </div>
+            )}
           </div>
+
 
           {/* Away Team */}
           <div className="flex-1 flex flex-col items-center gap-3">
-            <div className="relative group/flag">
+            <div className="relative group/flag w-16 h-16 flex items-center justify-center bg-slate-900/50 rounded-2xl border border-slate-700 overflow-hidden transition-all group-hover/flag:border-slate-500">
               <img
                 src={match.awayTeam.flag}
                 alt={match.awayTeam.name}
-                className="w-16 h-10 object-cover rounded-xl shadow-xl border border-slate-700 transition-transform group-hover/flag:scale-110"
+                className="w-12 h-12 object-contain transition-transform group-hover/flag:scale-110"
               />
-              <div className="absolute inset-0 rounded-xl bg-black/5 group-hover/flag:bg-transparent transition-colors"></div>
             </div>
+
             <span className="text-xs font-black text-center text-slate-200 uppercase tracking-tight leading-none h-8 flex items-center">
               {match.awayTeam.name}
             </span>
