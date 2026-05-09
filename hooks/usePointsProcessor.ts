@@ -7,13 +7,24 @@ export const usePointsProcessor = (dbRef: any) => {
   const recalculateUserGroupPoints = useCallback(async (groupIds: string[]) => {
     if (!groupIds || groupIds.length === 0) return;
     const uniqueGroupIds = Array.from(new Set(groupIds));
-    console.log(`🔄 Iniciando recálculo para ${uniqueGroupIds.length} grupos:`, uniqueGroupIds);
+    console.log(`🔄 Iniciando recálculo in-memory para ${uniqueGroupIds.length} grupos:`, uniqueGroupIds);
+
+    // Precisamos dos matches atuais para os resultados oficiais e rankings
+    const allMatches = dbRef.current.matches as Match[];
+    const finishedMatchesMap = new Map<string, Match>();
+    allMatches.forEach(m => {
+      if (m.status === MatchStatus.FINISHED && m.resultHome != null && m.resultAway != null) {
+        finishedMatchesMap.set(m.id, m);
+      }
+    });
 
     for (const groupId of uniqueGroupIds) {
-      // 1. Fetch all predictions for this group
+      // 1. Buscamos todas as predições (raw scores) do grupo
+      // Nota: Não confiamos na coluna 'points' do banco, pois ela pode estar
+      // desatualizada se o sync anterior foi feito por um usuário sem permissão de escrita.
       const { data: preds, error } = await supabase
         .from("predictions")
-        .select("userId, points")
+        .select("userId, matchId, homeScore, awayScore")
         .eq("groupId", groupId);
 
       if (error) {
@@ -21,15 +32,28 @@ export const usePointsProcessor = (dbRef: any) => {
         continue;
       }
 
-      // 2. Aggregate points by userId
+      // 2. Calculamos os pontos totais por usuário baseados nos resultados oficiais
       const pointsByUser: Record<string, number> = {};
+      
       (preds || []).forEach((p) => {
         if (!pointsByUser[p.userId]) pointsByUser[p.userId] = 0;
-        pointsByUser[p.userId] += (p.points || 0);
+        
+        const match = finishedMatchesMap.get(p.matchId);
+        if (match) {
+          const pts = calculatePoints(
+            p.homeScore,
+            p.awayScore,
+            match.resultHome ?? 0,
+            match.resultAway ?? 0,
+            match.homeTeam?.ranking,
+            match.awayTeam?.ranking
+          );
+          pointsByUser[p.userId] += pts;
+        }
       });
 
-      // 3. Fetch existing user_groups to preserve role/joinedAt
-      const { data: existingGroupUsers, error: ugError } = await supabase
+      // 3. Buscamos os membros atuais para preservar metadados
+      const { data: members, error: ugError } = await supabase
         .from("user_groups")
         .select("userId, groupId, role, joinedAt")
         .eq("groupId", groupId);
@@ -39,29 +63,26 @@ export const usePointsProcessor = (dbRef: any) => {
         continue;
       }
 
-      if (existingGroupUsers && existingGroupUsers.length > 0) {
-        const finalUpdates = existingGroupUsers.map((u) => ({
+      if (members && members.length > 0) {
+        const finalUpdates = members.map((u) => ({
           ...u,
           points: pointsByUser[u.userId] || 0,
         }));
 
-        console.log(`📤 Enviando ${finalUpdates.length} atualizações de pontos para o grupo ${groupId}`);
+        console.log(`📤 Enviando classificação atualizada para o grupo ${groupId} (${finalUpdates.length} usuários)`);
         const { error: upsertError } = await supabase
           .from("user_groups")
           .upsert(finalUpdates, { onConflict: "userId, groupId" });
         
         if (upsertError) {
-          console.error(`❌ Erro ao fazer upsert em user_groups para o grupo ${groupId}:`, upsertError);
+          console.error(`❌ Erro no upsert de user_groups:`, upsertError);
         } else {
-          console.log(`✨ Pontos recalculados com sucesso para o grupo ${groupId}`);
-          // Optimistic local update
+          console.log(`✨ Classificação sincronizada com sucesso para o grupo ${groupId}`);
           dbRef.current.updateLocalUserGroups(finalUpdates);
         }
-      } else {
-        console.warn(`⚠️ Nenhum membro encontrado em user_groups para o grupo ${groupId}`);
       }
     }
-  }, []);
+  }, [dbRef]);
 
   const batchProcessPointsForMatches = useCallback(
     async (finishedMatches: Match[]) => {
@@ -100,7 +121,14 @@ export const usePointsProcessor = (dbRef: any) => {
 
       if (updatesToUpsert.length > 0) {
         console.log(`📦 Processando pontos para ${updatesToUpsert.length} palpites...`);
-        await dbRef.current.upsertPrediction(updatesToUpsert);
+        try {
+          // Tentamos salvar os pontos na tabela de predictions.
+          // Em background sync de usuários comuns, isso falhará para palpites de outros usuários via RLS.
+          // Isso é OK, pois o recalculateUserGroupPoints agora calcula em memória.
+          await dbRef.current.upsertPrediction(updatesToUpsert);
+        } catch (err) {
+          console.debug("[SYNC] Upsert de predictions limitado por RLS (comportamento esperado em background sync).");
+        }
 
         const groupIdsToRecalculate = Array.from(
           new Set(updatesToUpsert.map((u) => u.groupId).filter(Boolean)),

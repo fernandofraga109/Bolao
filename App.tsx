@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { Tab } from "./types";
 
 // Custom Hooks
@@ -14,6 +14,7 @@ import Header from "./components/Header";
 import BottomNav from "./components/BottomNav";
 import SplashScreen from "./components/ui/SplashScreen";
 import ModalShell from "./components/ui/ModalShell";
+import { SyncToastContainer, useSyncToast } from "./components/ui/SyncToast";
 
 // Auth
 import Login from "./components/Login";
@@ -90,6 +91,19 @@ const App: React.FC = () => {
 
   const canWriteCompetitionData = currentUser?.role === "ADMIN";
 
+  // --- Toast de sincronização ---
+  const { toasts, dismiss, showSyncing, showResult } = useSyncToast();
+
+  const handleBgSyncStart = useCallback((code: string) => {
+    const name = db.competitions.find(c => c.code.toUpperCase() === code)?.name;
+    showSyncing(code, name);
+  }, [db.competitions, showSyncing]);
+
+  const handleBgSyncEnd = useCallback((code: string, success: boolean, message: string) => {
+    const name = db.competitions.find(c => c.code.toUpperCase() === code)?.name;
+    showResult(code, success, message, name);
+  }, [db.competitions, showResult]);
+
   const {
     matches,
     tournamentResults,
@@ -101,7 +115,7 @@ const App: React.FC = () => {
     isAutoSyncEnabled,
     toggleAutoSync,
     adminControls,
-  } = useMatchSystem(activeCompetitionCode, canWriteCompetitionData);
+  } = useMatchSystem(activeCompetitionCode, canWriteCompetitionData, handleBgSyncStart, handleBgSyncEnd);
 
   const {
     groups,
@@ -132,9 +146,12 @@ const App: React.FC = () => {
     if (!canWriteCompetitionData) return;
     if (isAdminSyncingAll) return;
 
+    const name = db.competitions.find(c => c.code.toUpperCase() === competitionCode.toUpperCase())?.name;
+    showSyncing(competitionCode, name);
     setIsAdminSyncingAll(true);
     try {
       const result = await syncMatchesAndStandings(competitionCode, true);
+      showResult(competitionCode, result.success, result.message, name);
       setSyncFeedback({
         isOpen: true,
         title: result.success
@@ -190,21 +207,9 @@ const App: React.FC = () => {
     ? getGroupById(resolvedActiveGroupId)
     : undefined;
 
-  useEffect(() => {
-    if (!currentUser || !currentUser.groupIds.length) return;
-
-    // Only auto-sync for regular users when they enter/switch.
-    // Admins have manual control and auto-sync settings.
-    if (currentUser.role === "ADMIN") return;
-
-    void syncMatchesAndStandings(activeCompetitionCode);
-  }, [
-    currentUser?.id,
-    currentUser?.activeGroupId,
-    activeCompetitionCode,
-    syncMatchesAndStandings,
-    currentUser?.role
-  ]);
+  // O background sync (via useBackgroundSync dentro de useMatchSystem)
+  // já cuida de manter os dados atualizados para todos os usuários.
+  // Não é necessário disparar sync manual aqui ao entrar/trocar de grupo.
 
   const currentUserRank = useMemo(() => {
     if (!currentUser || !leaderboardData.length) return 0;
@@ -499,6 +504,9 @@ const App: React.FC = () => {
           />
         )}
       </main>
+
+      {/* Sync Toast Notifications */}
+      <SyncToastContainer toasts={toasts} onDismiss={dismiss} />
 
       <BottomNav
         activeTab={activeTab}

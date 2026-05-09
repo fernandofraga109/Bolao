@@ -148,15 +148,27 @@ export const useSyncSystem = (
   // 5. Recalculate points
   // ---------------------------------------------------------------------------
   const syncMatchesAndStandings = useCallback(
-    async (competitionCode: string, isManualRequest: boolean = false) => {
+    async (
+      competitionCode: string,
+      isManualRequest: boolean = false,
+      options?: { isBackgroundSync?: boolean }
+    ) => {
       const normalizedCode = normalizeCompetitionCode(competitionCode);
       const isManual = isManualRequest || normalizedCode === normalizeCompetitionCode(activeCompetitionCode);
+      const isBackgroundSync = options?.isBackgroundSync ?? false;
 
-      if (!canWriteData) {
+      // Admins podem sempre sincronizar.
+      // Background sync (disparado por usuários comuns) depende do RLS do Supabase
+      // para controlar as permissões de escrita — não bloqueamos aqui.
+      if (!canWriteData && !isBackgroundSync) {
         return {
           success: false,
           message: "Somente administradores podem salvar no banco.",
         };
+      }
+
+      if (isBackgroundSync) {
+        console.log(`🌐 [BackgroundSync] Iniciando sync passivo para ${normalizedCode}...`);
       }
 
       const now = Date.now();
@@ -244,9 +256,29 @@ export const useSyncSystem = (
         const deduplicatedPayloads = Array.from(uniquePayloads.values());
 
 
-        // Batch upsert all unknown teams (1 request)
+        // Batch upsert all unknown teams
+        // Estratégia de 2 passos para evitar o erro 409 (duplicate key em "code"):
+        // Passo 1: Para times que já existem no DB pelo code mas sem externalTeamId,
+        //          atribuir o externalTeamId antes do upsert principal.
+        //          Isso evita que o upsert por externalTeamId tente inserir um novo
+        //          registro que colide com a unique constraint de code.
+        // Passo 2: Upsert principal por externalTeamId (agora sem conflito de code).
         if (deduplicatedPayloads.length > 0 && isSupabaseEnabled() && supabase) {
           console.log(`[SYNC] Inserindo ${deduplicatedPayloads.length} times novos/atualizados...`);
+
+          // Passo 1: Adota times órfãos (têm code no DB mas falta externalTeamId)
+          const payloadsWithExtId = deduplicatedPayloads.filter((p) => p.externalTeamId);
+          for (const payload of payloadsWithExtId) {
+            await supabase
+              .from("teams")
+              .update({ externalTeamId: payload.externalTeamId })
+              .eq("code", payload.code)
+              .is("externalTeamId", null); // só atualiza se ainda não tem
+            // Ignoramos o erro propositalmente — se o time não existir pelo code, tudo bem.
+          }
+
+          // Passo 2: Upsert principal — agora os times com code já têm externalTeamId,
+          //          então o conflict target funciona corretamente.
           const { data: savedTeams, error: teamsError } = await supabase
             .from("teams")
             .upsert(deduplicatedPayloads, { onConflict: "externalTeamId" })
@@ -350,7 +382,9 @@ export const useSyncSystem = (
                 matchday: em.matchday,
               });
             } else {
-              console.warn(`[SYNC] Não foi possível resolver times para o jogo ${em.id}: ${em.homeTeam?.name} vs ${em.awayTeam?.name}`);
+              // Times com id/tla nulos = jogos de fase eliminatória ainda não definidos (TBD).
+              // Comportamento esperado da API — serão resolvidos quando os times forem confirmados.
+              console.debug(`[SYNC] Jogo ${em.id} ignorado: times ainda não definidos pela competição (TBD).`);
             }
           } else {
             console.warn(`[SYNC] Jogo da API não encontrado no banco local: ${em.homeTeam?.name} vs ${em.awayTeam?.name} (${em.utcDate}). Verifique se a data/fuso-horário coincide.`);
@@ -406,9 +440,36 @@ export const useSyncSystem = (
           }
         }
 
-        // Process points for finished matches
-        if (finishedMatchesForPoints.length > 0) {
-          await batchProcessPointsForMatches(finishedMatchesForPoints);
+        // ── FASE 4b: Calcular pontos das predictions ─────────────────────────
+        // IMPORTANTE: Processa TODOS os jogos FINISHED do banco local, não apenas
+        // os que mudaram neste sync. Isso garante que pontos sejam calculados mesmo
+        // quando o sync roda em jogos que já estavam FINISHED (hasChanged=false).
+        // batchProcessPointsForMatches é idempotente: só faz upsert se pred.points mudou.
+        const alreadyInBatch = new Set(finishedMatchesForPoints.map((m) => m.id));
+
+        const additionalFinished = hydratedInternalMatches
+          .filter(
+            (m: any) =>
+              m.status === MatchStatus.FINISHED &&
+              m.resultHome != null &&
+              m.resultAway != null &&
+              m.homeTeam &&
+              m.awayTeam &&
+              !alreadyInBatch.has(m.id),
+          )
+          .map((m: any) => ({
+            ...m,
+            result: { home: m.resultHome, away: m.resultAway },
+          })) as Match[];
+
+        const allFinishedToProcess = [...finishedMatchesForPoints, ...additionalFinished];
+
+        if (allFinishedToProcess.length > 0) {
+          console.log(
+            `[SYNC] Calculando pontos para ${allFinishedToProcess.length} jogos finalizados` +
+            (finishedMatchesForPoints.length > 0 ? ` (${finishedMatchesForPoints.length} recém-finalizados + ${additionalFinished.length} já existentes)` : "") + "..."
+          );
+          await batchProcessPointsForMatches(allFinishedToProcess);
         }
 
         const matchesMessage =
@@ -492,7 +553,12 @@ export const useSyncSystem = (
         // ── FASE 5: Recalcular Pontos + Atualizar competição ─────────────────
         const combinedSuccess = matchesUpdated >= 0 && standingsSuccess;
 
-        if (combinedSuccess && canWriteData) {
+        // Atualiza o lastSync se o sync foi bem-sucedido.
+        // Isso é crítico para o background sync funcionar corretamente:
+        // sem atualizar o lastSync, o hook vê um timestamp velho e fica
+        // re-disparando o sync em loop a cada tick.
+        // canWriteData (admin) OU isBackgroundSync (usuário via RLS) podem gravar.
+        if (combinedSuccess && (canWriteData || isBackgroundSync)) {
           await dbRef.current.updateCompetitionSync(
             normalizedCode,
             new Date().toISOString(),

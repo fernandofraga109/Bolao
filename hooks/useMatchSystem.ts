@@ -3,6 +3,7 @@ import { Match, MatchStatus, Team, TeamDB, TournamentPredictions } from "../type
 import { useDatabase } from "../contexts/DatabaseContext";
 import { usePointsProcessor } from "./usePointsProcessor";
 import { useSyncSystem, CompetitionSyncStatus } from "./useSyncSystem";
+import { useBackgroundSync } from "./useBackgroundSync";
 export type { CompetitionSyncStatus };
 
 const normalizeCompetitionCode = (value?: string) =>
@@ -11,6 +12,8 @@ const normalizeCompetitionCode = (value?: string) =>
 export const useMatchSystem = (
   activeCompetitionCode: string = "WC",
   canWriteData: boolean = false,
+  onBackgroundSyncStart?: (code: string) => void,
+  onBackgroundSyncEnd?: (code: string, success: boolean, message: string) => void,
 ) => {
   const db = useDatabase();
   const dbRef = useRef(db);
@@ -88,14 +91,19 @@ export const useMatchSystem = (
         const homeTeam = db.teams.find((t) => t.id === m.homeTeamId);
         const awayTeam = db.teams.find((t) => t.id === m.awayTeamId);
 
+        // Times ainda não carregados no estado local (ex: sync em andamento via Realtime).
+        // Retornar null e filtrar depois para evitar crash no render.
+        if (!homeTeam || !awayTeam) return null;
+
         return {
           ...m,
-          homeTeam: homeTeam as Team,
-          awayTeam: awayTeam as Team,
+          homeTeam,
+          awayTeam,
           status: m.status as MatchStatus,
           result: m.resultHome != null ? { home: m.resultHome, away: m.resultAway! } : undefined,
         } as Match;
       })
+      .filter((m): m is Match => m !== null)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [db.matches, db.teams, activeCompetitionCode]);
 
@@ -118,48 +126,25 @@ export const useMatchSystem = (
     };
   }, [db.competitions, activeCompetitionCode]);
 
-  // --- AUTO SYNC POLLING EFFECT ---
+  // Lê config do admin: se auto-sync está ativo e qual é o intervalo
   const isAutoSyncEnabled = db.systemConfig.is_auto_sync_enabled;
   const syncInterval = db.systemConfig.sync_interval_ms;
 
-  useEffect(() => {
-    let intervalId: any;
+  // --- BACKGROUND SYNC (universal — roda para qualquer usuário logado) ---
+  // Substitui o antigo setInterval que só rodava para admins.
+  // Qualquer usuário autenticado verifica se o lastSync expirou e dispara
+  // o sync passivamente, sem feedback visual.
+  useBackgroundSync({
+    competitions: db.competitions,
+    groups: db.groups,
+    syncIntervalMs: syncInterval || 5 * 60 * 1000,
+    syncFn: (code) =>
+      syncMatchesAndStandings(code, false, { isBackgroundSync: true }),
+    enabled: isAutoSyncEnabled,
+    onSyncStart: onBackgroundSyncStart,
+    onSyncEnd: onBackgroundSyncEnd,
+  });
 
-    if (canWriteData && isAutoSyncEnabled) {
-      console.log(`🔄 Auto-Sync GLOBAL ATIVO. Intervalo: ${syncInterval}ms`);
-
-      const runGlobalSync = async () => {
-        const activeCodes = Array.from(
-          new Set(
-            db.groups.map((g) => (g.competitionCode || "WC").toUpperCase()),
-          ),
-        );
-
-        console.log(
-          `🔄 Auto-Sync: Atualizando ${activeCodes.length} competições...`,
-          activeCodes,
-        );
-
-        for (const code of activeCodes) {
-          await syncMatchesAndStandings(code);
-        }
-      };
-
-      intervalId = setInterval(() => {
-        void runGlobalSync();
-      }, syncInterval || 60000);
-    }
-
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [
-    canWriteData,
-    isAutoSyncEnabled,
-    syncInterval,
-    syncMatchesAndStandings,
-    db.groups,
-  ]);
 
   const toggleAutoSync = useCallback(() => {
     if (!canWriteData) return;
@@ -209,8 +194,11 @@ export const useMatchSystem = (
     simulateLiveGame,
     syncWithExternalApi,
     syncStandingsWithExternalApi,
-    syncMatchesAndStandings: (code: string, manual?: boolean) =>
-      syncMatchesAndStandings(code, manual),
+    syncMatchesAndStandings: (
+      code: string,
+      manual?: boolean,
+      options?: { isBackgroundSync?: boolean }
+    ) => syncMatchesAndStandings(code, manual, options),
     syncStatusByCompetition: computedSyncStatus,
     isSyncing,
     isAutoSyncEnabled,
