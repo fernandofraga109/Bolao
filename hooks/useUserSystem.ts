@@ -78,7 +78,7 @@ export const useUserSystem = () => {
         myGroups[0];
 
       // Join Predictions
-      const myPredictionsMap: Record<string, { home: number; away: number }> =
+      const myPredictionsMap: Record<string, { home: number; away: number; points?: number }> =
         {};
       db.predictions
         .filter((p) => p.userId === user.id)
@@ -96,6 +96,7 @@ export const useUserSystem = () => {
           myPredictionsMap[p.matchId] = {
             home: p.homeScore,
             away: p.awayScore,
+            points: p.points,
           };
         });
 

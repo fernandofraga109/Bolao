@@ -1,7 +1,8 @@
 /**
  * VERCEL SERVERLESS FUNCTION (PROXY SEGURO)
  * -----------------------------------------
- * Local: /api/matches.ts
+ * Local: /api/teams.ts
+ * Endpoint externo: GET /v4/competitions/{code}/teams
  */
 
 export const config = { runtime: "edge" };
@@ -11,57 +12,47 @@ export default async function handler(req: Request) {
   const BASE_URL = "https://api.football-data.org/v4";
 
   const url = new URL(req.url, "http://localhost");
-  const COMPETITION_CODE = (
+  const competitionCode = (
     url.searchParams.get("competition") || "WC"
   ).toUpperCase();
-  const SEASON =
-    url.searchParams.get("season") || new Date().getFullYear().toString();
-
-  const targetUrl = `${BASE_URL}/competitions/${COMPETITION_CODE}/matches?season=${SEASON}`;
+  const season = url.searchParams.get("season") || "";
 
   if (!API_TOKEN) {
     return new Response(
       JSON.stringify({
         error: "Configuração Incompleta",
-        message:
-          "A variável FOOTBALL_DATA_TOKEN não foi encontrada no ambiente da Vercel.",
+        message: "A variável FOOTBALL_DATA_TOKEN não foi encontrada.",
       }),
       { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 
+  const buildUrl = (withSeason: boolean) => {
+    const base = `${BASE_URL}/competitions/${competitionCode}/teams`;
+    return withSeason && season ? `${base}?season=${encodeURIComponent(season)}` : base;
+  };
+
   try {
     const data = await (async () => {
-      // Tentativa 1: Com Temporada (ano atual por padrão)
-      console.log(`[PROXY] Tentativa 1: ${targetUrl}`);
-      const res1 = await fetch(targetUrl, {
+      // Tentativa 1: com temporada
+      const res1 = await fetch(buildUrl(true), {
         method: "GET",
-        headers: {
-          "X-Auth-Token": API_TOKEN,
-          "Content-Type": "application/json",
-        },
+        headers: { "X-Auth-Token": API_TOKEN, "Content-Type": "application/json" },
       });
 
       if (res1.ok) return res1.json();
 
-      // Se der 404 ou 403, tenta sem a temporada
+      // Fallback: sem temporada
       if (res1.status === 404 || res1.status === 403) {
-        const fallbackUrl = `${BASE_URL}/competitions/${COMPETITION_CODE}/matches`;
-        console.log(`[PROXY] Tentativa 2 (Fallback): ${fallbackUrl}`);
-        const res2 = await fetch(fallbackUrl, {
+        console.warn(`[PROXY/teams] Season não encontrada para ${competitionCode}. Tentando sem season...`);
+        const res2 = await fetch(buildUrl(false), {
           method: "GET",
-          headers: {
-            "X-Auth-Token": API_TOKEN,
-            "Content-Type": "application/json",
-          },
+          headers: { "X-Auth-Token": API_TOKEN, "Content-Type": "application/json" },
         });
 
         if (res2.ok) return res2.json();
 
-        const errorData = await res2.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || `Erro API (Status ${res2.status})`,
-        );
+        return { teams: [], message: "Times indisponíveis na API externa." };
       }
 
       const errorData = await res1.json().catch(() => ({}));
@@ -73,7 +64,7 @@ export default async function handler(req: Request) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    console.error(`[PROXY] Erro interno:`, error);
+    console.error("[PROXY/teams] Erro interno:", error);
     return new Response(
       JSON.stringify({ error: "Erro de conexão", message: error.message }),
       { status: 500, headers: { "Content-Type": "application/json" } },

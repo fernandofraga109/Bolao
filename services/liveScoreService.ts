@@ -4,10 +4,61 @@ import { Match, MatchStatus, CompetitionDB } from "../types";
  * SERVIÇO DE PLACARES AO VIVO (SEGURO)
  */
 
+// --- TEAMS ---
+
+export interface ExternalTeam {
+  id: number;
+  name: string;
+  shortName?: string;
+  tla: string;
+  crest?: string;
+}
+
+export const fetchCompetitionTeams = async (
+  competitionCode = "WC",
+  season = getCurrentSeason(),
+): Promise<ExternalTeam[]> => {
+  const buildUrl = (withSeason: boolean) => {
+    const params = new URLSearchParams();
+    params.set("competition", (competitionCode || "WC").toUpperCase());
+    if (withSeason) params.set("season", season);
+    return `/api/teams?${params.toString()}`;
+  };
+
+  try {
+    let response = await fetch(buildUrl(true));
+    const contentType = response.headers.get("content-type") || "";
+
+    if (!contentType.includes("application/json")) {
+      console.error("[TEAMS] Resposta não-JSON do proxy.");
+      return [];
+    }
+
+    let payload = await response.json().catch(() => ({}));
+
+    if (!response.ok && (response.status === 404 || response.status === 403)) {
+      console.warn(`[TEAMS] Season ${season} não encontrada para ${competitionCode}. Tentando sem season...`);
+      response = await fetch(buildUrl(false));
+      payload = await response.json().catch(() => ({}));
+    }
+
+    if (!response.ok) {
+      console.error(`[TEAMS] Erro (${response.status}):`, payload.message);
+      return [];
+    }
+
+    return (payload.teams || []) as ExternalTeam[];
+  } catch (error) {
+    console.error("[TEAMS] Falha na comunicação com /api/teams:", error);
+    return [];
+  }
+};
+
 export interface ExternalMatch {
   id: number;
   utcDate: string;
   status: string;
+  matchday?: number;
   group?: string | null;
   stage?: string;
   homeTeam: {
@@ -64,27 +115,62 @@ export interface ExternalStandingsResponse {
   standings: ExternalStandingGroup[];
 }
 
+export const getCurrentSeason = (): string =>
+  new Date().getFullYear().toString();
+
 export const fetchExternalMatches = async (
   competitionCode = "WC",
+  season = getCurrentSeason(),
 ): Promise<ExternalMatch[]> => {
   // Rota interna segura que oculta seu Token
-  const params = new URLSearchParams();
-  params.set("competition", (competitionCode || "WC").toUpperCase());
-  const internalApiUrl = `/api/matches${params.toString() ? "?" + params.toString() : ""}`;
+  const buildUrl = (seasonParam?: string) => {
+    const params = new URLSearchParams();
+    params.set("competition", (competitionCode || "WC").toUpperCase());
+    if (seasonParam) {
+      params.set("season", seasonParam);
+    }
+    return `/api/matches?${params.toString()}`;
+  };
 
-  try {
-    const response = await fetch(internalApiUrl);
+  const tryFetch = async (seasonParam?: string) => {
+    const response = await fetch(buildUrl(seasonParam));
     const contentType = response.headers.get("content-type") || "";
 
-    let payload: any = {};
-    if (contentType.includes("application/json")) {
-      payload = await response.json().catch(() => ({}));
-    } else {
+    if (!contentType.includes("application/json")) {
       const raw = await response.text().catch(() => "");
       console.error(
         "[LIVE SCORE] /api/matches retornou conteúdo não-JSON.",
         raw.slice(0, 200),
       );
+      return { response, payload: {}, invalidContent: true };
+    }
+
+    const payload = await response.json().catch(() => ({}));
+    return { response, payload, invalidContent: false };
+  };
+
+  try {
+    let { response, payload, invalidContent } = await tryFetch(season);
+
+    if (invalidContent) {
+      return [];
+    }
+
+    if (
+      !response.ok &&
+      season &&
+      (response.status === 404 || response.status === 403)
+    ) {
+      console.warn(
+        `[LIVE SCORE] Season ${season} indisponível para ${competitionCode}. Tentando sem season...`,
+      );
+      const fallbackResult = await tryFetch();
+      response = fallbackResult.response;
+      payload = fallbackResult.payload;
+      invalidContent = fallbackResult.invalidContent;
+    }
+
+    if (invalidContent) {
       return [];
     }
 
@@ -107,10 +193,9 @@ export const fetchExternalMatches = async (
         throw new Error(`RATE_LIMIT_${waitSeconds}`);
       }
 
-      // Se der 404, explicamos que pode ser ausência de dados para 2026
-      if (response.status === 404) {
+      if (response.status === 404 || response.status === 403) {
         console.warn(
-          "[LIVE SCORE] A API da Football-Data ainda não possui jogos para a Copa de 2026.",
+          "[LIVE SCORE] A API da Football-Data não possui jogos para os parâmetros informados.",
         );
       } else {
         console.error(
@@ -134,33 +219,64 @@ export const fetchExternalMatches = async (
 
 export const fetchExternalStandings = async (
   competitionCode = "WC",
-  season = "2026",
+  season = getCurrentSeason(),
 ): Promise<ExternalStandingsResponse | null> => {
-  const params = new URLSearchParams({ season });
-  params.set("competition", (competitionCode || "WC").toUpperCase());
-  const internalApiUrl = `/api/standings?${params.toString()}`;
+  const buildUrl = (seasonParam?: string) => {
+    const params = new URLSearchParams();
+    params.set("competition", (competitionCode || "WC").toUpperCase());
+    if (seasonParam) {
+      params.set("season", seasonParam);
+    }
+    return `/api/standings?${params.toString()}`;
+  };
 
-  try {
-    const response = await fetch(internalApiUrl);
+  const tryFetch = async (seasonParam?: string) => {
+    const response = await fetch(buildUrl(seasonParam));
     const contentType = response.headers.get("content-type") || "";
 
-    let payload: any = {};
-    if (contentType.includes("application/json")) {
-      payload = await response.json().catch(() => ({}));
-    } else {
+    if (!contentType.includes("application/json")) {
       const raw = await response.text().catch(() => "");
       console.error(
         "[LIVE SCORE] /api/standings retornou conteúdo não-JSON.",
         raw.slice(0, 200),
       );
+      return { response, payload: {}, invalidContent: true };
+    }
+
+    const payload = await response.json().catch(() => ({}));
+    return { response, payload, invalidContent: false };
+  };
+
+  try {
+    let { response, payload, invalidContent } = await tryFetch(season);
+
+    if (invalidContent) {
+      return null;
+    }
+
+    if (
+      !response.ok &&
+      season &&
+      (response.status === 404 || response.status === 403)
+    ) {
+      console.warn(
+        `[LIVE SCORE] Season ${season} não encontrada para ${competitionCode}. Tentando sem season...`,
+      );
+      const fallbackResult = await tryFetch();
+      response = fallbackResult.response;
+      payload = fallbackResult.payload;
+      invalidContent = fallbackResult.invalidContent;
+    }
+
+    if (invalidContent) {
       return null;
     }
 
     if (!response.ok) {
       const errorData = payload || {};
       console.error(
-        `[LIVE SCORE] Erro no Proxy Standings (${response.status}):`,
-        errorData.message || errorData.error,
+        `[LIVE SCORE] Erro na API proxy (${response.status}):`,
+        errorData.message || response.statusText,
       );
       return null;
     }
@@ -203,7 +319,10 @@ export const fetchExternalCompetitions = async (): Promise<CompetitionDB[]> => {
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      console.error(`[COMPETITIONS] Erro (${response.status}):`, payload.message || payload.error);
+      console.error(
+        `[COMPETITIONS] Erro (${response.status}):`,
+        payload.message || payload.error,
+      );
       return [];
     }
 
@@ -214,7 +333,6 @@ export const fetchExternalCompetitions = async (): Promise<CompetitionDB[]> => {
       name: c.name,
       emblem: c.emblem || undefined,
       type: c.type || undefined,
-      lastUpdated: c.lastUpdated || new Date().toISOString(),
     }));
   } catch (error) {
     console.error("[COMPETITIONS] Falha ao buscar competições:", error);
@@ -236,10 +354,45 @@ export const findInternalMatch = (
 
   const homeCode = externalMatch.homeTeam.tla;
   const awayCode = externalMatch.awayTeam.tla;
-
-  if (!homeCode || !awayCode) return undefined;
+  const homeExternalId = externalMatch.homeTeam.id;
+  const awayExternalId = externalMatch.awayTeam.id;
 
   return internalMatches.find((m) => {
-    return m.homeTeam.code === homeCode && m.awayTeam.code === awayCode;
+    // 1. Prioridade absoluta: Match ID externo
+    if (
+      m.externalMatchId &&
+      externalMatch.id &&
+      String(m.externalMatchId) === String(externalMatch.id)
+    ) {
+      return true;
+    }
+
+    // 2. Fallback: Data + Times (Considerando IDs de times se disponíveis)
+    const sameDay =
+      new Date(m.date).toISOString().slice(0, 10) ===
+      new Date(externalMatch.utcDate).toISOString().slice(0, 10);
+
+    if (!sameDay) return false;
+
+    // Se temos IDs externos nos dois lados, comparamos por ID (evita erro de TLA duplicado como "COR")
+    const hasExternalTeamIds = 
+      homeExternalId != null && 
+      awayExternalId != null && 
+      m.homeTeam?.externalTeamId != null && 
+      m.awayTeam?.externalTeamId != null;
+
+    if (hasExternalTeamIds) {
+      return (
+        m.homeTeam.externalTeamId === homeExternalId &&
+        m.awayTeam.externalTeamId === awayExternalId
+      );
+    }
+
+    // Último recurso: TLA (Sujeito a colisões como Corinthians/Coritiba se os IDs não estiverem presentes)
+    return (
+      m.homeTeam?.code === homeCode &&
+      m.awayTeam?.code === awayCode
+    );
   });
 };
+

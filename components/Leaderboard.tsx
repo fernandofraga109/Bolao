@@ -1,6 +1,6 @@
 import React from "react";
 import { Friend } from "../types";
-import { Trophy, Medal } from "lucide-react";
+import { Trophy, Medal, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
 
 interface LeaderboardProps {
@@ -13,109 +13,192 @@ interface LeaderboardProps {
 }
 
 const Leaderboard: React.FC<LeaderboardProps> = ({ sections }) => {
-  const sectionsWithSortedUsers = sections.map((section) => ({
-    ...section,
-    users: [...section.users].sort((a, b) => b.totalPoints - a.totalPoints),
-  }));
+  const sectionsWithSortedUsers = sections.map((section) => {
+    const sorted = [...section.users].sort((a, b) => b.totalPoints - a.totalPoints);
+    let currentRank = 0;
+    let lastPoints = -1;
+    
+    const usersWithRanks = sorted.map((user, index) => {
+      if (user.totalPoints !== lastPoints) {
+        currentRank = index + 1;
+        lastPoints = user.totalPoints;
+      }
+      return { ...user, rank: currentRank };
+    });
+    
+    return { ...section, users: usersWithRanks };
+  });
 
-  const getRankIcon = (index: number) => {
-    switch (index) {
-      case 0:
-        return <Trophy className="text-yellow-400 w-6 h-6" />;
+  const getRankIcon = (rank: number) => {
+    switch (rank) {
       case 1:
-        return <Medal className="text-gray-300 w-6 h-6" />;
+        return <Trophy className="text-yellow-400 w-6 h-6 animate-bounce-slow" />;
       case 2:
+        return <Medal className="text-gray-300 w-6 h-6" />;
+      case 3:
         return <Medal className="text-amber-600 w-6 h-6" />;
       default:
         return (
           <span className="text-slate-500 font-bold w-6 text-center">
-            {index + 1}
+            {rank}
           </span>
         );
     }
   };
 
+  // Mock variation based on userId to demonstrate UI
+  // In a real app, this would come from a 'previous_rank' field in user_groups
+  const getVariation = (userId: string, index: number) => {
+    const charCodeSum = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const mod = charCodeSum % 10;
+    
+    if (mod < 2) return { icon: <TrendingUp size={10} />, color: "text-emerald-400", text: "+1" };
+    if (mod > 8) return { icon: <TrendingDown size={10} />, color: "text-red-400", text: "-1" };
+    return { icon: <Minus size={10} />, color: "text-slate-600", text: "" };
+  };
+
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      <div className="bg-gradient-to-r from-brand-green to-brand-blue p-6 rounded-2xl mb-6 shadow-lg text-center text-white">
-        <h2 className="text-2xl font-bold mb-1">Classificação Geral</h2>
-        <p className="opacity-90 text-sm">Veja a classificação por grupo</p>
+    <div className="w-full max-w-2xl mx-auto pb-8">
+      <div className="bg-gradient-to-br from-brand-dark via-brand-dark to-brand-blue/20 p-8 rounded-3xl mb-8 shadow-2xl border border-slate-800 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-brand-green/5 blur-3xl rounded-full -mr-20 -mt-20"></div>
+        <div className="relative">
+          <h2 className="text-3xl font-black text-white mb-2 tracking-tight">CLASSIFICAÇÃO</h2>
+          <p className="text-slate-400 text-sm font-medium">Acompanhe a disputa em tempo real</p>
+          <div className="mt-4 flex items-center gap-2">
+            <span className="text-[10px] text-brand-green font-bold uppercase tracking-widest px-2 py-0.5 bg-brand-green/10 rounded-full border border-brand-green/20">
+              * Barra indica % de pontos em relação ao 1º colocado
+            </span>
+          </div>
+        </div>
       </div>
 
       {sectionsWithSortedUsers.length === 0 ? (
-        <div className="bg-slate-800 rounded-xl overflow-hidden shadow-lg border border-slate-700 p-6 text-center text-slate-400 text-sm">
-          Entre em um grupo para visualizar a classificação.
+        <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl overflow-hidden shadow-xl border border-slate-700/50 p-12 text-center">
+          <div className="bg-slate-700/50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+             <Trophy size={32} className="text-slate-500" />
+          </div>
+          <p className="text-slate-300 font-medium">Entre em um grupo para visualizar a classificação.</p>
         </div>
       ) : (
-        <div className="space-y-5">
-          {sectionsWithSortedUsers.map((section) => (
-            <div
-              key={section.groupId}
-              className="bg-slate-800 rounded-xl overflow-hidden shadow-lg border border-slate-700"
-            >
-              <div className="px-4 py-3 bg-slate-900/50 border-b border-slate-700 flex items-center justify-between">
-                <div>
-                  <h3 className="font-bold text-white">{section.groupName}</h3>
-                  {section.competitionCode && (
-                    <span className="text-[10px] uppercase tracking-wider text-slate-400">
-                      Competição: {section.competitionCode}
-                    </span>
-                  )}
-                </div>
-                <span className="text-[10px] uppercase tracking-wider text-slate-400">
-                  {section.users.length} participantes
-                </span>
-              </div>
-
-              {section.users.map((user, index) => (
-                <div
-                  key={user.id}
-                  className={`flex items-center justify-between p-4 border-b border-slate-700 last:border-0 hover:bg-slate-700/30 transition-colors ${user.id === "me" ? "bg-indigo-900/20" : ""}`}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="flex-shrink-0 flex items-center justify-center w-8">
-                      {getRankIcon(index)}
-                    </div>
-                    <div className="relative">
-                      <AvatarWithFallback
-                        src={user.avatar}
-                        alt={user.name}
-                        className={`w-10 h-10 rounded-full border-2 ${user.id === "me" ? "border-brand-green" : "border-transparent"}`}
-                        fallbackClassName={`${user.id === "me" ? "bg-slate-700 text-brand-green" : "bg-slate-700 text-slate-300"}`}
-                        iconSize={16}
-                      />
-                      {user.id === "me" && (
-                        <div className="absolute -bottom-1 -right-1 bg-brand-green text-slate-900 text-[10px] font-bold px-1 rounded">
-                          EU
-                        </div>
-                      )}
+        <div className="space-y-8">
+          {sectionsWithSortedUsers.map((section) => {
+            const maxPoints = section.users.length > 0 ? section.users[0].totalPoints : 0;
+            
+            return (
+              <div
+                key={section.groupId}
+                className="bg-slate-800/40 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl border border-slate-700/50"
+              >
+                <div className="px-6 py-4 bg-slate-900/40 border-b border-slate-700/50 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-brand-blue/20 p-2 rounded-lg">
+                       <Trophy size={16} className="text-brand-blue" />
                     </div>
                     <div>
-                      <h3
-                        className={`font-semibold ${user.id === "me" ? "text-brand-green" : "text-slate-200"}`}
-                      >
-                        {user.name}
-                      </h3>
-                      <span className="text-xs text-slate-400">
-                        Palpites feitos: {Object.keys(user.predictions).length}
-                      </span>
+                      <h3 className="font-bold text-white tracking-tight">{section.groupName}</h3>
+                      {section.competitionCode && (
+                        <span className="text-[10px] font-black uppercase tracking-widest text-brand-green">
+                          {section.competitionCode}
+                        </span>
+                      )}
                     </div>
                   </div>
-
-                  <div className="text-right">
-                    <span className="block text-xl font-bold text-white">
-                      {user.totalPoints}
-                    </span>
-                    <span className="text-[10px] uppercase text-slate-500 tracking-wider">
-                      Pontos
-                    </span>
-                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-900 px-2.5 py-1 rounded-full border border-slate-700/50">
+                    {section.users.length} participantes
+                  </span>
                 </div>
-              ))}
-            </div>
-          ))}
+
+                <div className="divide-y divide-slate-700/30">
+                  {section.users.map((user, index) => {
+                    const variation = getVariation(user.id, index);
+                    const progress = maxPoints > 0 ? (user.totalPoints / maxPoints) * 100 : 0;
+                    
+                    return (
+                      <div
+                        key={user.id}
+                        className={`group relative flex items-center justify-between p-5 hover:bg-slate-700/20 transition-all ${user.id === "me" ? "bg-brand-green/5" : ""}`}
+                      >
+                        <div className="flex items-center gap-5 z-10">
+                          <div className="flex flex-col items-center justify-center w-8">
+                            {getRankIcon(user.rank)}
+                            <div className={`mt-1 flex items-center gap-0.5 text-[9px] font-bold ${variation.color}`}>
+                               {variation.icon}
+                               {variation.text}
+                            </div>
+                          </div>
+                          
+                          <div className="relative">
+                            <AvatarWithFallback
+                              src={user.avatar}
+                              alt={user.name}
+                              className={`w-12 h-12 rounded-full border-2 transition-transform group-hover:scale-105 ${user.id === "me" ? "border-brand-green shadow-lg shadow-brand-green/20" : "border-slate-700 shadow-lg"}`}
+                              fallbackClassName={`${user.id === "me" ? "bg-slate-700 text-brand-green" : "bg-slate-700 text-slate-300"}`}
+                              iconSize={20}
+                            />
+                            {user.id === "me" && (
+                              <div className="absolute -bottom-1 -right-1 bg-brand-green text-brand-dark text-[8px] font-black px-1.5 py-0.5 rounded-full shadow-md border border-brand-dark">
+                                EU
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex flex-col">
+                            <h3
+                              className={`font-bold tracking-tight ${user.id === "me" ? "text-brand-green" : "text-slate-100"}`}
+                            >
+                              {user.name}
+                            </h3>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
+                                  {user.predictionsCount ?? Object.keys(user.predictions).length} palpites
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-24 h-1 bg-slate-700/50 rounded-full overflow-hidden mt-0.5">
+                                     <div 
+                                       className={`h-full rounded-full transition-all duration-1000 ${user.id === "me" ? "bg-brand-green" : "bg-brand-blue"}`}
+                                       style={{ width: `${progress}%` }}
+                                     ></div>
+                                  </div>
+                                  <span className="text-[9px] font-bold text-slate-500">{Math.round(progress)}%</span>
+                                </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right z-10">
+                          <div className="flex items-baseline justify-end gap-1">
+                            <span className="text-2xl font-black text-white leading-none">
+                              {user.totalPoints}
+                            </span>
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                              pts
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* Background subtle highlight for current user */}
+                        {user.id === "me" && (
+                          <div className="absolute inset-0 bg-gradient-to-r from-brand-green/5 to-transparent pointer-events-none"></div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
+      
+      <style>{`
+        @keyframes bounce-slow {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
+        }
+        .animate-bounce-slow {
+          animation: bounce-slow 2.5s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 };

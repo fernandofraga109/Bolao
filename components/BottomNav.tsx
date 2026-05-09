@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tab, UserRole } from '../types';
-import { Calendar, Trophy, ShieldCheck, Table2 } from 'lucide-react';
+import { Calendar, Trophy, ShieldCheck, Table2, Activity } from 'lucide-react';
 
 interface BottomNavProps {
   activeTab: Tab;
@@ -14,37 +14,47 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, userRole
       <div className="max-w-2xl mx-auto flex justify-around">
         <button 
           onClick={() => setActiveTab('matches')}
-          className={`flex flex-col items-center justify-center w-full py-3 gap-1 transition-colors ${activeTab === 'matches' ? 'text-brand-green' : 'text-slate-500 hover:text-slate-300'}`}
+          className={`flex flex-col items-center justify-center w-full py-3 gap-1 transition-colors ${activeTab === 'matches' ? 'text-brand-green font-black' : 'text-slate-500 hover:text-slate-300'}`}
         >
-          <Calendar size={20} strokeWidth={activeTab === 'matches' ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Jogos</span>
+          <Calendar size={20} strokeWidth={activeTab === 'matches' ? 3 : 2} />
+          <span className="text-[10px] uppercase tracking-widest font-black">Jogos</span>
         </button>
         
         <button 
           onClick={() => setActiveTab('tournament')}
-          className={`flex flex-col items-center justify-center w-full py-3 gap-1 transition-colors ${activeTab === 'tournament' ? 'text-brand-green' : 'text-slate-500 hover:text-slate-300'}`}
+          className={`flex flex-col items-center justify-center w-full py-3 gap-1 transition-colors ${activeTab === 'tournament' ? 'text-brand-green font-black' : 'text-slate-500 hover:text-slate-300'}`}
         >
-          <Table2 size={20} strokeWidth={activeTab === 'tournament' ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Tabela</span>
+          <Table2 size={20} strokeWidth={activeTab === 'tournament' ? 3 : 2} />
+          <span className="text-[10px] uppercase tracking-widest font-black">Tabela</span>
         </button>
 
         {userRole !== 'ADMIN' && (
           <button 
             onClick={() => setActiveTab('leaderboard')}
-            className={`flex flex-col items-center justify-center w-full py-3 gap-1 transition-colors ${activeTab === 'leaderboard' ? 'text-brand-green' : 'text-slate-500 hover:text-slate-300'}`}
+            className={`flex flex-col items-center justify-center w-full py-3 gap-1 transition-colors ${activeTab === 'leaderboard' ? 'text-brand-green font-black' : 'text-slate-500 hover:text-slate-300'}`}
           >
-            <Trophy size={20} strokeWidth={activeTab === 'leaderboard' ? 2.5 : 2} />
-            <span className="text-[10px] font-medium">Classificação</span>
+            <Trophy size={20} strokeWidth={activeTab === 'leaderboard' ? 3 : 2} />
+            <span className="text-[10px] uppercase tracking-widest font-black">Rank</span>
+          </button>
+        )}
+
+        {userRole !== 'ADMIN' && (
+          <button 
+            onClick={() => setActiveTab('stats')}
+            className={`flex flex-col items-center justify-center w-full py-3 gap-1 transition-colors ${activeTab === 'stats' ? 'text-brand-green font-black' : 'text-slate-500 hover:text-slate-300'}`}
+          >
+            <Activity size={20} strokeWidth={activeTab === 'stats' ? 3 : 2} />
+            <span className="text-[10px] uppercase tracking-widest font-black">Stats</span>
           </button>
         )}
 
         {userRole === 'ADMIN' && (
             <button 
               onClick={() => setActiveTab('admin')}
-              className={`flex flex-col items-center justify-center w-full py-3 gap-1 transition-colors ${activeTab === 'admin' ? 'text-brand-green' : 'text-slate-500 hover:text-slate-300'}`}
+              className={`flex flex-col items-center justify-center w-full py-3 gap-1 transition-colors ${activeTab === 'admin' ? 'text-brand-green font-black' : 'text-slate-500 hover:text-slate-300'}`}
             >
-              <ShieldCheck size={20} strokeWidth={activeTab === 'admin' ? 2.5 : 2} />
-              <span className="text-[10px] font-medium">Admin</span>
+              <ShieldCheck size={20} strokeWidth={activeTab === 'admin' ? 3 : 2} />
+              <span className="text-[10px] uppercase tracking-widest font-black">Admin</span>
             </button>
         )}
       </div>

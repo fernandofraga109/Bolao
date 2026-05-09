@@ -4,6 +4,7 @@ export const DB_PREDICTIONS: PredictionDB[] = [
   // Carlos Silva Predictions
   {
     userId: "33333333-3333-4333-8333-333333333333",
+    groupId: "g1",
     matchId: "m1",
     homeScore: 2,
     awayScore: 1,
@@ -13,6 +14,7 @@ export const DB_PREDICTIONS: PredictionDB[] = [
   // Ana Souza Predictions
   {
     userId: "44444444-4444-4444-8444-444444444444",
+    groupId: "g1",
     matchId: "m1",
     homeScore: 3,
     awayScore: 1,
@@ -22,6 +24,7 @@ export const DB_PREDICTIONS: PredictionDB[] = [
   // Pedro Rocha Predictions
   {
     userId: "55555555-5555-4555-8555-555555555555",
+    groupId: "g1",
     matchId: "m1",
     homeScore: 0,
     awayScore: 1,
