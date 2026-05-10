@@ -127,6 +127,7 @@ interface DatabaseContextType {
   updateLocalUserGroups: (updates: UserGroupDB[]) => void;
   refetchMatches: () => Promise<void>;
   refetchTeamStandings: () => Promise<void>;
+  refetchPredictions: () => Promise<void>;
 }
 
 const DatabaseContext = createContext<DatabaseContextType | undefined>(
@@ -1133,6 +1134,14 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     if (data) setTeamStandings(data as any[]);
   }, []);
 
+  const refetchPredictions = useCallback(async () => {
+    if (!isSupabaseEnabled() || !supabase) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+    const { data } = await supabase.from("predictions").select("*");
+    if (data) setPredictions(data as PredictionDB[]);
+  }, []);
+
   return (
     <DatabaseContext.Provider
       value={useMemo(() => ({
@@ -1181,6 +1190,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         updateSystemConfig,
         refetchMatches,
         refetchTeamStandings,
+        refetchPredictions,
       }), [
         competitions,
         users,
@@ -1209,6 +1219,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         updateSystemConfig,
         refetchMatches,
         refetchTeamStandings,
+        refetchPredictions,
       ])}
     >
       {children}

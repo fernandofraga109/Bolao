@@ -8,54 +8,72 @@ interface BottomNavProps {
   userRole: UserRole;
 }
 
+const NavButton: React.FC<{
+  tab: Tab;
+  activeTab: Tab;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}> = ({ tab, activeTab, onClick, icon, label }) => {
+  const isActive = activeTab === tab;
+  return (
+    <button
+      onClick={onClick}
+      className={`relative flex flex-col items-center justify-center w-full py-3 gap-1 transition-colors ${isActive ? 'text-brand-green font-black' : 'text-slate-500 hover:text-slate-300'}`}
+    >
+      {isActive && (
+        <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-brand-green rounded-full" />
+      )}
+      {icon}
+      <span className="text-[10px] uppercase tracking-widest font-black">{label}</span>
+    </button>
+  );
+};
+
 const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, userRole }) => {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 pb-safe z-40">
       <div className="max-w-2xl mx-auto flex justify-around">
-        <button 
+        <NavButton
+          tab="matches"
+          activeTab={activeTab}
           onClick={() => setActiveTab('matches')}
-          className={`flex flex-col items-center justify-center w-full py-3 gap-1 transition-colors ${activeTab === 'matches' ? 'text-brand-green font-black' : 'text-slate-500 hover:text-slate-300'}`}
-        >
-          <Calendar size={20} strokeWidth={activeTab === 'matches' ? 3 : 2} />
-          <span className="text-[10px] uppercase tracking-widest font-black">Jogos</span>
-        </button>
-        
-        <button 
+          icon={<Calendar size={20} strokeWidth={activeTab === 'matches' ? 3 : 2} />}
+          label="Jogos"
+        />
+        <NavButton
+          tab="tournament"
+          activeTab={activeTab}
           onClick={() => setActiveTab('tournament')}
-          className={`flex flex-col items-center justify-center w-full py-3 gap-1 transition-colors ${activeTab === 'tournament' ? 'text-brand-green font-black' : 'text-slate-500 hover:text-slate-300'}`}
-        >
-          <Table2 size={20} strokeWidth={activeTab === 'tournament' ? 3 : 2} />
-          <span className="text-[10px] uppercase tracking-widest font-black">Tabela</span>
-        </button>
-
+          icon={<Table2 size={20} strokeWidth={activeTab === 'tournament' ? 3 : 2} />}
+          label="Tabela"
+        />
         {userRole !== 'ADMIN' && (
-          <button 
+          <NavButton
+            tab="leaderboard"
+            activeTab={activeTab}
             onClick={() => setActiveTab('leaderboard')}
-            className={`flex flex-col items-center justify-center w-full py-3 gap-1 transition-colors ${activeTab === 'leaderboard' ? 'text-brand-green font-black' : 'text-slate-500 hover:text-slate-300'}`}
-          >
-            <Trophy size={20} strokeWidth={activeTab === 'leaderboard' ? 3 : 2} />
-            <span className="text-[10px] uppercase tracking-widest font-black">Rank</span>
-          </button>
+            icon={<Trophy size={20} strokeWidth={activeTab === 'leaderboard' ? 3 : 2} />}
+            label="Rank"
+          />
         )}
-
         {userRole !== 'ADMIN' && (
-          <button 
+          <NavButton
+            tab="stats"
+            activeTab={activeTab}
             onClick={() => setActiveTab('stats')}
-            className={`flex flex-col items-center justify-center w-full py-3 gap-1 transition-colors ${activeTab === 'stats' ? 'text-brand-green font-black' : 'text-slate-500 hover:text-slate-300'}`}
-          >
-            <Activity size={20} strokeWidth={activeTab === 'stats' ? 3 : 2} />
-            <span className="text-[10px] uppercase tracking-widest font-black">Stats</span>
-          </button>
+            icon={<Activity size={20} strokeWidth={activeTab === 'stats' ? 3 : 2} />}
+            label="Stats"
+          />
         )}
-
         {userRole === 'ADMIN' && (
-            <button 
-              onClick={() => setActiveTab('admin')}
-              className={`flex flex-col items-center justify-center w-full py-3 gap-1 transition-colors ${activeTab === 'admin' ? 'text-brand-green font-black' : 'text-slate-500 hover:text-slate-300'}`}
-            >
-              <ShieldCheck size={20} strokeWidth={activeTab === 'admin' ? 3 : 2} />
-              <span className="text-[10px] uppercase tracking-widest font-black">Admin</span>
-            </button>
+          <NavButton
+            tab="admin"
+            activeTab={activeTab}
+            onClick={() => setActiveTab('admin')}
+            icon={<ShieldCheck size={20} strokeWidth={activeTab === 'admin' ? 3 : 2} />}
+            label="Admin"
+          />
         )}
       </div>
     </nav>

@@ -92,7 +92,7 @@ const App: React.FC = () => {
   const canWriteCompetitionData = currentUser?.role === "ADMIN";
 
   // --- Toast de sincronização ---
-  const { toasts, dismiss, showSyncing, showResult } = useSyncToast();
+  const { toasts, dismiss, showSyncing, showResult, showWarning } = useSyncToast();
 
   const handleBgSyncStart = useCallback((code: string) => {
     const name = db.competitions.find(c => c.code.toUpperCase() === code)?.name;
@@ -101,8 +101,16 @@ const App: React.FC = () => {
 
   const handleBgSyncEnd = useCallback((code: string, success: boolean, message: string) => {
     const name = db.competitions.find(c => c.code.toUpperCase() === code)?.name;
-    showResult(code, success, message, name);
-  }, [db.competitions, showResult]);
+    const isWaiting = !success && (
+      message.toLowerCase().includes('aguardando') ||
+      message.toLowerCase().includes('já em andamento')
+    );
+    if (isWaiting) {
+      showWarning(code, message, name);
+    } else {
+      showResult(code, success, message, name);
+    }
+  }, [db.competitions, showResult, showWarning]);
 
   const {
     matches,
@@ -216,18 +224,22 @@ const App: React.FC = () => {
   // Não é necessário disparar sync manual aqui ao entrar/trocar de grupo.
 
   const currentUserRank = useMemo(() => {
-    if (!currentUser || !leaderboardData.length) return 0;
-    const sorted = [...leaderboardData].sort((a, b) => b.totalPoints - a.totalPoints);
-    const myPoints = leaderboardData.find(u => u.id === currentUser.id)?.totalPoints;
+    if (!currentUser || !leaderboardSections.length) return 0;
+    const activeGroupId = currentUser.activeGroupId || currentUser.groupIds?.[0];
+    const section = leaderboardSections.find(s => s.groupId === activeGroupId);
+    if (!section?.users.length) return 0;
+    const sorted = [...section.users].sort((a, b) => b.totalPoints - a.totalPoints);
+    const myPoints = sorted.find(u => u.id === currentUser.id)?.totalPoints;
     if (myPoints === undefined) return 0;
-    // Rank is number of people with MORE points than me + 1
     return sorted.filter(u => u.totalPoints > myPoints).length + 1;
-  }, [currentUser, leaderboardData]);
+  }, [currentUser, leaderboardSections]);
 
   const currentUserPoints = useMemo(() => {
-    if (!currentUser || !leaderboardData.length) return 0;
-    return leaderboardData.find(u => u.id === currentUser.id)?.totalPoints || 0;
-  }, [currentUser, leaderboardData]);
+    if (!currentUser || !leaderboardSections.length) return 0;
+    const activeGroupId = currentUser.activeGroupId || currentUser.groupIds?.[0];
+    const section = leaderboardSections.find(s => s.groupId === activeGroupId);
+    return section?.users.find(u => u.id === currentUser.id)?.totalPoints || 0;
+  }, [currentUser, leaderboardSections]);
 
   // --- Render Auth Screen ---
   if (!authReady) {
@@ -341,6 +353,10 @@ const App: React.FC = () => {
         onUpdateAvatar={updateAvatar}
         userPoints={currentUserPoints}
         userRank={currentUserRank}
+        syncInfo={syncStatusByCompetition[activeCompetitionCode]}
+        competitionLastSync={
+          db.competitions.find(c => c.code.toUpperCase() === activeCompetitionCode)?.lastSync
+        }
       />
 
       {/* Group Info Bar OR Call to Action */}

@@ -20,7 +20,33 @@
               'brand-dark': '#0f172a',
               'brand-green': '#10b981',
               'brand-blue': '#3b82f6',
-            }
+              'brand-gold': '#f59e0b',
+              'brand-red': '#ef4444',
+            },
+            animation: {
+              'bounce-slow': 'bounce-slow 2s ease-in-out infinite',
+              'fadeIn': 'fadeIn 0.5s ease-out forwards',
+              'slideDown': 'slideDown 0.3s ease-out forwards',
+              'slideUp': 'slideUp 0.3s ease-out forwards',
+            },
+            keyframes: {
+              'bounce-slow': {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-10px)' },
+              },
+              fadeIn: {
+                from: { opacity: '0' },
+                to: { opacity: '1' },
+              },
+              slideDown: {
+                from: { opacity: '0', transform: 'translateY(-8px)' },
+                to: { opacity: '1', transform: 'translateY(0)' },
+              },
+              slideUp: {
+                from: { opacity: '0', transform: 'translateY(8px)' },
+                to: { opacity: '1', transform: 'translateY(0)' },
+              },
+            },
           }
         }
       }
@@ -35,14 +61,14 @@
         width: 8px;
       }
       ::-webkit-scrollbar-track {
-        background: #1e293b; 
+        background: #1e293b;
       }
       ::-webkit-scrollbar-thumb {
-        background: #475569; 
+        background: #475569;
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #64748b; 
+        background: #64748b;
       }
     </style>
   <script type="importmap">

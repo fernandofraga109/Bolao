@@ -237,6 +237,13 @@ export const useSyncToast = () => {
       message: string,
       competitionName?: string
     ) => {
+      // Remove o "syncing" desta competição, igual ao showResult
+      const syncingId = syncingIdsRef.current.get(competitionCode);
+      if (syncingId) {
+        setToasts((prev) => prev.filter((t) => t.id !== syncingId));
+        syncingIdsRef.current.delete(competitionCode);
+      }
+
       const id = `toast-${++toastIdCounter}`;
       setToasts((prev) => [
         ...prev,

@@ -1,7 +1,15 @@
 import React from "react";
 import { User } from "../types";
-import { Trophy, Shield, Star } from "lucide-react";
+import { Trophy, Shield, Star, RefreshCw, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
+
+interface SyncInfo {
+  lastSuccessAt?: string;
+  lastAttemptAt?: string;
+  lastSuccess?: boolean;
+  lastMessage?: string;
+  isSyncing?: boolean;
+}
 
 interface HeaderProps {
   currentUser: User;
@@ -9,7 +17,20 @@ interface HeaderProps {
   onUpdateAvatar?: (url: string) => Promise<{ success: boolean; message?: string }>;
   userPoints?: number;
   userRank?: number;
+  syncInfo?: SyncInfo;
+  competitionLastSync?: string;
 }
+
+const formatRelative = (iso?: string): string => {
+  if (!iso) return "Nunca";
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "agora mesmo";
+  if (mins < 60) return `há ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `há ${hrs}h`;
+  return `há ${Math.floor(hrs / 24)}d`;
+};
 
 const Header: React.FC<HeaderProps> = ({
   currentUser,
@@ -17,6 +38,8 @@ const Header: React.FC<HeaderProps> = ({
   onUpdateAvatar,
   userPoints = 0,
   userRank = 0,
+  syncInfo,
+  competitionLastSync,
 }) => {
   const [isAvatarModalOpen, setIsAvatarModalOpen] = React.useState(false);
   const [newAvatarUrl, setNewAvatarUrl] = React.useState(currentUser.avatar || "");
@@ -151,6 +174,59 @@ const Header: React.FC<HeaderProps> = ({
                 {isUpdatingAvatar ? "Salvando..." : "Confirmar"}
               </button>
             </div>
+
+            {/* Sync Status Panel */}
+            {(syncInfo || competitionLastSync) && (
+              <div className="mt-6 border-t border-slate-800 pt-5">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <Clock size={10} />
+                  Sincronização de Dados
+                </p>
+                <div className="bg-slate-900/60 rounded-2xl border border-slate-800 p-4 space-y-2.5">
+                  {/* Last sync time */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-slate-500 font-bold">Última atualização</span>
+                    <span className="text-[11px] font-black text-slate-300">
+                      {formatRelative(competitionLastSync || syncInfo?.lastSuccessAt)}
+                    </span>
+                  </div>
+
+                  {/* Status indicator */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-slate-500 font-bold">Status</span>
+                    <div className="flex items-center gap-1.5">
+                      {syncInfo?.isSyncing ? (
+                        <>
+                          <RefreshCw size={11} className="text-brand-blue animate-spin" />
+                          <span className="text-[11px] font-black text-brand-blue">Sincronizando</span>
+                        </>
+                      ) : syncInfo?.lastSuccess === true ? (
+                        <>
+                          <CheckCircle2 size={11} className="text-brand-green" />
+                          <span className="text-[11px] font-black text-brand-green">Atualizado</span>
+                        </>
+                      ) : syncInfo?.lastSuccess === false ? (
+                        <>
+                          <AlertTriangle size={11} className="text-amber-400" />
+                          <span className="text-[11px] font-black text-amber-400">Aguardando</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-slate-600" />
+                          <span className="text-[11px] font-black text-slate-500">Sem dados</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Next sync info */}
+                  <div className="flex items-center justify-between border-t border-slate-800/60 pt-2.5">
+                    <span className="text-[11px] text-slate-500 font-bold">Próxima atualização</span>
+                    <span className="text-[11px] font-black text-slate-400">Automático</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

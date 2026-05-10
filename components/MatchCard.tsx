@@ -153,7 +153,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
   }, [isFinished, isLive, match.result, userPrediction]);
 
   const getPointsStyle = (pts: number) => {
-    if (pts >= POINTS_EXACT) return "bg-brand-green text-brand-dark shadow-brand-green/30";
+    if (pts >= POINTS_EXACT) return "bg-brand-gold text-brand-dark shadow-brand-gold/30";
     if (pts >= POINTS_GOAL_DIFF) return "bg-brand-blue text-white shadow-brand-blue/30";
     if (pts >= POINTS_OUTCOME) return "bg-indigo-600 text-white shadow-indigo-500/30";
     return "bg-slate-700 text-slate-400";
@@ -175,9 +175,9 @@ const MatchCard: React.FC<MatchCardProps> = ({
         </div>
         
         {isLive && (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20">
-             <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
-             <span className="text-[10px] font-black text-red-500 uppercase tracking-tighter">AO VIVO</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-red/10 border border-brand-red/30">
+             <span className="w-1.5 h-1.5 rounded-full bg-brand-red animate-pulse"></span>
+             <span className="text-[10px] font-black text-brand-red uppercase tracking-tighter">AO VIVO</span>
           </div>
         )}
         
@@ -190,11 +190,12 @@ const MatchCard: React.FC<MatchCardProps> = ({
         <div className="flex items-center justify-between gap-4 mb-6">
           {/* Home Team */}
           <div className="flex-1 flex flex-col items-center gap-3">
-            <div className="relative group/flag w-16 h-16 flex items-center justify-center bg-slate-900/50 rounded-2xl border border-slate-700 overflow-hidden transition-all group-hover/flag:border-slate-500">
+            <div className="relative group/flag w-16 h-16 flex items-center justify-center bg-slate-900/50 rounded-2xl border border-slate-700 overflow-hidden transition-all group-hover/flag:border-slate-500 group-hover/flag:shadow-lg group-hover/flag:shadow-brand-green/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/3 to-transparent"></div>
               <img
                 src={match.homeTeam.flag}
                 alt={match.homeTeam.name}
-                className="w-12 h-12 object-contain transition-transform group-hover/flag:scale-110"
+                className="w-12 h-12 object-contain transition-transform group-hover/flag:scale-110 relative z-10"
               />
             </div>
 
@@ -205,20 +206,22 @@ const MatchCard: React.FC<MatchCardProps> = ({
 
           {/* Inputs/Results Container */}
           <div className="flex flex-col items-center gap-4">
-            {isFinished && !isAdmin ? (
+            {(isFinished || isLive) && !isAdmin ? (
               <div className="flex flex-col items-center gap-3 animate-fadeIn">
-                {/* Resultado Final */}
+                {/* Placar atual (live) ou resultado final */}
                 <div className="flex flex-col items-center">
                   <div className="flex items-center gap-3">
-                    <span className="text-4xl font-black text-white tracking-tighter">
+                    <span className={`text-4xl font-black tracking-tighter ${isLive ? "text-brand-red" : "text-white"}`}>
                       {match.result?.home ?? 0}
                     </span>
                     <span className="text-xl font-black text-slate-600">×</span>
-                    <span className="text-4xl font-black text-white tracking-tighter">
+                    <span className={`text-4xl font-black tracking-tighter ${isLive ? "text-brand-red" : "text-white"}`}>
                       {match.result?.away ?? 0}
                     </span>
                   </div>
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">Resultado</span>
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">
+                    {isLive ? "Ao Vivo" : "Resultado"}
+                  </span>
                 </div>
 
                 {/* Palpite do Usuário */}
@@ -238,23 +241,55 @@ const MatchCard: React.FC<MatchCardProps> = ({
             ) : (
               <div className="flex flex-col items-center gap-2">
                 <div className="flex items-center gap-3">
-                  <input
-                    type="number"
-                    value={homeInput}
-                    onChange={(e) => setHomeInput(e.target.value)}
-                    disabled={isPredictionDisabled}
-                    className="w-14 h-14 text-center font-black text-2xl rounded-2xl bg-slate-900 border border-slate-700 focus:border-brand-green focus:ring-4 focus:ring-brand-green/10 transition-all outline-none disabled:opacity-50 disabled:bg-slate-800/50"
-                    placeholder="-"
-                  />
+                  {/* Home score stepper */}
+                  <div className="flex flex-col items-center gap-1">
+                    {!isPredictionDisabled && (
+                      <button
+                        onClick={() => setHomeInput(v => String(Math.max(0, (parseInt(v) || 0) + 1)))}
+                        className="w-7 h-7 flex items-center justify-center rounded-xl bg-slate-700 hover:bg-brand-green hover:text-brand-dark text-slate-400 font-black text-base transition-all active:scale-90"
+                      >+</button>
+                    )}
+                    <input
+                      type="number"
+                      value={homeInput}
+                      onChange={(e) => setHomeInput(e.target.value)}
+                      disabled={isPredictionDisabled}
+                      className="w-14 h-14 text-center font-black text-2xl rounded-2xl bg-slate-900 border border-slate-700 focus:border-brand-green focus:ring-4 focus:ring-brand-green/10 transition-all outline-none disabled:opacity-50 disabled:bg-slate-800/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      placeholder="-"
+                    />
+                    {!isPredictionDisabled && (
+                      <button
+                        onClick={() => setHomeInput(v => String(Math.max(0, (parseInt(v) || 0) - 1)))}
+                        className="w-7 h-7 flex items-center justify-center rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-400 font-black text-base transition-all active:scale-90"
+                      >−</button>
+                    )}
+                  </div>
+
                   <span className="text-slate-600 font-black text-xl tracking-tighter">×</span>
-                  <input
-                    type="number"
-                    value={awayInput}
-                    onChange={(e) => setAwayInput(e.target.value)}
-                    disabled={isPredictionDisabled}
-                    className="w-14 h-14 text-center font-black text-2xl rounded-2xl bg-slate-900 border border-slate-700 focus:border-brand-green focus:ring-4 focus:ring-brand-green/10 transition-all outline-none disabled:opacity-50 disabled:bg-slate-800/50"
-                    placeholder="-"
-                  />
+
+                  {/* Away score stepper */}
+                  <div className="flex flex-col items-center gap-1">
+                    {!isPredictionDisabled && (
+                      <button
+                        onClick={() => setAwayInput(v => String(Math.max(0, (parseInt(v) || 0) + 1)))}
+                        className="w-7 h-7 flex items-center justify-center rounded-xl bg-slate-700 hover:bg-brand-green hover:text-brand-dark text-slate-400 font-black text-base transition-all active:scale-90"
+                      >+</button>
+                    )}
+                    <input
+                      type="number"
+                      value={awayInput}
+                      onChange={(e) => setAwayInput(e.target.value)}
+                      disabled={isPredictionDisabled}
+                      className="w-14 h-14 text-center font-black text-2xl rounded-2xl bg-slate-900 border border-slate-700 focus:border-brand-green focus:ring-4 focus:ring-brand-green/10 transition-all outline-none disabled:opacity-50 disabled:bg-slate-800/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      placeholder="-"
+                    />
+                    {!isPredictionDisabled && (
+                      <button
+                        onClick={() => setAwayInput(v => String(Math.max(0, (parseInt(v) || 0) - 1)))}
+                        className="w-7 h-7 flex items-center justify-center rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-400 font-black text-base transition-all active:scale-90"
+                      >−</button>
+                    )}
+                  </div>
                 </div>
                 {!isPredictionDisabled && (
                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Sua Aposta</span>
@@ -266,11 +301,12 @@ const MatchCard: React.FC<MatchCardProps> = ({
 
           {/* Away Team */}
           <div className="flex-1 flex flex-col items-center gap-3">
-            <div className="relative group/flag w-16 h-16 flex items-center justify-center bg-slate-900/50 rounded-2xl border border-slate-700 overflow-hidden transition-all group-hover/flag:border-slate-500">
+            <div className="relative group/flag w-16 h-16 flex items-center justify-center bg-slate-900/50 rounded-2xl border border-slate-700 overflow-hidden transition-all group-hover/flag:border-slate-500 group-hover/flag:shadow-lg group-hover/flag:shadow-brand-green/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/3 to-transparent"></div>
               <img
                 src={match.awayTeam.flag}
                 alt={match.awayTeam.name}
-                className="w-12 h-12 object-contain transition-transform group-hover/flag:scale-110"
+                className="w-12 h-12 object-contain transition-transform group-hover/flag:scale-110 relative z-10"
               />
             </div>
 
@@ -312,12 +348,20 @@ const MatchCard: React.FC<MatchCardProps> = ({
               <>
                 {(isFinished || isLive) && match.result ? (
                    <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl shadow-lg border border-white/5 ${getPointsStyle(userScoring.points)}`}>
-                      <Trophy size={16} />
+                      <Trophy size={16} className={userScoring.points >= POINTS_EXACT ? "fill-brand-dark/30" : ""} />
                       <div className="flex flex-col">
                          <span className="text-lg font-black leading-none">{userScoring.points} <span className="text-[10px]">PTS</span></span>
-                         {userScoring.bonus > 0 && (
+                         {userScoring.points >= POINTS_EXACT && (
+                            <span className="text-[8px] font-black uppercase tracking-tighter opacity-70">Placar Exato!</span>
+                         )}
+                         {userScoring.bonus > 0 && userScoring.points < POINTS_EXACT && (
                             <span className="text-[8px] font-black uppercase tracking-tighter text-yellow-300 flex items-center gap-0.5">
                                <Zap size={8} fill="currentColor" /> BÔNUS ZEBRA +{userScoring.bonus}
+                            </span>
+                         )}
+                         {userScoring.bonus > 0 && userScoring.points >= POINTS_EXACT && (
+                            <span className="text-[8px] font-black uppercase tracking-tighter flex items-center gap-0.5 opacity-70">
+                               <Zap size={8} fill="currentColor" /> +{userScoring.bonus} zebra
                             </span>
                          )}
                       </div>

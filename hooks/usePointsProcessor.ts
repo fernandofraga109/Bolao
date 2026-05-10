@@ -70,18 +70,30 @@ export const usePointsProcessor = (dbRef: any) => {
         }));
 
         console.log(`📤 Enviando classificação atualizada para o grupo ${groupId} (${finalUpdates.length} usuários)`);
-        const { error: upsertError } = await supabase
-          .from("user_groups")
-          .upsert(finalUpdates, { onConflict: "userId, groupId" });
-        
-        if (upsertError) {
-          console.error(`❌ Erro no upsert de user_groups:`, upsertError);
-        } else {
+
+        let anyFailed = false;
+        for (const update of finalUpdates) {
+          const { error: updateError } = await supabase
+            .from("user_groups")
+            .update({ points: update.points })
+            .eq("userId", update.userId)
+            .eq("groupId", update.groupId);
+          if (updateError) {
+            console.error(`❌ Erro ao atualizar pontos do membro ${update.userId}:`, updateError);
+            anyFailed = true;
+          }
+        }
+
+        if (!anyFailed) {
           console.log(`✨ Classificação sincronizada com sucesso para o grupo ${groupId}`);
           dbRef.current.updateLocalUserGroups(finalUpdates);
         }
       }
     }
+
+    // Refresh predictions in local state so the UI reflects any
+    // predictions that were inserted directly in the DB (bypassing Realtime).
+    await dbRef.current.refetchPredictions();
   }, [dbRef]);
 
   const batchProcessPointsForMatches = useCallback(

@@ -3,7 +3,7 @@ import { Match, User, TournamentPredictions } from "../../types";
 import MatchCard from "../MatchCard";
 import RulesSection from "../RulesSection";
 import TopScorerCard from "../TopScorerCard";
-import { CalendarDays, History, ChevronDown, ChevronUp } from "lucide-react";
+import { CalendarDays, History, ChevronDown, ChevronUp, Zap } from "lucide-react";
 
 // --- Helper: Date Group Accordion ---
 interface MatchGroupProps {
@@ -263,6 +263,30 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
                 ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Today's Matches Hero */}
+      {todayMatches.length > 0 && (
+        <div className="bg-gradient-to-br from-brand-green/15 via-brand-green/8 to-transparent border border-brand-green/20 rounded-2xl p-5 relative overflow-hidden animate-fadeIn">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-brand-green/10 blur-2xl rounded-full -mr-8 -mt-8 pointer-events-none" />
+          <div className="relative flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Zap size={14} className="text-brand-green fill-brand-green" />
+                <span className="text-[10px] font-black text-brand-green uppercase tracking-[0.2em]">Hoje</span>
+              </div>
+              <p className="text-white font-black text-lg tracking-tight leading-none">
+                {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
+              </p>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <span className="text-3xl font-black text-brand-green leading-none">{todayMatches.length}</span>
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                {todayMatches.length === 1 ? "jogo" : "jogos"}
+              </span>
+            </div>
+          </div>
         </div>
       )}
 

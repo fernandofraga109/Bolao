@@ -183,6 +183,8 @@ DROP POLICY IF EXISTS "Users can update their own prediction points" ON predicti
 DROP POLICY IF EXISTS "Predictions delete own or admin" ON predictions;
 DROP POLICY IF EXISTS "Admins can do everything on predictions" ON predictions;
 DROP POLICY IF EXISTS "Users can insert their own predictions" ON predictions;
+DROP POLICY IF EXISTS "predictions_update" ON predictions;
+DROP POLICY IF EXISTS "predictions_update_points_sync" ON predictions;
 
 CREATE POLICY "predictions_select" ON predictions
     FOR SELECT TO authenticated USING (true);
@@ -191,10 +193,13 @@ CREATE POLICY "predictions_insert" ON predictions
     FOR INSERT TO authenticated
     WITH CHECK (is_admin() OR auth.uid() = "userId");
 
+-- Qualquer autenticado pode ler/atualizar pontos (sync passivo precisa atualizar
+-- predictions.points de todos os membros do grupo). Inserção/deleção ainda exige
+-- ser o dono ou admin.
 CREATE POLICY "predictions_update" ON predictions
     FOR UPDATE TO authenticated
-    USING (is_admin() OR auth.uid() = "userId")
-    WITH CHECK (is_admin() OR auth.uid() = "userId");
+    USING (true)
+    WITH CHECK (true);
 
 CREATE POLICY "predictions_delete" ON predictions
     FOR DELETE TO authenticated
