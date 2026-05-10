@@ -151,6 +151,9 @@ const App: React.FC = () => {
     setIsAdminSyncingAll(true);
     try {
       const result = await syncMatchesAndStandings(competitionCode, true);
+      // Force a fresh DB fetch so matches and standings are visible immediately
+      // without relying solely on Realtime events (which may miss bulk inserts).
+      await Promise.all([db.refetchMatches(), db.refetchTeamStandings()]);
       showResult(competitionCode, result.success, result.message, name);
       setSyncFeedback({
         isOpen: true,
@@ -177,6 +180,7 @@ const App: React.FC = () => {
     }
 
     const result = await syncWithExternalApi(activeCompetitionCode);
+    await Promise.all([db.refetchMatches(), db.refetchTeamStandings()]);
     setSyncFeedback({
       isOpen: true,
       title: result.success
@@ -445,7 +449,8 @@ const App: React.FC = () => {
         {/* Matches Tab */}
         {activeTab === "matches" && (
           <MatchesPage
-            matches={matches}
+            matches={resolvedActiveGroupId || currentUser.role === "ADMIN" ? matches : []}
+            userHasGroup={!!(resolvedActiveGroupId || currentUser.role === "ADMIN")}
             userPredictions={myPredictionsMap}
             leaderboardData={leaderboardData}
             currentUser={currentUser}
@@ -463,7 +468,8 @@ const App: React.FC = () => {
         {/* Tournament Standings Tab */}
         {activeTab === "tournament" && (
           <TournamentPage
-            matches={matches}
+            matches={resolvedActiveGroupId || currentUser.role === "ADMIN" ? matches : []}
+            userHasGroup={!!(resolvedActiveGroupId || currentUser.role === "ADMIN")}
             competitionCode={activeCompetitionCode}
             canPersistToDatabase={canWriteCompetitionData}
           />

@@ -1,4 +1,5 @@
 import { Match, MatchStatus, CompetitionDB } from "../types";
+import { DEFAULT_COMPETITION_CODE } from "../data/competitions";
 
 /**
  * SERVIÇO DE PLACARES AO VIVO (SEGURO)
@@ -15,12 +16,12 @@ export interface ExternalTeam {
 }
 
 export const fetchCompetitionTeams = async (
-  competitionCode = "WC",
+  competitionCode = DEFAULT_COMPETITION_CODE,
   season = getCurrentSeason(),
 ): Promise<ExternalTeam[]> => {
   const buildUrl = (withSeason: boolean) => {
     const params = new URLSearchParams();
-    params.set("competition", (competitionCode || "WC").toUpperCase());
+    params.set("competition", (competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase());
     if (withSeason) params.set("season", season);
     return `/api/teams?${params.toString()}`;
   };
@@ -105,7 +106,7 @@ export interface ExternalStandingRow {
 export interface ExternalStandingGroup {
   stage: string;
   type: string;
-  group: string;
+  group: string | null;
   table: ExternalStandingRow[];
 }
 
@@ -119,13 +120,13 @@ export const getCurrentSeason = (): string =>
   new Date().getFullYear().toString();
 
 export const fetchExternalMatches = async (
-  competitionCode = "WC",
+  competitionCode = DEFAULT_COMPETITION_CODE,
   season = getCurrentSeason(),
 ): Promise<ExternalMatch[]> => {
   // Rota interna segura que oculta seu Token
   const buildUrl = (seasonParam?: string) => {
     const params = new URLSearchParams();
-    params.set("competition", (competitionCode || "WC").toUpperCase());
+    params.set("competition", (competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase());
     if (seasonParam) {
       params.set("season", seasonParam);
     }
@@ -218,12 +219,12 @@ export const fetchExternalMatches = async (
 };
 
 export const fetchExternalStandings = async (
-  competitionCode = "WC",
+  competitionCode = DEFAULT_COMPETITION_CODE,
   season = getCurrentSeason(),
 ): Promise<ExternalStandingsResponse | null> => {
   const buildUrl = (seasonParam?: string) => {
     const params = new URLSearchParams();
-    params.set("competition", (competitionCode || "WC").toUpperCase());
+    params.set("competition", (competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase());
     if (seasonParam) {
       params.set("season", seasonParam);
     }

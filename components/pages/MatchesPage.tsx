@@ -3,13 +3,7 @@ import { Match, User, TournamentPredictions } from "../../types";
 import MatchCard from "../MatchCard";
 import RulesSection from "../RulesSection";
 import TopScorerCard from "../TopScorerCard";
-import {
-  CalendarDays,
-  History,
-  ChevronDown,
-  ChevronUp,
-  PlusCircle,
-} from "lucide-react";
+import { CalendarDays, History, ChevronDown, ChevronUp } from "lucide-react";
 
 // --- Helper: Date Group Accordion ---
 interface MatchGroupProps {
@@ -101,6 +95,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
 // --- Main Page ---
 interface MatchesPageProps {
   matches: Match[];
+  userHasGroup: boolean;
   userPredictions: Record<string, { home: number; away: number; points?: number }>;
   leaderboardData: any[];
   currentUser: User;
@@ -116,6 +111,7 @@ interface MatchesPageProps {
 
 const MatchesPage: React.FC<MatchesPageProps> = ({
   matches,
+  userHasGroup,
   userPredictions,
   leaderboardData,
   currentUser,
@@ -186,7 +182,15 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
 
   return (
     <div className="space-y-6">
-      {matches.length === 0 && (
+      {matches.length === 0 && !userHasGroup && (
+        <div className="text-center py-8 border border-slate-700 rounded-xl bg-slate-800/50 border-dashed">
+          <p className="text-slate-300 text-sm">
+            Entre em um grupo para ver os jogos.
+          </p>
+        </div>
+      )}
+
+      {matches.length === 0 && userHasGroup && (
         <div className="text-center py-8 border border-slate-700 rounded-xl bg-slate-800/50 border-dashed">
           <p className="text-slate-300 text-sm mb-3">
             Nenhum jogo encontrado.
@@ -211,7 +215,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
         <TopScorerCard
           prediction={currentUser.tournamentPredictions}
           onPredict={onPredictTournament}
-          lockDate={lockDate}
+          lockDate={lockDate ? new Date(lockDate) : new Date(0)}
           finalResult={tournamentResults}
         />
       )}
