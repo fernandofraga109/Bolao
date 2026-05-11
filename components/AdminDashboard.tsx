@@ -517,27 +517,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       {rankingSyncResult.errors.some((e) =>
                         e.includes("403"),
                       ) && (
-                        <div className="mt-3 bg-yellow-900/30 border border-yellow-600/50 rounded p-3 text-[11px]">
-                          <p className="text-yellow-300 font-bold mb-1">
-                            ⚠️ Erro 403: Permissão Negada
-                          </p>
-                          <p className="text-yellow-200 mb-2">
-                            Execute este script SQL no Supabase SQL Editor:
-                          </p>
-                          <div className="bg-slate-950 p-2 rounded border border-slate-700 font-mono text-[9px] text-green-400 overflow-x-auto">
-                            <code>
-                              GRANT UPDATE (ranking) ON public.teams TO
-                              authenticated;
-                            </code>
+                          <div className="mt-3 bg-yellow-900/30 border border-yellow-600/50 rounded p-3 text-[11px]">
+                            <p className="text-yellow-300 font-bold mb-1">
+                              ⚠️ Erro 403: Permissão Negada
+                            </p>
+                            <p className="text-yellow-200 mb-2">
+                              Execute este script SQL no Supabase SQL Editor:
+                            </p>
+                            <div className="bg-slate-950 p-2 rounded border border-slate-700 font-mono text-[9px] text-green-400 overflow-x-auto">
+                              <code>
+                                GRANT UPDATE (ranking) ON public.teams TO
+                                authenticated;
+                              </code>
+                            </div>
+                            <p className="text-yellow-200 mt-2">
+                              Ou execute o script:{" "}
+                              <span className="font-mono text-blue-400">
+                                database/sql/supabase_fix_team_ranking_update.sql
+                              </span>
+                            </p>
                           </div>
-                          <p className="text-yellow-200 mt-2">
-                            Ou execute o script:{" "}
-                            <span className="font-mono text-blue-400">
-                              database/sql/supabase_fix_team_ranking_update.sql
-                            </span>
-                          </p>
-                        </div>
-                      )}
+                        )}
                     </>
                   )}
                 </div>
@@ -767,11 +767,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="relative z-20">
             <button
               onClick={() => setShowSyncMenu(!showSyncMenu)}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg border transition-all ${
-                isAutoSyncEnabled
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg border transition-all ${isAutoSyncEnabled
                   ? "bg-slate-800 border-green-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
                   : "bg-slate-800 border-slate-700 hover:border-slate-600"
-              }`}
+                }`}
             >
               <div
                 className={`p-1.5 rounded-full ${isAutoSyncEnabled ? "bg-green-500/20 text-green-500" : "bg-slate-700 text-slate-400"}`}
@@ -835,6 +834,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <option value={15000}>15 segundos (Rápido)</option>
                       <option value={30000}>30 segundos</option>
                       <option value={60000}>1 minuto (Recomendado)</option>
+                      <option value={180000}>3minuto</option>
                       <option value={300000}>5 minutos</option>
                       <option value={600000}>10 minutos</option>
                     </select>

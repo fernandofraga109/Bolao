@@ -13,7 +13,6 @@ import { useDatabase } from "./contexts/DatabaseContext";
 import Header from "./components/Header";
 import BottomNav from "./components/BottomNav";
 import SplashScreen from "./components/ui/SplashScreen";
-import ModalShell from "./components/ui/ModalShell";
 import { SyncToastContainer, useSyncToast } from "./components/ui/SyncToast";
 
 // Auth
@@ -31,8 +30,6 @@ import { DEFAULT_COMPETITION_CODE, getCompetitionByCode } from "./data/competiti
 import {
   ChevronsUpDown,
   PlusCircle,
-  CheckCircle2,
-  AlertTriangle,
 } from "lucide-react";
 
 
@@ -137,66 +134,28 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>("matches");
   const [groupError, setGroupError] = useState<string | null>(null);
   const [isGroupSwitcherOpen, setIsGroupSwitcherOpen] = useState(false);
-  const [isAdminSyncingAll, setIsAdminSyncingAll] = useState(false);
-  const [syncFeedback, setSyncFeedback] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    isError: boolean;
-  }>({
-    isOpen: false,
-    title: "",
-    message: "",
-    isError: false,
-  });
-
   const handleAdminSyncCompetition = async (competitionCode: string) => {
     if (!canWriteCompetitionData) return;
-    if (isAdminSyncingAll) return;
 
     const name = db.competitions.find(c => c.code.toUpperCase() === competitionCode.toUpperCase())?.name;
     showSyncing(competitionCode, name);
-    setIsAdminSyncingAll(true);
-    try {
-      const result = await syncMatchesAndStandings(competitionCode, true);
-      // Force a fresh DB fetch so matches and standings are visible immediately
-      // without relying solely on Realtime events (which may miss bulk inserts).
-      await Promise.all([db.refetchMatches(), db.refetchTeamStandings()]);
-      showResult(competitionCode, result.success, result.message, name);
-      setSyncFeedback({
-        isOpen: true,
-        title: result.success
-          ? "Sincronização concluída"
-          : "Falha na sincronização",
-        message: result.message,
-        isError: !result.success,
-      });
-    } finally {
-      setIsAdminSyncingAll(false);
-    }
+    const result = await syncMatchesAndStandings(competitionCode, true);
+    await Promise.all([db.refetchMatches(), db.refetchTeamStandings()]);
+    showResult(competitionCode, result.success, result.message, name);
   };
 
   const handleManualMatchesSync = async () => {
+    const name = db.competitions.find(c => c.code.toUpperCase() === activeCompetitionCode.toUpperCase())?.name;
+
     if (!canWriteCompetitionData) {
-      setSyncFeedback({
-        isOpen: true,
-        title: "Ação bloqueada",
-        message: "Somente administradores podem sincronizar dados no banco.",
-        isError: true,
-      });
+      showResult(activeCompetitionCode, false, "Somente administradores podem sincronizar dados no banco.", name);
       return;
     }
 
+    showSyncing(activeCompetitionCode, name);
     const result = await syncWithExternalApi(activeCompetitionCode);
     await Promise.all([db.refetchMatches(), db.refetchTeamStandings()]);
-    setSyncFeedback({
-      isOpen: true,
-      title: result.success
-        ? "Sincronização de jogos concluída"
-        : "Falha ao sincronizar jogos",
-      message: result.message,
-      isError: !result.success,
-    });
+    showResult(activeCompetitionCode, result.success, result.message, name);
   };
 
   const {
@@ -296,19 +255,14 @@ const App: React.FC = () => {
     }
 
     if (!competitionAlreadyRegistered) {
+      showSyncing(normalizedCompetitionCode, normalizedCompetitionCode);
       const bootstrapResult = await syncMatchesAndStandings(
         normalizedCompetitionCode,
       );
-      setSyncFeedback({
-        isOpen: true,
-        title: bootstrapResult.success
-          ? "Competicao inicializada"
-          : "Competicao criada com alerta",
-        message: bootstrapResult.success
-          ? `Nova competicao ${normalizedCompetitionCode} cadastrada e sincronizada. ${bootstrapResult.message}`
-          : `A competicao ${normalizedCompetitionCode} foi criada, mas a carga inicial falhou. ${bootstrapResult.message}`,
-        isError: !bootstrapResult.success,
-      });
+      const bootstrapMsg = bootstrapResult.success
+        ? `Competição ${normalizedCompetitionCode} inicializada. ${bootstrapResult.message}`
+        : `Competição criada, mas carga inicial falhou. ${bootstrapResult.message}`;
+      showResult(normalizedCompetitionCode, bootstrapResult.success, bootstrapMsg, normalizedCompetitionCode);
     }
 
     return newGroup;
@@ -538,47 +492,6 @@ const App: React.FC = () => {
         userRole={currentUser.role}
       />
 
-      {syncFeedback.isOpen && (
-        <ModalShell
-          title={
-            <span className="inline-flex items-center gap-2">
-              {syncFeedback.isError ? (
-                <AlertTriangle size={18} className="text-amber-400" />
-              ) : (
-                <CheckCircle2 size={18} className="text-brand-green" />
-              )}
-              {syncFeedback.title}
-            </span>
-          }
-          onClose={() =>
-            setSyncFeedback((prev) => ({
-              ...prev,
-              isOpen: false,
-            }))
-          }
-          maxWidthClassName="max-w-lg"
-          panelClassName="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl"
-          contentClassName="p-5"
-          footerClassName="px-5 pb-5"
-          footer={
-            <button
-              onClick={() =>
-                setSyncFeedback((prev) => ({
-                  ...prev,
-                  isOpen: false,
-                }))
-              }
-              className="w-full py-2.5 rounded-lg bg-brand-green hover:bg-emerald-400 text-slate-900 font-bold text-sm transition-colors"
-            >
-              OK
-            </button>
-          }
-        >
-          <p className="text-sm text-slate-200 leading-relaxed">
-            {syncFeedback.message}
-          </p>
-        </ModalShell>
-      )}
     </div>
   );
 };
