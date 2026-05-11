@@ -153,8 +153,66 @@ export const usePointsProcessor = (dbRef: any) => {
     [dbRef, recalculateUserGroupPoints],
   );
 
+  const updateLocalPointsWithLive = useCallback((liveMatchIds: string[]) => {
+    if (liveMatchIds.length === 0) return;
+
+    const rawMatches = dbRef.current.matches as any[];
+    const teams = dbRef.current.teams as any[];
+    const allPredictions = dbRef.current.predictions as any[];
+    const allUserGroups = dbRef.current.userGroups as any[];
+
+    const hydratedMatchesMap = new Map<string, any>();
+    rawMatches.forEach(m => {
+      if (
+        (m.status === MatchStatus.FINISHED || m.status === MatchStatus.LIVE) &&
+        m.resultHome != null && m.resultAway != null
+      ) {
+        hydratedMatchesMap.set(m.id, {
+          ...m,
+          homeTeam: teams.find((t: any) => t.id === m.homeTeamId),
+          awayTeam: teams.find((t: any) => t.id === m.awayTeamId),
+        });
+      }
+    });
+
+    const affectedGroupIds = Array.from(new Set(
+      allPredictions
+        .filter((p: any) => liveMatchIds.includes(p.matchId))
+        .map((p: any) => p.groupId)
+        .filter(Boolean)
+    ));
+    if (affectedGroupIds.length === 0) return;
+
+    const updates: any[] = [];
+    for (const groupId of affectedGroupIds) {
+      const members = allUserGroups.filter((ug: any) => ug.groupId === groupId);
+      const groupPreds = allPredictions.filter((p: any) => p.groupId === groupId);
+      for (const member of members) {
+        let total = 0;
+        groupPreds
+          .filter((p: any) => p.userId === member.userId)
+          .forEach((p: any) => {
+            const match = hydratedMatchesMap.get(p.matchId);
+            if (match) {
+              total += calculatePoints(
+                p.homeScore, p.awayScore,
+                match.resultHome ?? 0, match.resultAway ?? 0,
+                match.homeTeam?.ranking, match.awayTeam?.ranking
+              );
+            }
+          });
+        updates.push({ userId: member.userId, groupId, points: total });
+      }
+    }
+
+    if (updates.length > 0) {
+      dbRef.current.updateLocalUserGroups(updates);
+    }
+  }, [dbRef]);
+
   return {
     recalculateUserGroupPoints,
     batchProcessPointsForMatches,
+    updateLocalPointsWithLive,
   };
 };

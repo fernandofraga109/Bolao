@@ -6,11 +6,9 @@ export const POINTS_GOAL_DIFF = 7;
 export const POINTS_OUTCOME = 5;
 export const POINTS_WRONG = 0;
 
-// Factor for underdog bonus: (DiffInRank * FACTOR). 
-// Example: Rank 15 vs Rank 1. Diff 14 * 0.25 = 3.5 -> 4 points bonus.
-const UNDERDOG_BONUS_FACTOR = 0.25; 
-// Maximum bonus points allowed for an underdog win
+const UNDERDOG_BONUS_FACTOR = 0.25;
 const MAX_UNDERDOG_BONUS = 5;
+const MIN_RANK_DIFF_FOR_UNDERDOG = 10;
 
 export const POINTS_TOP_SCORER_NAME = 100;
 export const POINTS_TOP_SCORER_GOALS = 100;
@@ -30,6 +28,7 @@ export const calculateUnderdogBonus = (
     // If the winner has a worse ranking (higher number) than the loser, it's an underdog win.
     if (winnerRank > loserRank) {
         const diff = winnerRank - loserRank;
+        if (diff <= MIN_RANK_DIFF_FOR_UNDERDOG) return 0;
         const calculatedBonus = Math.ceil(diff * UNDERDOG_BONUS_FACTOR);
         return Math.min(calculatedBonus, MAX_UNDERDOG_BONUS);
     }

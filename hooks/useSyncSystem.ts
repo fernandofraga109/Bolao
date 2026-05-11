@@ -99,7 +99,7 @@ function buildExternalTeamMap(
         code: teamCode,
         flag: et.crest || "/favicon.ico",
         externalTeamId: et.id,
-        ranking: rankingMap[teamCode.toUpperCase()] ?? 999,
+        ranking: rankingMap[teamCode.toUpperCase()] ?? null,
       };
 
       newTeamPayloads.push(payload);
@@ -254,7 +254,7 @@ export const useSyncSystem = (
         const { teamByExtId, teamByCode, newTeamPayloads, existingTeamUpdates } = buildExternalTeamMap(
           externalTeams,
           dbRef.current.teams,
-          rankingMap,
+          normalizedCode === 'WC' ? rankingMap : {},
         );
 
         // Collect ALL teams referenced in matches and standings that aren't in the map yet
@@ -284,7 +284,7 @@ export const useSyncSystem = (
               code: teamCode,
               flag: (et as any).crest || "/favicon.ico",
               externalTeamId: et.id,
-              ranking: rankingMap[teamCode.toUpperCase()] ?? 999,
+              ranking: normalizedCode === 'WC' ? (rankingMap[teamCode.toUpperCase()] ?? 999) : null,
             };
             newTeamPayloads.push(payload);
             // Pre-mark to avoid duplicates in this same loop
@@ -360,7 +360,7 @@ export const useSyncSystem = (
 
         // Apply rankingMap to ALL memory teams directly — decoupled from /api/teams response.
         // This ensures ranking is always up-to-date even when the teams endpoint fails.
-        if (Object.keys(rankingMap).length > 0 && isSupabaseEnabled() && supabase) {
+        if (normalizedCode === 'WC' && Object.keys(rankingMap).length > 0 && isSupabaseEnabled() && supabase) {
           const rankingPatches = (dbRef.current.teams as any[])
             .filter((t) => t.id && t.code)
             .reduce<any[]>((acc, t) => {
