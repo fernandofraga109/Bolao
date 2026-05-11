@@ -5,12 +5,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev      # Start dev server on port 3000
-npm run build    # Production build
-npm run preview  # Preview production build
+npm run dev        # Start dev server on port 3000
+npm run build      # Production build
+npm run preview    # Preview production build
+npm run test       # Run test suite (Vitest)
+npm run test:watch # Run tests in watch mode
+npm run test:ui    # Open Vitest UI
 ```
-
-No test suite is configured.
 
 ## Architecture
 
@@ -133,3 +134,9 @@ constants.ts    — app-wide constants and initial state
 - No direct Supabase calls from components — always go through `DatabaseContext`
 - All shared types go in `types.ts`; no inline interface declarations in components
 - Prefer updating an existing hook over creating a new one for closely related logic
+
+### Testing Rules
+- The `test-runner` agent (`.claude/agents/test-runner.md`) is the **only** agent authorized to create, edit, or delete test files (`*.test.ts`, `*.test.tsx`, `*.spec.ts`, `src/test/**`).
+- Feature agents (`frontend`, `backend`) **must never** touch test files — not even to fix a failing test.
+- After implementing a feature, invoke the `test-runner` agent so it can write or update tests.
+- If tests fail after a feature is implemented, the `test-runner` reports the failure and the feature agent fixes the implementation — never the other way around.

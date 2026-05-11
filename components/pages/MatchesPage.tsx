@@ -3,7 +3,7 @@ import { Match, User, TournamentPredictions } from "../../types";
 import MatchCard from "../MatchCard";
 import RulesSection from "../RulesSection";
 import TopScorerCard from "../TopScorerCard";
-import { CalendarDays, History, ChevronDown, ChevronUp, Zap } from "lucide-react";
+import { CalendarDays, History, ChevronDown, ChevronUp, Zap, Users } from "lucide-react";
 
 // --- Helper: Date Group Accordion ---
 interface MatchGroupProps {
@@ -17,6 +17,7 @@ interface MatchGroupProps {
   isAdmin: boolean;
   onFinishMatch: (id: string, h: number, a: number) => void;
   isToday?: boolean;
+  minRankDiff?: number;
 }
 
 const MatchGroup: React.FC<MatchGroupProps> = ({
@@ -30,6 +31,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
   isAdmin,
   onFinishMatch,
   isToday,
+  minRankDiff,
 }) => {
   const [isOpen, setIsOpen] = useState(isOpenDefault);
 
@@ -84,6 +86,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
               onPredict={onPredict}
               isAdmin={isAdmin}
               onFinishMatch={onFinishMatch}
+              minRankDiff={minRankDiff}
             />
           ))}
         </div>
@@ -107,6 +110,8 @@ interface MatchesPageProps {
   onPredict: (id: string, h: number, a: number) => Promise<void>;
   onFinishMatch: (id: string, h: number, a: number) => void;
   onPredictTournament: (predictions: TournamentPredictions) => void;
+  onOpenGroupSwitcher?: () => void;
+  minRankDiff?: number;
 }
 
 const MatchesPage: React.FC<MatchesPageProps> = ({
@@ -123,6 +128,8 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
   onPredict,
   onFinishMatch,
   onPredictTournament,
+  onOpenGroupSwitcher,
+  minRankDiff,
 }) => {
   const [isPastMatchesOpen, setIsPastMatchesOpen] = useState(false);
 
@@ -183,10 +190,22 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
   return (
     <div className="space-y-6">
       {matches.length === 0 && !userHasGroup && (
-        <div className="text-center py-8 border border-slate-700 rounded-xl bg-slate-800/50 border-dashed">
-          <p className="text-slate-300 text-sm">
-            Entre em um grupo para ver os jogos.
+        <div className="text-center py-10 border border-slate-700 rounded-xl bg-slate-800/50 border-dashed space-y-3">
+          <Users className="mx-auto text-slate-500" size={32} />
+          <p className="text-slate-300 text-sm font-semibold">
+            Você ainda não está em um grupo
           </p>
+          <p className="text-slate-500 text-xs">
+            Entre em um grupo para começar a palpitar.
+          </p>
+          {onOpenGroupSwitcher && (
+            <button
+              onClick={() => onOpenGroupSwitcher()}
+              className="mt-2 bg-brand-green text-brand-dark rounded-xl font-black uppercase tracking-widest px-5 py-2 text-xs hover:bg-emerald-400 transition-colors"
+            >
+              Entrar em um grupo
+            </button>
+          )}
         </div>
       )}
 
@@ -259,6 +278,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
                     onPredict={onPredict}
                     isAdmin={isAdmin}
                     onFinishMatch={onFinishMatch}
+                    minRankDiff={minRankDiff}
                   />
                 ))}
             </div>
@@ -302,6 +322,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
         onPredict={onPredict}
         isAdmin={isAdmin}
         onFinishMatch={onFinishMatch}
+        minRankDiff={minRankDiff}
       />
 
       {todayMatches.length === 0 &&
@@ -329,6 +350,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
             onPredict={onPredict}
             isAdmin={isAdmin}
             onFinishMatch={onFinishMatch}
+            minRankDiff={minRankDiff}
           />
         ))}
     </div>

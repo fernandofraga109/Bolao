@@ -851,6 +851,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </p>
                   </div>
 
+                  {/* Zebra Bonus Global Config */}
+                  <div className="space-y-2">
+                    <label className="text-xs text-slate-500 uppercase font-bold flex items-center gap-2">
+                      <Zap size={12} className="text-amber-400" /> Bônus Zebra — Mínimo de Ranking
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={db.systemConfig.underdog_min_rank_diff ?? 10}
+                        onChange={(e) =>
+                          db.updateSystemConfig({ underdog_min_rank_diff: Number(e.target.value) })
+                        }
+                        className="w-20 px-2 py-2 text-sm bg-slate-900 border border-slate-600 rounded-lg text-white text-center outline-none focus:border-amber-500"
+                      />
+                      <span className="text-xs text-slate-400">posições de diferença no ranking FIFA para ativar o bônus zebra (padrão global)</span>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <label className="text-xs text-slate-500 uppercase font-bold tracking-wider">
                       Ultima sincronizacao por competicao
@@ -1231,6 +1251,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   Nenhum membro neste grupo.
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Zebra Bonus Override */}
+          <div className="mt-6 pt-6 border-t border-slate-700">
+            <h3 className="text-amber-400 font-bold mb-3 flex items-center gap-2 text-sm uppercase tracking-wider">
+              <Zap size={16} className="text-amber-400" /> Bônus Zebra
+            </h3>
+            <div className="bg-amber-900/10 border border-amber-500/20 rounded-lg p-4">
+              <p className="text-xs text-slate-400 mb-3">
+                Override do mínimo de diferença de ranking FIFA para ativar o bônus zebra neste grupo.
+                Deixe vazio para usar o padrão global ({db.systemConfig.underdog_min_rank_diff ?? 10}).
+              </p>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  placeholder={String(db.systemConfig.underdog_min_rank_diff ?? 10)}
+                  value={group.underdog_min_rank_diff ?? ""}
+                  onChange={async (e) => {
+                    const val = e.target.value === "" ? null : Number(e.target.value);
+                    await db.updateGroup(group.id, { underdog_min_rank_diff: val });
+                  }}
+                  className="w-24 px-2 py-2 text-sm bg-slate-900 border border-slate-600 rounded-lg text-white text-center outline-none focus:border-amber-500"
+                />
+                <span className="text-xs text-slate-400">posições de diferença no ranking FIFA</span>
+              </div>
             </div>
           </div>
 

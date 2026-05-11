@@ -478,6 +478,8 @@ const App: React.FC = () => {
             onPredict={predictMatch}
             onFinishMatch={adminControls.finishMatch}
             onPredictTournament={predictTournament}
+            onOpenGroupSwitcher={() => setIsGroupSwitcherOpen(true)}
+            minRankDiff={currentGroup?.underdog_min_rank_diff ?? db.systemConfig.underdog_min_rank_diff ?? 10}
           />
         )}
 

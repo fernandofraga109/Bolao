@@ -10,7 +10,8 @@ _Update this file at every significant checkpoint. Read it first at the start of
 - Frontend: ✅ Páginas principais implementadas (Matches, Leaderboard, Stats, Tournament, Admin)
 - DB schema: ✅ Migration 0002 criada (FKs, fix TLA, índices)
 - Schema dev: ✅ SQL files e client configurados para schema `dev` via env var
-- Pendente: Rodar migrations 0001 e 0002 no schema `dev` do Supabase
+- Testes: ✅ Vitest + RTL configurados; 33 testes passando (scoring + leaderboard)
+- Deploy: ✅ Documentação completa em `docs/DEPLOY_VERCEL.md`
 
 ---
 
@@ -43,6 +44,34 @@ Schema cleanup + standings group nullable + team ranking via JSON (4 tasks do pl
 
 ---
 
+## Última tarefa executada (2026-05-10)
+
+**Branch:** `feature/03/claude-code`
+
+Planejamento e implementação de três sprints:
+
+### Sprint 1 — Infraestrutura de Testes
+- Instalado Vitest + React Testing Library + happy-dom (substituiu jsdom por incompatibilidade ESM v27)
+- `vite.config.ts`: adicionado bloco `test` (environment: happy-dom, setupFiles, globals)
+- `src/test/setup.ts`: importa `@testing-library/jest-dom`
+- `src/test/mocks/supabase.ts`: mock do client Supabase via `vi.mock`
+- `package.json`: scripts `test`, `test:watch`, `test:ui` adicionados
+- `.claude/agents/test-runner.md`: agente dedicado — único autorizado a criar/editar testes
+- `CLAUDE.md`: regra de testes adicionada (feature agents proibidos de tocar em `*.test.ts`)
+- `utils/scoring.test.ts`: 28 testes das funções puras de pontuação
+- `hooks/useLeaderboard.test.ts`: 5 testes de cálculo e ranking
+- **33 testes passando**
+
+### Sprint 2 — UI/UX
+- `vite.config.ts`: code splitting (`manualChunks`) para react, supabase, gemini — reduz bundle de 617 KB
+- `components/pages/MatchesPage.tsx`: empty state com botão "Entrar em um grupo" que abre GroupSwitcher
+- `App.tsx`: prop `onOpenGroupSwitcher` passada para MatchesPage
+
+### Sprint 3 — Documentação Deploy
+- `docs/DEPLOY_VERCEL.md`: guia completo com 6 passos, tabela de env vars, smoke test e troubleshooting
+
+---
+
 ## Próximo passo
 
 Rodar migrations no Supabase SQL Editor (em ordem):
@@ -61,6 +90,8 @@ Depois testar sync completo (WC e BSA) pelo admin dashboard:
 - BSA: standings deve ter `group = null`
 - Frontend Tabela WC: grupos exibidos como "Grupo A", "Grupo B"...
 - Frontend Tabela BSA: bloco único "Tabela"
+
+Quando pronto para deploy: seguir `docs/DEPLOY_VERCEL.md` (criar `vercel.json` é o primeiro passo).
 
 ---
 
@@ -92,5 +123,9 @@ Depois testar sync completo (WC e BSA) pelo admin dashboard:
 | `matches.competitionCode` sem FK | Migration 0002: FK DEFERRABLE + upsert de competition no início do sync |
 
 ---
+
+| Vitest + happy-dom em vez de jsdom | jsdom v27 tem dependências ESM-only incompatíveis com o pool de workers do Vitest; happy-dom não tem esse problema |
+| test-runner como agente separado | Impede que agentes de feature alterem testes para forçar passagem — garante integridade dos testes |
+| Code splitting por biblioteca | React, Supabase e Gemini são dependências pesadas e estáveis — chunks separados melhoram cache do browser |
 
 _Última atualização: 2026-05-10_

@@ -10,6 +10,7 @@ export interface SystemConfigDB {
   id: string; // UUID singleton
   is_auto_sync_enabled: boolean;
   sync_interval_ms: number;
+  underdog_min_rank_diff: number;
 }
 
 export interface CompetitionDB {
@@ -117,6 +118,7 @@ export interface GroupDB {
   adminId: string;
   createdAt: string;
   competitionCode?: string; // e.g., 'WC' (Copa do Mundo), 'PL' (Premier League), 'BSA' (Campeonato Brasileiro)
+  underdog_min_rank_diff?: number | null;
 }
 
 export interface UserGroupDB {

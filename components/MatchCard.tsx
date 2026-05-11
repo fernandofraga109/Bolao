@@ -42,6 +42,7 @@ interface MatchCardProps {
   ) => Promise<void> | void;
   isAdmin?: boolean;
   onFinishMatch?: (matchId: string, home: number, away: number) => void;
+  minRankDiff?: number;
 }
 
 const MatchCard: React.FC<MatchCardProps> = ({
@@ -51,6 +52,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
   onPredict,
   isAdmin = false,
   onFinishMatch,
+  minRankDiff,
 }) => {
   const [showFriends, setShowFriends] = useState(false);
   const [homeInput, setHomeInput] = useState<string>("");
@@ -117,6 +119,12 @@ const MatchCard: React.FC<MatchCardProps> = ({
   const isFinished = match.status === MatchStatus.FINISHED;
   const isPredictionDisabled = !isAdmin && (isFinished || isLive || isLocked);
 
+  const rankDiff = Math.abs((match.homeTeam?.ranking ?? 0) - (match.awayTeam?.ranking ?? 0));
+  const isZebraCandidate = match.status === MatchStatus.SCHEDULED && rankDiff >= (minRankDiff ?? 10);
+  const underdogTeam = (match.homeTeam?.ranking ?? 0) > (match.awayTeam?.ranking ?? 0)
+    ? match.homeTeam
+    : match.awayTeam;
+
   // --- CENTRALIZED SCORING HELPER ---
   const getScoringDetails = (home: number, away: number) => {
     if (!match.result) return { points: 0, bonus: 0 };
@@ -174,13 +182,25 @@ const MatchCard: React.FC<MatchCardProps> = ({
           </div>
         </div>
         
-        {isLive && (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-red/10 border border-brand-red/30">
-             <span className="w-1.5 h-1.5 rounded-full bg-brand-red animate-pulse"></span>
-             <span className="text-[10px] font-black text-brand-red uppercase tracking-tighter">AO VIVO</span>
-          </div>
-        )}
-        
+        <div className="flex items-center gap-2">
+          {isLive && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-red/10 border border-brand-red/30">
+               <span className="w-1.5 h-1.5 rounded-full bg-brand-red animate-pulse"></span>
+               <span className="text-[10px] font-black text-brand-red uppercase tracking-tighter">AO VIVO</span>
+            </div>
+          )}
+
+          {isZebraCandidate && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30">
+              <span className="text-[10px] font-black text-amber-400 uppercase tracking-tighter">ZEBRA</span>
+              {underdogTeam?.flag && (
+                <img src={underdogTeam.flag} alt={underdogTeam.name} className="w-3.5 h-3.5 rounded-sm object-cover" />
+              )}
+              <span className="text-[10px] text-amber-400 truncate max-w-[60px]">{underdogTeam?.name}</span>
+            </div>
+          )}
+        </div>
+
         {isFinished && (
            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-800 px-2.5 py-1 rounded-full">Encerrado</span>
         )}

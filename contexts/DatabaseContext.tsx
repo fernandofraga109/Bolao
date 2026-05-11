@@ -109,6 +109,7 @@ interface DatabaseContextType {
   deleteUser: (id: string) => Promise<void>;
 
   addGroup: (group: GroupDB) => Promise<void>;
+  updateGroup: (id: string, data: Partial<GroupDB>) => Promise<void>;
   deleteGroup: (id: string) => Promise<void>;
 
   addUserToGroup: (relation: UserGroupDB) => Promise<void>;
@@ -139,6 +140,7 @@ const DEFAULT_CONFIG: SystemConfigDB = {
   id: SYSTEM_CONFIG_ID,
   is_auto_sync_enabled: false,
   sync_interval_ms: 60000,
+  underdog_min_rank_diff: 10,
 };
 
 const mergeMatchIntoList = (list: MatchDB[], incoming: MatchDB): MatchDB[] => {
@@ -777,6 +779,13 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
+  const updateGroup = async (id: string, data: Partial<GroupDB>) => {
+    setGroups((prev) => prev.map((g) => (g.id === id ? { ...g, ...data } : g)));
+    if (isSupabaseEnabled() && supabase) {
+      await supabase.from("groups").update(data).eq("id", id);
+    }
+  };
+
   const deleteGroup = async (id: string) => {
     // 1. Local Updates (Optimistic)
     setGroups((prev) => prev.filter((g) => g.id !== id));
@@ -1160,6 +1169,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         updateUser,
         deleteUser,
         addGroup,
+        updateGroup,
         deleteGroup,
         addUserToGroup,
         removeUserFromGroup,
@@ -1206,6 +1216,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         updateUser,
         deleteUser,
         addGroup,
+        updateGroup,
         deleteGroup,
         addUserToGroup,
         removeUserFromGroup,

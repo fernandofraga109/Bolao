@@ -13,12 +13,20 @@ export const usePointsProcessor = (dbRef: any) => {
     const allMatches = dbRef.current.matches as Match[];
     const finishedMatchesMap = new Map<string, Match>();
     allMatches.forEach(m => {
-      if (m.status === MatchStatus.FINISHED && m.resultHome != null && m.resultAway != null) {
+      if (m.status === MatchStatus.FINISHED && m.result != null) {
         finishedMatchesMap.set(m.id, m);
       }
     });
 
     for (const groupId of uniqueGroupIds) {
+      // Resolve effective underdog threshold for this group
+      const allGroups = dbRef.current.groups as any[];
+      const group = allGroups.find((g: any) => g.id === groupId);
+      const globalMinRankDiff: number =
+        dbRef.current.systemConfig?.underdog_min_rank_diff ?? 10;
+      const effectiveMinRankDiff: number =
+        group?.underdog_min_rank_diff ?? globalMinRankDiff;
+
       // 1. Buscamos todas as predições (raw scores) do grupo
       // Nota: Não confiamos na coluna 'points' do banco, pois ela pode estar
       // desatualizada se o sync anterior foi feito por um usuário sem permissão de escrita.
@@ -34,19 +42,20 @@ export const usePointsProcessor = (dbRef: any) => {
 
       // 2. Calculamos os pontos totais por usuário baseados nos resultados oficiais
       const pointsByUser: Record<string, number> = {};
-      
+
       (preds || []).forEach((p) => {
         if (!pointsByUser[p.userId]) pointsByUser[p.userId] = 0;
-        
+
         const match = finishedMatchesMap.get(p.matchId);
         if (match) {
           const pts = calculatePoints(
             p.homeScore,
             p.awayScore,
-            match.resultHome ?? 0,
-            match.resultAway ?? 0,
+            match.result?.home ?? 0,
+            match.result?.away ?? 0,
             match.homeTeam?.ranking,
-            match.awayTeam?.ranking
+            match.awayTeam?.ranking,
+            effectiveMinRankDiff
           );
           pointsByUser[p.userId] += pts;
         }
@@ -108,6 +117,13 @@ export const usePointsProcessor = (dbRef: any) => {
         );
 
         for (const pred of matchPredictions) {
+          const allGroups = dbRef.current.groups as any[];
+          const predGroup = allGroups.find((g: any) => g.id === pred.groupId);
+          const globalMinRankDiff: number =
+            dbRef.current.systemConfig?.underdog_min_rank_diff ?? 10;
+          const effectiveMinRankDiff: number =
+            predGroup?.underdog_min_rank_diff ?? globalMinRankDiff;
+
           const pts = calculatePoints(
             pred.homeScore,
             pred.awayScore,
@@ -115,6 +131,7 @@ export const usePointsProcessor = (dbRef: any) => {
             match.result?.away || 0,
             match.homeTeam.ranking,
             match.awayTeam.ranking,
+            effectiveMinRankDiff,
           );
 
           if (pred.points !== pts) {
@@ -184,7 +201,15 @@ export const usePointsProcessor = (dbRef: any) => {
     if (affectedGroupIds.length === 0) return;
 
     const updates: any[] = [];
+    const allGroups = dbRef.current.groups as any[];
+    const globalMinRankDiff: number =
+      dbRef.current.systemConfig?.underdog_min_rank_diff ?? 10;
+
     for (const groupId of affectedGroupIds) {
+      const group = allGroups.find((g: any) => g.id === groupId);
+      const effectiveMinRankDiff: number =
+        group?.underdog_min_rank_diff ?? globalMinRankDiff;
+
       const members = allUserGroups.filter((ug: any) => ug.groupId === groupId);
       const groupPreds = allPredictions.filter((p: any) => p.groupId === groupId);
       for (const member of members) {
@@ -197,7 +222,8 @@ export const usePointsProcessor = (dbRef: any) => {
               total += calculatePoints(
                 p.homeScore, p.awayScore,
                 match.resultHome ?? 0, match.resultAway ?? 0,
-                match.homeTeam?.ranking, match.awayTeam?.ranking
+                match.homeTeam?.ranking, match.awayTeam?.ranking,
+                effectiveMinRankDiff
               );
             }
           });

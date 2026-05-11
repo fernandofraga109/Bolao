@@ -358,11 +358,18 @@ export const useSyncSystem = (
           }
         }
 
-        // Apply rankingMap to ALL memory teams directly — decoupled from /api/teams response.
-        // This ensures ranking is always up-to-date even when the teams endpoint fails.
+        // Apply rankingMap only to teams that participate in WC matches.
+        // Filtering by WC match participation prevents non-WC teams (from other competitions)
+        // from accidentally receiving a FIFA ranking just because their code appears in the ranking file.
         if (normalizedCode === 'WC' && Object.keys(rankingMap).length > 0 && isSupabaseEnabled() && supabase) {
+          const wcTeamIds = new Set<string>(
+            (dbRef.current.matches as any[])
+              .filter((m) => m.competitionCode === 'WC')
+              .flatMap((m) => [m.homeTeamId, m.awayTeamId])
+              .filter(Boolean)
+          );
           const rankingPatches = (dbRef.current.teams as any[])
-            .filter((t) => t.id && t.code)
+            .filter((t) => t.id && t.code && wcTeamIds.has(t.id))
             .reduce<any[]>((acc, t) => {
               const newRanking = rankingMap[t.code.toUpperCase()];
               if (newRanking !== undefined && t.ranking !== newRanking) {

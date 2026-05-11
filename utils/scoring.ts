@@ -8,7 +8,7 @@ export const POINTS_WRONG = 0;
 
 const UNDERDOG_BONUS_FACTOR = 0.25;
 const MAX_UNDERDOG_BONUS = 5;
-const MIN_RANK_DIFF_FOR_UNDERDOG = 10;
+const FALLBACK_MIN_RANK_DIFF = 10;
 
 export const POINTS_TOP_SCORER_NAME = 100;
 export const POINTS_TOP_SCORER_GOALS = 100;
@@ -18,21 +18,23 @@ export const POINTS_BEST_GOALKEEPER = 100;
 
 /**
  * Calculates the potential bonus points if the underdog wins.
+ * @param minRankDiff - Minimum ranking difference required to trigger the bonus (default: FALLBACK_MIN_RANK_DIFF)
  */
 export const calculateUnderdogBonus = (
-    winnerRank: number | undefined, 
-    loserRank: number | undefined
+    winnerRank: number | undefined,
+    loserRank: number | undefined,
+    minRankDiff = FALLBACK_MIN_RANK_DIFF
 ): number => {
     if (!winnerRank || !loserRank) return 0;
-    
+
     // If the winner has a worse ranking (higher number) than the loser, it's an underdog win.
     if (winnerRank > loserRank) {
         const diff = winnerRank - loserRank;
-        if (diff <= MIN_RANK_DIFF_FOR_UNDERDOG) return 0;
+        if (diff <= minRankDiff) return 0;
         const calculatedBonus = Math.ceil(diff * UNDERDOG_BONUS_FACTOR);
         return Math.min(calculatedBonus, MAX_UNDERDOG_BONUS);
     }
-    
+
     return 0;
 };
 
@@ -42,7 +44,8 @@ export const calculatePoints = (
   realHome: number,
   realAway: number,
   homeRank?: number,
-  awayRank?: number
+  awayRank?: number,
+  minRankDiff = FALLBACK_MIN_RANK_DIFF
 ): number => {
   let points = 0;
 
@@ -71,7 +74,7 @@ export const calculatePoints = (
   if (points > 0 && homeRank && awayRank && realHome !== realAway) {
     const winnerRank = realHome > realAway ? homeRank : awayRank;
     const loserRank = realHome > realAway ? awayRank : homeRank;
-    points += calculateUnderdogBonus(winnerRank, loserRank);
+    points += calculateUnderdogBonus(winnerRank, loserRank, minRankDiff);
   }
 
   return points;
