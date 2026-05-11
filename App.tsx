@@ -27,6 +27,8 @@ import TournamentPage from "./components/pages/TournamentPage";
 import AdminPage from "./components/pages/AdminPage";
 
 import { DEFAULT_COMPETITION_CODE, getCompetitionByCode } from "./data/competitions";
+import { CURRENT_VERSION } from "./data/releases";
+import WhatsNewModal from "./components/ui/WhatsNewModal";
 import {
   ChevronsUpDown,
   PlusCircle,
@@ -134,6 +136,17 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>("matches");
   const [groupError, setGroupError] = useState<string | null>(null);
   const [isGroupSwitcherOpen, setIsGroupSwitcherOpen] = useState(false);
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
+
+  useEffect(() => {
+    const seen = localStorage.getItem("bolao_last_seen_version");
+    if (seen !== CURRENT_VERSION) setShowWhatsNew(true);
+  }, []);
+
+  const handleWhatsNewClose = () => {
+    localStorage.setItem("bolao_last_seen_version", CURRENT_VERSION);
+    setShowWhatsNew(false);
+  };
   const handleAdminSyncCompetition = async (competitionCode: string) => {
     if (!canWriteCompetitionData) return;
 
@@ -482,6 +495,9 @@ const App: React.FC = () => {
           />
         )}
       </main>
+
+      {/* What's New Modal */}
+      {showWhatsNew && <WhatsNewModal onClose={handleWhatsNewClose} />}
 
       {/* Sync Toast Notifications */}
       <SyncToastContainer toasts={toasts} onDismiss={dismiss} />

@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { Info, ChevronUp, ChevronDown } from 'lucide-react';
 
-const RulesSection: React.FC = () => {
+interface RulesSectionProps {
+  minRankDiff?: number;
+}
+
+const RulesSection: React.FC<RulesSectionProps> = ({ minRankDiff = 10 }) => {
   const [showRules, setShowRules] = useState(false);
 
   return (
@@ -34,7 +38,7 @@ const RulesSection: React.FC = () => {
                 </li>
                 <li className="flex items-start gap-2">
                     <span className="bg-yellow-400/80 text-black font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[36px] text-center">+1-5</span>
-                    <span><b>Bônus Zebra:</b> Bônus extra quando um time zebra vence. Aplicado apenas quando a diferença de ranking FIFA for maior que 10 posições (+1pt a +5pts).</span>
+                    <span><b>Bônus Zebra:</b> Bônus extra quando um time zebra vence. Aplicado apenas quando a diferença de ranking FIFA for maior que {minRankDiff} posições (+1pt a +5pts).</span>
                 </li>
 
                 <li className="pt-2 font-bold text-indigo-300">Bônus Especiais (100pts cada):</li>

@@ -15,9 +15,11 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 
 ---
 
-## Current Sprint: Feature Resumption
+## Current Sprint: Feature Resumption — COMPLETE
 
-Production stabilization sprint completed 2026-05-11. All three P0/P1 issues verified in production. Resuming feature work.
+Production stabilization sprint completed 2026-05-11.  
+"What's New" modal + changelog-updater agent completed 2026-05-11.  
+UX improvements completed 2026-05-11.
 
 ---
 
@@ -25,9 +27,20 @@ Production stabilization sprint completed 2026-05-11. All three P0/P1 issues ver
 
 | Priority | Item | Plan |
 |----------|------|------|
-| **Next** | "What's New" modal + changelog-updater agent | `.claude/plans/whats-new-modal.md` |
-| After | FIFA ranking in match cards + dynamic underdog bonus text | `.claude/plans/ux-improvements.md` |
 | Ongoing | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` |
+
+---
+
+## Completed — "What's New" Modal (2026-05-11)
+
+- `data/releases.ts` — static release history, `CURRENT_VERSION = "1.1.0"`
+- `components/ui/WhatsNewModal.tsx` — modal using `ModalShell`, shows latest release, closes with "Entendido!" button
+- `App.tsx` — wired: `showWhatsNew` state + `useEffect` checking `bolao_last_seen_version` in localStorage, renders modal only when user is authenticated
+- `.claude/agents/changelog-updater.md` — new agent, only authorized to edit `data/releases.ts`
+- `CLAUDE.md` — "Changelog Rules" section added alongside Testing Rules
+
+**Show condition:** `localStorage.getItem("bolao_last_seen_version") !== CURRENT_VERSION`  
+**Single source of truth:** `CURRENT_VERSION` in `data/releases.ts`
 
 ---
 
@@ -42,7 +55,7 @@ Anon RLS on `groups` (migration 0005) + fallback DB query in `register()` + `res
 Root cause: `MatchDB` (flat `resultHome`/`resultAway`) was cast as `Match` (nested `result`) — guard was always false, `finishedMatchesMap` permanently empty, all users got 0 pts. Fixed in `hooks/usePointsProcessor.ts`: use `MatchDB` fields + hydrate teams; also added `.select()` write validation + `successfulUpdates[]` accumulator.
 
 **Phase 3 — Profile name:**  
-Verified working in production without code changes. Diagnostic approach in `completed/profile-sync-investigation.md` if it resurfaces.
+Verified working in production without code changes.
 
 ---
 
@@ -67,9 +80,16 @@ Verified working in production without code changes. Diagnostic approach in `com
 
 ---
 
+## Completed — UX Improvements (2026-05-11)
+
+- `components/MatchCard.tsx` — FIFA ranking (`#{n}`) rendered below each team name, conditionally when truthy
+- `components/RulesSection.tsx` — `minRankDiff` prop added (default 10); Zebra Bonus rule text now dynamic
+- `components/pages/MatchesPage.tsx` — passes `minRankDiff` down to `RulesSection`
+- Value chain already existed: `App.tsx` computes `currentGroup?.underdog_min_rank_diff ?? db.systemConfig.underdog_min_rank_diff ?? 10` and passes it through
+- `data/releases.ts` bumped to **v1.2.0** — modal "O que há de novo" aparecerá para todos os usuários
+
 ## Next Action
 
-Implement "What's New" modal. Plan ready at `.claude/plans/whats-new-modal.md`.  
-Start with `data/releases.ts` → `components/ui/WhatsNewModal.tsx` → wire into `App.tsx` → `changelog-updater` agent → `CLAUDE.md` rule.
+No planned features remain. Next step is production Vercel finalization (`docs/DEPLOY_VERCEL.md`).
 
 _Last updated: 2026-05-11_

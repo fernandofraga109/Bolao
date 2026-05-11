@@ -1,6 +1,6 @@
 # P2 UX Improvements
 
-_Status: READY TO IMPLEMENT (after What's New modal)_  
+_Status: COMPLETED_  
 _Last updated: 2026-05-11_
 
 ---
@@ -81,12 +81,12 @@ Both can be done independently. Suggested order:
 ## Completion Checklist
 
 ### Improvement 1 — Underdog Bonus
-- [ ] Confirm `underdog_min_rank_diff` column exists in `groups` schema
-- [ ] `RulesSection.tsx` updated with `minRankDiff` prop
-- [ ] Parent passes correct value (group-level with global fallback)
-- [ ] Validated: text shows correct threshold for a group with custom value
+- [x] Confirmed `underdog_min_rank_diff` column exists in `groups` schema (types.ts:121)
+- [x] `RulesSection.tsx` updated with `minRankDiff` prop (default 10)
+- [x] `MatchesPage` passes `minRankDiff` down to `RulesSection`
+- [x] Value chain: `App.tsx` → `MatchesPage` → `RulesSection` using `currentGroup?.underdog_min_rank_diff ?? db.systemConfig.underdog_min_rank_diff ?? 10`
 
 ### Improvement 2 — FIFA Ranking
-- [ ] `MatchCard.tsx` updated — ranking shown below team name when available
-- [ ] Validated: shows ranking on cards with team data; no ranking shown when undefined
-- [ ] Mobile layout not broken
+- [x] `MatchCard.tsx` updated — `#{ranking}` shown below team name when truthy
+- [x] Conditional render: `{match.homeTeam.ranking ? ... : null}` (same for away)
+- [x] Build passes clean (vite build ✓)

@@ -273,3 +273,9 @@ Scopes: auth, sync, matches, leaderboard, admin, ui, db, hooks
 - Feature agents (`frontend`, `backend`) must never touch test files — not even to fix a failing test
 - After implementing a feature, invoke the `test-runner` agent to write or update tests
 - If tests fail after a feature is implemented, the `test-runner` reports the failure and the feature agent fixes the implementation — never the other way around
+
+### Changelog Rules
+
+- After any significant feature merge, invoke the `changelog-updater` agent (`.claude/agents/changelog-updater.md`) to bump `CURRENT_VERSION` and prepend a new entry to `RELEASES` in `data/releases.ts`
+- The `changelog-updater` agent is the **only** agent authorized to edit `data/releases.ts`
+- `CURRENT_VERSION` in `data/releases.ts` is the single source of truth for the "What's New" modal

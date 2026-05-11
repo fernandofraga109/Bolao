@@ -228,7 +228,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
         </div>
       )}
 
-      {!isAdmin && <RulesSection />}
+      {!isAdmin && <RulesSection minRankDiff={minRankDiff} />}
 
       {!isAdmin && (
         <TopScorerCard

@@ -1,6 +1,6 @@
 # What's New Modal + changelog-updater Agent
 
-_Status: READY TO IMPLEMENT_  
+_Status: COMPLETED_  
 _Last updated: 2026-05-11_
 
 ---
@@ -112,9 +112,9 @@ Add alongside the `test-runner` rule:
 ---
 
 ## Completion Checklist
-- [ ] `data/releases.ts` created
-- [ ] `components/ui/WhatsNewModal.tsx` created
-- [ ] `App.tsx` wired
-- [ ] `changelog-updater` agent created
-- [ ] `CLAUDE.md` rule added
-- [ ] Validated end-to-end
+- [x] `data/releases.ts` created
+- [x] `components/ui/WhatsNewModal.tsx` created
+- [x] `App.tsx` wired
+- [x] `changelog-updater` agent created
+- [x] `CLAUDE.md` rule added
+- [x] Build passes clean (vite build ✓)

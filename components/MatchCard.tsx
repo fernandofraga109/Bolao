@@ -222,6 +222,9 @@ const MatchCard: React.FC<MatchCardProps> = ({
             <span className="text-xs font-black text-center text-slate-200 uppercase tracking-tight leading-none h-8 flex items-center">
               {match.homeTeam.name}
             </span>
+            {match.homeTeam.ranking ? (
+              <span className="text-[10px] text-slate-500 text-center">#{match.homeTeam.ranking}</span>
+            ) : null}
           </div>
 
           {/* Inputs/Results Container */}
@@ -333,6 +336,9 @@ const MatchCard: React.FC<MatchCardProps> = ({
             <span className="text-xs font-black text-center text-slate-200 uppercase tracking-tight leading-none h-8 flex items-center">
               {match.awayTeam.name}
             </span>
+            {match.awayTeam.ranking ? (
+              <span className="text-[10px] text-slate-500 text-center">#{match.awayTeam.ranking}</span>
+            ) : null}
           </div>
         </div>
 
