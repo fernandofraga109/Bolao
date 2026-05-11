@@ -156,13 +156,17 @@ export const useBackgroundSync = ({
       }
     };
 
-    // NÃO dispara tick() imediatamente.
-    // Motivo: o hook pode montar/remontar durante o boot do Supabase (auth changes,
-    // Realtime reconnect). Disparar imediatamente causaria o loop de requests
-    // observado. O primeiro tick acontece após CHECK_INTERVAL_MS.
+    // Dispara um tick inicial com delay curto para cobrir o caso de o app
+    // acabar de abrir com dados desatualizados.
+    // O delay de 20s dá tempo ao Supabase auth + Realtime estabilizarem antes
+    // de checar — evita o loop de requests observado durante o boot.
+    // Os guards em tick() (cooldown local + DB lastSync) garantem que a API
+    // não é chamada desnecessariamente se o dado já estiver fresco.
+    const initialId = setTimeout(() => void tick(), 20_000);
     const id = setInterval(() => void tick(), CHECK_INTERVAL_MS);
 
     return () => {
+      clearTimeout(initialId);
       clearInterval(id);
     };
   }, [enabled]); // só recria o interval se `enabled` mudar — props são lidas via refs
