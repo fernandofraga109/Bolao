@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { Match, MatchStatus, PredictionDB } from "../types";
+import { Match, MatchDB, MatchStatus, PredictionDB } from "../types";
 import { calculatePoints } from "../utils/scoring";
 import { supabase } from "../services/supabase";
 
@@ -9,12 +9,18 @@ export const usePointsProcessor = (dbRef: any) => {
     const uniqueGroupIds = Array.from(new Set(groupIds));
     console.log(`🔄 Iniciando recálculo in-memory para ${uniqueGroupIds.length} grupos:`, uniqueGroupIds);
 
-    // Precisamos dos matches atuais para os resultados oficiais e rankings
-    const allMatches = dbRef.current.matches as Match[];
+    // Hydrate raw MatchDB rows with team objects so calculatePoints can access rankings
+    const rawMatches = dbRef.current.matches as MatchDB[];
+    const teams = dbRef.current.teams as any[];
     const finishedMatchesMap = new Map<string, Match>();
-    allMatches.forEach(m => {
-      if (m.status === MatchStatus.FINISHED && m.result != null) {
-        finishedMatchesMap.set(m.id, m);
+    rawMatches.forEach(m => {
+      if (m.status === MatchStatus.FINISHED && m.resultHome != null && m.resultAway != null) {
+        finishedMatchesMap.set(m.id, {
+          ...m,
+          homeTeam: teams.find((t: any) => t.id === m.homeTeamId),
+          awayTeam: teams.find((t: any) => t.id === m.awayTeamId),
+          result: { home: m.resultHome, away: m.resultAway },
+        } as Match);
       }
     });
 
@@ -80,22 +86,32 @@ export const usePointsProcessor = (dbRef: any) => {
 
         console.log(`📤 Enviando classificação atualizada para o grupo ${groupId} (${finalUpdates.length} usuários)`);
 
-        let anyFailed = false;
+        const successfulUpdates: typeof finalUpdates = [];
         for (const update of finalUpdates) {
-          const { error: updateError } = await supabase
+          const { data: updated, error: updateError } = await supabase
             .from("user_groups")
             .update({ points: update.points })
             .eq("userId", update.userId)
-            .eq("groupId", update.groupId);
+            .eq("groupId", update.groupId)
+            .select("userId, groupId, points");
+
           if (updateError) {
             console.error(`❌ Erro ao atualizar pontos do membro ${update.userId}:`, updateError);
-            anyFailed = true;
+          } else if (!updated || updated.length === 0) {
+            console.error(`❌ Update matched 0 rows:`, { userId: update.userId, groupId: update.groupId });
+          } else {
+            successfulUpdates.push(update);
           }
         }
 
-        if (!anyFailed) {
+        if (successfulUpdates.length > 0) {
+          dbRef.current.updateLocalUserGroups(successfulUpdates);
+        }
+
+        if (successfulUpdates.length === finalUpdates.length) {
           console.log(`✨ Classificação sincronizada com sucesso para o grupo ${groupId}`);
-          dbRef.current.updateLocalUserGroups(finalUpdates);
+        } else {
+          console.warn(`⚠️ ${successfulUpdates.length}/${finalUpdates.length} pontos atualizados no grupo ${groupId}`);
         }
       }
     }
