@@ -50,22 +50,28 @@ The proxy injects the `X-Auth-Token` header and rewrites path parameters (compet
 
 ---
 
-## Known Limitation
+## Sync Trigger Model
 
-`useSyncSystem` runs via `setInterval` and only executes while the **admin dashboard tab is open**. If the tab is closed, sync stops.
+Sync is **user-triggered**: any user can request a sync from the UI. The original `setInterval` approach (admin-tab-only) was replaced with on-demand sync calls.
 
-**Planned fix:** Migrate sync to Supabase Edge Functions triggered by `pg_cron`. This will make sync server-side and tab-independent. This migration has not been started yet.
+**Status:** Mitigated. Real-time freshness (e.g. live scores auto-updating) is still not guaranteed without user action.
 
-Do not design new features that depend on sync being continuous — it is not.
+**Future upgrade path:** Supabase Edge Functions + `pg_cron` for fully server-side, tab-independent sync. Not started — consider if stale data becomes a user complaint.
+
+Do not design features that assume continuous background sync — it does not exist yet.
 
 ---
 
-## Migrations Applied
+## Migrations Applied (all applied to Supabase as of 2026-05-11)
 
 | Migration | Effect |
 |-----------|--------|
+| `0001_create_tables.sql` | Base schema |
+| `0002_fix_teams_fks_indexes.sql` | FK fixes and indexes |
 | `0003_teams_natural_key.sql` | UNIQUE(code, externalTeamId) on `teams` |
 | `0004_standings_group_nullable.sql` | `team_standings.group` nullable; PK = `(teamId, competitionCode)` |
+| `database/rls/current.sql` | RLS policies |
+| `database/seed/system_config.sql` | System config seed |
 
 ---
 

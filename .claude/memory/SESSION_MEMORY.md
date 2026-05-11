@@ -30,17 +30,6 @@ Files to create/modify:
 
 Logic: show modal when `localStorage.getItem('bolao_last_seen_version') !== CURRENT_VERSION`.
 
-### BACKLOG — Apply migrations to Supabase
-
-Run in order in SQL Editor:
-1. `database/migrations/0001_create_tables.sql`
-2. `database/migrations/0002_fix_teams_fks_indexes.sql`
-3. `database/migrations/0003_teams_natural_key.sql`
-4. `database/migrations/0004_standings_group_nullable.sql`
-5. `database/rls/current.sql`
-6. `database/seed/system_config.sql`
-
-After migrations: test full WC + BSA sync from admin dashboard. Verify WC groups show "Grupo A/B/..." and BSA shows single "Tabela" block.
 
 ### BACKLOG — Production deploy
 
@@ -49,6 +38,11 @@ Follow `docs/DEPLOY_VERCEL.md`. Create `vercel.json` first.
 ---
 
 ## Recently Completed
+
+### 2026-05-11 — Migrations aplicadas + tabela funcionando
+- Todas as migrations SQL (`0001`–`0004` + RLS + seed) aplicadas no Supabase
+- `TournamentStandings` exibindo corretamente: WC mostra grupos (GROUP_A, GROUP_B…), BSA mostra bloco único "Tabela"
+- Sync refatorado: qualquer usuário pode acionar manualmente (não mais restrito ao admin)
 
 ### 2026-05-11 — Memory system overhaul
 - Moved session memory from `docs/SESSION_MEMORY.md` → `.claude/memory/SESSION_MEMORY.md`
@@ -74,8 +68,7 @@ Follow `docs/DEPLOY_VERCEL.md`. Create `vercel.json` first.
 
 | Issue | Status |
 |-------|--------|
-| Sync only runs while admin tab is open | Known limitation — planned fix: Edge Functions + pg_cron (not started) |
-| Migrations not yet applied to Supabase | Pending manual run |
+| Sync is user-triggered, not automatic | Mitigated — any user can trigger sync (not just admin). Original plan (Edge Functions + pg_cron) still viable as upgrade if real-time freshness becomes a problem. |
 
 ---
 
