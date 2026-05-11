@@ -64,7 +64,7 @@ export const useMatchSystem = (
     }
   }, []);
 
-  const { recalculateUserGroupPoints, batchProcessPointsForMatches } = usePointsProcessor(dbRef);
+  const { recalculateUserGroupPoints, batchProcessPointsForMatches, updateLocalPointsWithLive } = usePointsProcessor(dbRef);
 
   const {
     isSyncing,
@@ -106,6 +106,15 @@ export const useMatchSystem = (
       .filter((m): m is Match => m !== null)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [db.matches, db.teams, activeCompetitionCode]);
+
+  useEffect(() => {
+    const liveMatches = matches.filter(
+      m => m.status === MatchStatus.LIVE && m.result != null
+    );
+    if (liveMatches.length > 0) {
+      updateLocalPointsWithLive(liveMatches.map(m => m.id));
+    }
+  }, [matches]);
 
   const tournamentResults: TournamentPredictions | null = useMemo(() => {
     const comp = db.competitions.find(

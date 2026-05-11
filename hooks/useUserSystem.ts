@@ -178,33 +178,22 @@ export const useUserSystem = () => {
     }
 
     let mounted = true;
+    // Safety net: if auth never resolves, unblock after 8s
+    const fallbackTimer = setTimeout(() => {
+      if (mounted) {
+        console.warn("[auth] fallback timeout — forcing authReady");
+        setAuthReady(true);
+      }
+    }, 8000);
 
     const syncSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
+      console.log("[syncSession] start");
+      try {
+        const { data } = await supabase.auth.getSession();
+        console.log("[syncSession] getSession done, user:", !!data.session?.user);
+        if (!mounted) return;
 
-      const sessionUser = data.session?.user ?? null;
-      if (sessionUser) {
-        await ensureProfileForAuthUser(
-          sessionUser.id,
-          sessionUser.email ?? "",
-          sessionUser.user_metadata ?? {},
-        );
-        setCurrentUserId(sessionUser.id);
-        localStorage.setItem("bolao_current_user_id", sessionUser.id);
-      } else {
-        setCurrentUserId(null);
-        localStorage.removeItem("bolao_current_user_id");
-      }
-
-      if (mounted) setAuthReady(true);
-    };
-
-    syncSession();
-
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        const sessionUser = session?.user ?? null;
+        const sessionUser = data.session?.user ?? null;
         if (sessionUser) {
           await ensureProfileForAuthUser(
             sessionUser.id,
@@ -217,12 +206,48 @@ export const useUserSystem = () => {
           setCurrentUserId(null);
           localStorage.removeItem("bolao_current_user_id");
         }
-        setAuthReady(true);
+      } catch (err) {
+        console.error("[syncSession] error:", err);
+      } finally {
+        console.log("[syncSession] finally, mounted:", mounted);
+        if (mounted) {
+          clearTimeout(fallbackTimer);
+          setAuthReady(true);
+        }
+      }
+    };
+
+    syncSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        console.log("[onAuthStateChange] event:", _event);
+        try {
+          const sessionUser = session?.user ?? null;
+          if (sessionUser) {
+            await ensureProfileForAuthUser(
+              sessionUser.id,
+              sessionUser.email ?? "",
+              sessionUser.user_metadata ?? {},
+            );
+            setCurrentUserId(sessionUser.id);
+            localStorage.setItem("bolao_current_user_id", sessionUser.id);
+          } else {
+            setCurrentUserId(null);
+            localStorage.removeItem("bolao_current_user_id");
+          }
+        } catch (err) {
+          console.error("[onAuthStateChange] error:", err);
+        } finally {
+          clearTimeout(fallbackTimer);
+          setAuthReady(true);
+        }
       },
     );
 
     return () => {
       mounted = false;
+      clearTimeout(fallbackTimer);
       listener.subscription.unsubscribe();
     };
   }, [ensureProfileForAuthUser]);

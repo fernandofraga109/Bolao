@@ -36,14 +36,17 @@ const SYNC_STATUS_STORAGE_KEY = "bolao_sync_status_by_competition";
 function buildExternalTeamMap(
   externalTeams: ExternalTeam[],
   memoryTeams: any[],
+  rankingMap: Record<string, number> = {},
 ): {
   teamByExtId: Map<number, any>;
   teamByCode: Map<string, any>;
   newTeamPayloads: any[];
+  existingTeamUpdates: any[];
 } {
   const teamByExtId = new Map<number, any>();
   const teamByCode = new Map<string, any>();
   const newTeamPayloads: any[] = [];
+  const existingTeamUpdates: any[] = [];
 
   // Index memory teams for fast lookup
   for (const t of memoryTeams) {
@@ -54,41 +57,62 @@ function buildExternalTeamMap(
   // Merge API teams into the map
   for (const et of externalTeams) {
     const tlaUpper = et.tla?.toUpperCase();
-    const existing =
-      (et.id ? teamByExtId.get(et.id) : undefined) ||
-      (tlaUpper ? teamByCode.get(tlaUpper) : undefined);
+    const existing = et.id
+      ? teamByExtId.get(et.id)
+      : (tlaUpper ? teamByCode.get(tlaUpper) : undefined);
 
     if (existing) {
-      // Se já existe e temos o ID externo, atualizamos o ID externo se estiver faltando
-      if (et.id && !existing.externalTeamId) existing.externalTeamId = et.id;
-      
-      // Indexamos nos dois mapas para garantir consistência
       if (et.id) teamByExtId.set(et.id, existing);
       if (tlaUpper) teamByCode.set(tlaUpper, existing);
+
+      // Build a DB update payload for fields that changed
+      if (existing.id) {
+        const patch: Record<string, any> = {
+          id: existing.id,
+          name: existing.name,
+          code: existing.code,
+          flag: existing.flag,
+        };
+        let hasPatch = false;
+
+        if (et.id && !existing.externalTeamId) {
+          existing.externalTeamId = et.id;
+          patch.externalTeamId = et.id;
+          hasPatch = true;
+        }
+
+        const newRanking = tlaUpper ? rankingMap[tlaUpper] : undefined;
+        if (newRanking !== undefined && existing.ranking !== newRanking) {
+          patch.ranking = newRanking;
+          hasPatch = true;
+        }
+
+        if (hasPatch) existingTeamUpdates.push(patch);
+      }
     } else {
       // New team discovered via /teams endpoint — schedule for creation
       const teamName = et.name || "TBD";
       const teamCode = et.tla || teamName.substring(0, 3).toUpperCase();
-      
+
       const payload = {
         name: teamName,
         code: teamCode,
         flag: et.crest || "/favicon.ico",
         externalTeamId: et.id,
-        ranking: 999,
+        ranking: rankingMap[teamCode.toUpperCase()] ?? null,
       };
-      
+
       newTeamPayloads.push(payload);
-      
-      // CRITICAL: Update maps immediately so subsequent duplicates in the same list 
+      console.log(`[SYNC] Novo time detectado: ${teamName} (${teamCode}, extId=${et.id})`);
+
+      // CRITICAL: Update maps immediately so subsequent duplicates in the same list
       // are skipped (marked as 'existing' but not yet in DB)
       if (et.id) teamByExtId.set(et.id, payload);
       if (payload.code) teamByCode.set(payload.code.toUpperCase(), payload);
     }
   }
 
-
-  return { teamByExtId, teamByCode, newTeamPayloads };
+  return { teamByExtId, teamByCode, newTeamPayloads, existingTeamUpdates };
 }
 
 export const useSyncSystem = (
@@ -205,11 +229,32 @@ export const useSyncSystem = (
           throw new Error("Nenhum jogo encontrado na API externa.");
         }
 
+        // ── FASE 1.5a: Buscar ranking map (usado nos dois pontos de criação de times) ──
+        const rankingMap = await getWcRankingMap();
+
+        // ── FASE 1.5: Upsert competition (satisfaz FK antes de matches/standings) ──
+        const competitionMeta =
+          (externalMatches[0] as any)?.competition ??
+          (standingsData as any)?.competition;
+        if (competitionMeta?.code && isSupabaseEnabled() && supabase) {
+          await supabase.from("competitions").upsert(
+            {
+              code: competitionMeta.code,
+              name: competitionMeta.name,
+              emblem: competitionMeta.emblem ?? null,
+              type: competitionMeta.type ?? null,
+              last_sync: new Date().toISOString(),
+            },
+            { onConflict: "code" },
+          );
+        }
+
         // ── FASE 2: Construir mapa de times ─────────────────────────────────
         // Start with what we already have in memory
-        const { teamByExtId, teamByCode, newTeamPayloads } = buildExternalTeamMap(
+        const { teamByExtId, teamByCode, newTeamPayloads, existingTeamUpdates } = buildExternalTeamMap(
           externalTeams,
           dbRef.current.teams,
+          normalizedCode === 'WC' ? rankingMap : {},
         );
 
         // Collect ALL teams referenced in matches and standings that aren't in the map yet
@@ -223,19 +268,23 @@ export const useSyncSystem = (
         for (const et of allReferencedExternalTeams) {
           if (!et) continue;
           const tlaUpper = et.tla?.toUpperCase();
-          const alreadyMapped =
-            (et.id && teamByExtId.has(et.id)) ||
-            (tlaUpper && teamByCode.has(tlaUpper));
+          const alreadyMapped = et.id
+            ? teamByExtId.has(et.id)
+            : (tlaUpper ? teamByCode.has(tlaUpper) : false);
 
           if (!alreadyMapped) {
+            // Skip TBD placeholder entries (knockout slots not yet filled by the API)
+            if (!et.id && (!et.tla || et.tla === "TBD")) continue;
+
             const teamName = (et as any).name || "TBD";
             const teamCode = et.tla || teamName.substring(0, 3).toUpperCase();
+            console.log(`[SYNC] Novo time em jogo/standings: ${teamName} (${teamCode}, extId=${et.id})`);
             const payload = {
               name: teamName,
               code: teamCode,
               flag: (et as any).crest || "/favicon.ico",
               externalTeamId: et.id,
-              ranking: 999,
+              ranking: normalizedCode === 'WC' ? (rankingMap[teamCode.toUpperCase()] ?? 999) : null,
             };
             newTeamPayloads.push(payload);
             // Pre-mark to avoid duplicates in this same loop
@@ -273,7 +322,8 @@ export const useSyncSystem = (
               .from("teams")
               .update({ externalTeamId: payload.externalTeamId })
               .eq("code", payload.code)
-              .is("externalTeamId", null); // só atualiza se ainda não tem
+              .is("externalTeamId", null) // só atualiza se ainda não tem
+              .limit(1); // evita colidir com dois times de mesmo TLA (ex: COR)
             // Ignoramos o erro propositalmente — se o time não existir pelo code, tudo bem.
           }
 
@@ -297,12 +347,50 @@ export const useSyncSystem = (
           }
         }
 
+        // Persist externalTeamId + ranking for teams matched via /api/teams response.
+        if (existingTeamUpdates.length > 0 && isSupabaseEnabled() && supabase) {
+          console.log(`[SYNC] Atualizando ${existingTeamUpdates.length} times existentes (externalTeamId/ranking via /api/teams)...`);
+          const { error: updateError } = await supabase
+            .from("teams")
+            .upsert(existingTeamUpdates, { onConflict: "id" });
+          if (updateError) {
+            console.warn("[SYNC] Erro ao atualizar times existentes:", updateError.message);
+          }
+        }
+
+        // Apply rankingMap only to teams that participate in WC matches.
+        // Filtering by WC match participation prevents non-WC teams (from other competitions)
+        // from accidentally receiving a FIFA ranking just because their code appears in the ranking file.
+        if (normalizedCode === 'WC' && Object.keys(rankingMap).length > 0 && isSupabaseEnabled() && supabase) {
+          const wcTeamIds = new Set<string>(
+            (dbRef.current.matches as any[])
+              .filter((m) => m.competitionCode === 'WC')
+              .flatMap((m) => [m.homeTeamId, m.awayTeamId])
+              .filter(Boolean)
+          );
+          const rankingPatches = (dbRef.current.teams as any[])
+            .filter((t) => t.id && t.code && wcTeamIds.has(t.id))
+            .reduce<any[]>((acc, t) => {
+              const newRanking = rankingMap[t.code.toUpperCase()];
+              if (newRanking !== undefined && t.ranking !== newRanking) {
+                acc.push({ id: t.id, name: t.name, code: t.code, flag: t.flag, ranking: newRanking });
+              }
+              return acc;
+            }, []);
+
+          if (rankingPatches.length > 0) {
+            console.log(`[SYNC] Atualizando ranking de ${rankingPatches.length} times via team-ranking.json...`);
+            const { error: rankErr } = await supabase
+              .from("teams")
+              .upsert(rankingPatches, { onConflict: "id" });
+            if (rankErr) console.warn("[SYNC] Erro ao atualizar rankings:", rankErr.message);
+          }
+        }
 
         // ── FASE 3: Processar Matches ────────────────────────────────────────
-        const rankingMap = normalizedCode === "WC" ? await getWcRankingMap() : {};
-
         const hydratedInternalMatches = dbRef.current.matches.map((m: any) => ({
           ...m,
+          result: m.resultHome != null ? { home: m.resultHome, away: m.resultAway } : undefined,
           homeTeam: dbRef.current.teams.find((t: any) => t.id === m.homeTeamId),
           awayTeam: dbRef.current.teams.find((t: any) => t.id === m.awayTeamId),
         }));
@@ -313,9 +401,8 @@ export const useSyncSystem = (
         for (const em of externalMatches) {
           const status = mapExternalStatusToInternal(em.status);
           
-          // Extração robusta do placar (tenta fullTime, depois regularTime)
-          const homeScore = em.score?.fullTime?.home ?? em.score?.regularTime?.home;
-          const awayScore = em.score?.fullTime?.away ?? em.score?.regularTime?.away;
+          const homeScore = em.score?.fullTime?.home;
+          const awayScore = em.score?.fullTime?.away;
           
           const result = homeScore != null ? { home: homeScore, away: awayScore } : undefined;
 
@@ -327,8 +414,8 @@ export const useSyncSystem = (
 
             const hasChanged =
               existing.status !== status ||
-              (homeScore != null && existing.resultHome !== homeScore) ||
-              (awayScore != null && existing.resultAway !== awayScore);
+              (homeScore != null && existing.result?.home !== homeScore) ||
+              (awayScore != null && existing.result?.away !== awayScore);
 
 
 
@@ -481,6 +568,16 @@ export const useSyncSystem = (
         let standingsMessage = "Classificação não disponível.";
         let standingsSuccess = false;
 
+        // Build team→group map from matches (WC standings API returns group:null;
+        // group assignments only exist in match data for group-stage matches).
+        const teamGroupFromMatches = new Map<number, string>();
+        for (const em of externalMatches) {
+          if (em.group && em.stage === "GROUP_STAGE") {
+            if (em.homeTeam?.id) teamGroupFromMatches.set(em.homeTeam.id, em.group);
+            if (em.awayTeam?.id) teamGroupFromMatches.set(em.awayTeam.id, em.group);
+          }
+        }
+
         if (standingsData?.standings) {
           const standingUpserts: any[] = [];
 
@@ -488,14 +585,18 @@ export const useSyncSystem = (
             if (group.type !== "TOTAL") continue;
 
             for (const row of group.table) {
-              const team =
-                (row.team.id && teamByExtId.get(row.team.id)) ||
-                (row.team.tla && teamByCode.get(row.team.tla.toUpperCase()));
+              const team = row.team.id
+                ? teamByExtId.get(row.team.id)
+                : (row.team.tla ? teamByCode.get(row.team.tla.toUpperCase()) : undefined);
 
               if (!team) {
                 console.warn(`[SYNC] Time não encontrado para standings: ${row.team.name}`);
                 continue;
               }
+
+              const resolvedGroup =
+                group.group ||
+                (row.team.id ? teamGroupFromMatches.get(row.team.id) ?? null : null);
 
               standingUpserts.push({
                 teamId: team.id,
@@ -503,7 +604,7 @@ export const useSyncSystem = (
                 season: standingsData.filters?.season || season,
                 stage: group.stage,
                 type: group.type,
-                group: group.group || "Temporada Regular",
+                group: resolvedGroup,
                 position: row.position,
                 playedGames: row.playedGames,
                 form: row.form,
@@ -524,9 +625,14 @@ export const useSyncSystem = (
             // Some APIs return the same team+group combination multiple times
             const uniqueStandings = new Map<string, any>();
             for (const s of standingUpserts) {
-              const key = `${s.teamId}|${s.competitionCode}|${s.group}`;
-              // Last entry wins (most up-to-date data)
-              uniqueStandings.set(key, s);
+              const key = `${s.teamId}|${s.competitionCode}`;
+              const existing = uniqueStandings.get(key);
+              // Prefer entries with a specific group over null-group aggregate entries.
+              // APIs like Football Data return both "Group A" rows AND an aggregate
+              // null-group row for the same teams — null must not overwrite the group.
+              if (!existing || (existing.group === null && s.group !== null)) {
+                uniqueStandings.set(key, s);
+              }
             }
             const deduplicatedStandings = Array.from(uniqueStandings.values());
 
@@ -534,7 +640,7 @@ export const useSyncSystem = (
             const { error: standingsError } = await supabase
               .from("team_standings")
               .upsert(deduplicatedStandings, {
-                onConflict: "teamId, competitionCode, group",
+                onConflict: "teamId, competitionCode",
               });
 
             if (standingsError) {

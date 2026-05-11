@@ -27,3 +27,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code -- ephemeral AI artifacts (keep memory versioned)
+.claude/cache/
+.claude/history/
+.claude/tmp/

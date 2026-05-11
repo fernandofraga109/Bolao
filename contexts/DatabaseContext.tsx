@@ -4,10 +4,12 @@ import React, {
   useState,
   useEffect,
   useMemo,
+  useCallback,
   ReactNode,
 } from "react";
 import {
   UserDB,
+  UserRole,
   GroupDB,
   UserGroupDB,
   MatchDB,
@@ -21,7 +23,7 @@ import {
   TeamStandingsDB,
 } from "../types";
 import { INITIAL_DB } from "../data/initialData";
-import { supabase, isSupabaseEnabled } from "../services/supabase";
+import { supabase, isSupabaseEnabled, SUPABASE_SCHEMA } from "../services/supabase";
 
 const SYSTEM_CONFIG_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -107,6 +109,7 @@ interface DatabaseContextType {
   deleteUser: (id: string) => Promise<void>;
 
   addGroup: (group: GroupDB) => Promise<void>;
+  updateGroup: (id: string, data: Partial<GroupDB>) => Promise<void>;
   deleteGroup: (id: string) => Promise<void>;
 
   addUserToGroup: (relation: UserGroupDB) => Promise<void>;
@@ -123,6 +126,9 @@ interface DatabaseContextType {
 
   updateSystemConfig: (data: Partial<SystemConfigDB>) => Promise<void>;
   updateLocalUserGroups: (updates: UserGroupDB[]) => void;
+  refetchMatches: () => Promise<void>;
+  refetchTeamStandings: () => Promise<void>;
+  refetchPredictions: () => Promise<void>;
 }
 
 const DatabaseContext = createContext<DatabaseContextType | undefined>(
@@ -134,6 +140,7 @@ const DEFAULT_CONFIG: SystemConfigDB = {
   id: SYSTEM_CONFIG_ID,
   is_auto_sync_enabled: false,
   sync_interval_ms: 60000,
+  underdog_min_rank_diff: 10,
 };
 
 const mergeMatchIntoList = (list: MatchDB[], incoming: MatchDB): MatchDB[] => {
@@ -576,42 +583,42 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       .channel("db-realtime-changes")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "matches" },
+        { event: "*", schema: SUPABASE_SCHEMA, table:"matches" },
         handleRealtimeEvent,
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "predictions" },
+        { event: "*", schema: SUPABASE_SCHEMA, table:"predictions" },
         handleRealtimeEvent,
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "tournament_predictions" },
+        { event: "*", schema: SUPABASE_SCHEMA, table:"tournament_predictions" },
         handleRealtimeEvent,
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "user_roles" },
+        { event: "*", schema: SUPABASE_SCHEMA, table:"user_roles" },
         handleRealtimeEvent,
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "groups" },
+        { event: "*", schema: SUPABASE_SCHEMA, table:"groups" },
         handleRealtimeEvent,
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "user_groups" },
+        { event: "*", schema: SUPABASE_SCHEMA, table:"user_groups" },
         handleRealtimeEvent,
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "system_config" },
+        { event: "*", schema: SUPABASE_SCHEMA, table:"system_config" },
         handleRealtimeEvent,
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "competitions" },
+        { event: "*", schema: SUPABASE_SCHEMA, table:"competitions" },
         handleRealtimeEvent,
       )
       .subscribe((status) => {
@@ -696,6 +703,14 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
           .single();
 
         if (existingRole) {
+          // Correct local state if DB role differs from optimistic value (e.g., ADMIN logged in as new session)
+          if (existingRole.role && existingRole.role !== user.role) {
+            setUsers((prev) =>
+              prev.map((u) =>
+                u.id === user.id ? { ...u, role: existingRole.role as UserRole } : u,
+              ),
+            );
+          }
           // Update other fields but NOT the role if it's already set (to prevent demotion)
           await supabase
             .from("user_roles")
@@ -761,6 +776,13 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     setGroups((prev) => mergeGroupIntoList(prev, group));
     if (isSupabaseEnabled() && supabase) {
       await supabase.from("groups").insert(group);
+    }
+  };
+
+  const updateGroup = async (id: string, data: Partial<GroupDB>) => {
+    setGroups((prev) => prev.map((g) => (g.id === id ? { ...g, ...data } : g)));
+    if (isSupabaseEnabled() && supabase) {
+      await supabase.from("groups").update(data).eq("id", id);
     }
   };
 
@@ -1103,6 +1125,32 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
+  const refetchMatches = useCallback(async () => {
+    if (!isSupabaseEnabled() || !supabase) return;
+    const { data } = await supabase.from("matches").select("*");
+    if (data) {
+      const deduped = (data as MatchDB[]).reduce(
+        (acc, item) => mergeMatchIntoList(acc, item),
+        [] as MatchDB[],
+      );
+      setMatches(deduped);
+    }
+  }, []);
+
+  const refetchTeamStandings = useCallback(async () => {
+    if (!isSupabaseEnabled() || !supabase) return;
+    const { data } = await supabase.from("team_standings").select("*");
+    if (data) setTeamStandings(data as any[]);
+  }, []);
+
+  const refetchPredictions = useCallback(async () => {
+    if (!isSupabaseEnabled() || !supabase) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+    const { data } = await supabase.from("predictions").select("*");
+    if (data) setPredictions(data as PredictionDB[]);
+  }, []);
+
   return (
     <DatabaseContext.Provider
       value={useMemo(() => ({
@@ -1121,6 +1169,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         updateUser,
         deleteUser,
         addGroup,
+        updateGroup,
         deleteGroup,
         addUserToGroup,
         removeUserFromGroup,
@@ -1149,6 +1198,9 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         upsertPrediction,
         upsertTournamentPrediction,
         updateSystemConfig,
+        refetchMatches,
+        refetchTeamStandings,
+        refetchPredictions,
       }), [
         competitions,
         users,
@@ -1164,6 +1216,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         updateUser,
         deleteUser,
         addGroup,
+        updateGroup,
         deleteGroup,
         addUserToGroup,
         removeUserFromGroup,
@@ -1175,6 +1228,9 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         upsertPrediction,
         upsertTournamentPrediction,
         updateSystemConfig,
+        refetchMatches,
+        refetchTeamStandings,
+        refetchPredictions,
       ])}
     >
       {children}

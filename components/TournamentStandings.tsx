@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { Match, MatchStatus, Team, TeamDB } from "../types";
+import { COMPETITION_OPTIONS } from "../data/competitions";
 import {
   Table2,
   GitMerge,
@@ -93,7 +94,9 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
       const mapped: Record<string, TeamStats[]> = {};
 
       groupsData.forEach((groupEntry) => {
-        const groupName = normalizeGroupName(groupEntry.group || "Grupo");
+        const groupName = groupEntry.group
+          ? normalizeGroupName(groupEntry.group)
+          : "Tabela";
         const rows = Array.isArray(groupEntry.table) ? groupEntry.table : [];
 
         const mappedRows = rows.map((row) => {
@@ -150,7 +153,9 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
 
       if (!standing) return;
 
-      const groupName = normalizeGroupName(standing.group || "Temporada Regular");
+      const groupName = standing.group
+        ? normalizeGroupName(standing.group)
+        : "Tabela";
       if (!grouped[groupName]) grouped[groupName] = [];
 
       const team: Team = {
@@ -457,15 +462,9 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
       return dbComp.type === "LEAGUE";
     }
 
-    // Fallback: hardcoded list for when catalog hasn't been synced yet
-    const leagueCodes = ["PL", "PD", "SA", "BL1", "FL1", "BSA"];
-    if (leagueCodes.includes(competitionCode.toUpperCase())) return true;
-
-    const keys = Object.keys(resolvedStandings);
-    if (keys.length === 0) return false;
     return (
-      keys.length === 1 &&
-      (keys[0] === "Temporada Regular" || keys[0] === "Classificacao Geral")
+      COMPETITION_OPTIONS.find((c) => c.code === competitionCode.toUpperCase())
+        ?.type === "LEAGUE"
     );
   }, [resolvedStandings, competitionCode, db.competitions]);
 
@@ -593,9 +592,9 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
               <p>Nenhum jogo cadastrado ainda.</p>
             </div>
           ) : (
-            (
-              Object.entries(groupStageStandings) as [string, TeamStats[]][]
-            ).map(([groupName, teams]) => (
+            (Object.entries(groupStageStandings) as [string, TeamStats[]][])
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([groupName, teams]) => (
               <div
                 key={groupName}
                 className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-sm"
@@ -695,7 +694,7 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
                           <GitMerge size={16} />
                         </div>
                         <h3 className="text-white font-bold text-sm uppercase tracking-wider">
-                          {(groupName === "null" ? "Temporada Regular" : groupName).replace(/_/g, " ")}
+                          {groupName}
                         </h3>
                       </div>
                       {isOpen ? (

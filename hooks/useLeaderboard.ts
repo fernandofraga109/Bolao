@@ -35,7 +35,7 @@ export const useLeaderboard = (
         matches.forEach((match) => {
           const pred = user.predictions[match.id];
           if (
-            match.status === MatchStatus.FINISHED &&
+            (match.status === MatchStatus.FINISHED || match.status === MatchStatus.LIVE) &&
             match.result &&
             pred
           ) {

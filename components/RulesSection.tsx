@@ -32,7 +32,11 @@ const RulesSection: React.FC = () => {
                     <span className="bg-blue-600 text-white font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[36px] text-center">5pts</span>
                     <span><b>Vencedor:</b> Acertou apenas quem ganhou ou que deu empate.</span>
                 </li>
-                
+                <li className="flex items-start gap-2">
+                    <span className="bg-yellow-400/80 text-black font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[36px] text-center">+1-5</span>
+                    <span><b>Bônus Zebra:</b> Bônus extra quando um time zebra vence. Aplicado apenas quando a diferença de ranking FIFA for maior que 10 posições (+1pt a +5pts).</span>
+                </li>
+
                 <li className="pt-2 font-bold text-indigo-300">Bônus Especiais (100pts cada):</li>
                 
                 <li className="grid grid-cols-2 gap-x-2 gap-y-1">

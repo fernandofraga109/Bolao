@@ -32,9 +32,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections }) => {
   const getRankIcon = (rank: number) => {
     switch (rank) {
       case 1:
-        return <Trophy className="text-yellow-400 w-6 h-6 animate-bounce-slow" />;
+        return <Trophy className="text-brand-gold w-6 h-6 animate-bounce-slow drop-shadow-[0_0_6px_rgba(245,158,11,0.6)]" />;
       case 2:
-        return <Medal className="text-gray-300 w-6 h-6" />;
+        return <Medal className="text-slate-300 w-6 h-6" />;
       case 3:
         return <Medal className="text-amber-600 w-6 h-6" />;
       default:
@@ -44,6 +44,21 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections }) => {
           </span>
         );
     }
+  };
+
+  const getRankRowStyle = (rank: number, isMe: boolean) => {
+    if (isMe) return "bg-brand-green/5";
+    if (rank === 1) return "bg-brand-gold/5";
+    if (rank === 2) return "bg-white/[0.02]";
+    if (rank === 3) return "bg-amber-900/10";
+    return "";
+  };
+
+  const getRankAccent = (rank: number) => {
+    if (rank === 1) return "border-l-2 border-brand-gold/50";
+    if (rank === 2) return "border-l-2 border-slate-400/25";
+    if (rank === 3) return "border-l-2 border-amber-600/30";
+    return "border-l-2 border-transparent";
   };
 
   // Mock variation based on userId to demonstrate UI
@@ -116,7 +131,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections }) => {
                     return (
                       <div
                         key={user.id}
-                        className={`group relative flex items-center justify-between p-5 hover:bg-slate-700/20 transition-all ${user.id === "me" ? "bg-brand-green/5" : ""}`}
+                        className={`group relative flex items-center justify-between p-5 hover:bg-slate-700/20 transition-all ${getRankRowStyle(user.rank, user.id === "me")} ${getRankAccent(user.rank)}`}
                       >
                         <div className="flex items-center gap-5 z-10">
                           <div className="flex flex-col items-center justify-center w-8">
@@ -167,7 +182,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections }) => {
 
                         <div className="text-right z-10">
                           <div className="flex items-baseline justify-end gap-1">
-                            <span className="text-2xl font-black text-white leading-none">
+                            <span className={`text-2xl font-black leading-none ${user.rank === 1 ? "text-brand-gold" : "text-white"}`}>
                               {user.totalPoints}
                             </span>
                             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
@@ -190,15 +205,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections }) => {
         </div>
       )}
       
-      <style>{`
-        @keyframes bounce-slow {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-3px); }
-        }
-        .animate-bounce-slow {
-          animation: bounce-slow 2.5s ease-in-out infinite;
-        }
-      `}</style>
     </div>
   );
 };

@@ -3,13 +3,7 @@ import { Match, User, TournamentPredictions } from "../../types";
 import MatchCard from "../MatchCard";
 import RulesSection from "../RulesSection";
 import TopScorerCard from "../TopScorerCard";
-import {
-  CalendarDays,
-  History,
-  ChevronDown,
-  ChevronUp,
-  PlusCircle,
-} from "lucide-react";
+import { CalendarDays, History, ChevronDown, ChevronUp, Zap, Users } from "lucide-react";
 
 // --- Helper: Date Group Accordion ---
 interface MatchGroupProps {
@@ -23,6 +17,7 @@ interface MatchGroupProps {
   isAdmin: boolean;
   onFinishMatch: (id: string, h: number, a: number) => void;
   isToday?: boolean;
+  minRankDiff?: number;
 }
 
 const MatchGroup: React.FC<MatchGroupProps> = ({
@@ -36,6 +31,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
   isAdmin,
   onFinishMatch,
   isToday,
+  minRankDiff,
 }) => {
   const [isOpen, setIsOpen] = useState(isOpenDefault);
 
@@ -90,6 +86,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
               onPredict={onPredict}
               isAdmin={isAdmin}
               onFinishMatch={onFinishMatch}
+              minRankDiff={minRankDiff}
             />
           ))}
         </div>
@@ -101,6 +98,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
 // --- Main Page ---
 interface MatchesPageProps {
   matches: Match[];
+  userHasGroup: boolean;
   userPredictions: Record<string, { home: number; away: number; points?: number }>;
   leaderboardData: any[];
   currentUser: User;
@@ -112,10 +110,13 @@ interface MatchesPageProps {
   onPredict: (id: string, h: number, a: number) => Promise<void>;
   onFinishMatch: (id: string, h: number, a: number) => void;
   onPredictTournament: (predictions: TournamentPredictions) => void;
+  onOpenGroupSwitcher?: () => void;
+  minRankDiff?: number;
 }
 
 const MatchesPage: React.FC<MatchesPageProps> = ({
   matches,
+  userHasGroup,
   userPredictions,
   leaderboardData,
   currentUser,
@@ -127,6 +128,8 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
   onPredict,
   onFinishMatch,
   onPredictTournament,
+  onOpenGroupSwitcher,
+  minRankDiff,
 }) => {
   const [isPastMatchesOpen, setIsPastMatchesOpen] = useState(false);
 
@@ -186,7 +189,27 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
 
   return (
     <div className="space-y-6">
-      {matches.length === 0 && (
+      {matches.length === 0 && !userHasGroup && (
+        <div className="text-center py-10 border border-slate-700 rounded-xl bg-slate-800/50 border-dashed space-y-3">
+          <Users className="mx-auto text-slate-500" size={32} />
+          <p className="text-slate-300 text-sm font-semibold">
+            Você ainda não está em um grupo
+          </p>
+          <p className="text-slate-500 text-xs">
+            Entre em um grupo para começar a palpitar.
+          </p>
+          {onOpenGroupSwitcher && (
+            <button
+              onClick={() => onOpenGroupSwitcher()}
+              className="mt-2 bg-brand-green text-brand-dark rounded-xl font-black uppercase tracking-widest px-5 py-2 text-xs hover:bg-emerald-400 transition-colors"
+            >
+              Entrar em um grupo
+            </button>
+          )}
+        </div>
+      )}
+
+      {matches.length === 0 && userHasGroup && (
         <div className="text-center py-8 border border-slate-700 rounded-xl bg-slate-800/50 border-dashed">
           <p className="text-slate-300 text-sm mb-3">
             Nenhum jogo encontrado.
@@ -211,7 +234,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
         <TopScorerCard
           prediction={currentUser.tournamentPredictions}
           onPredict={onPredictTournament}
-          lockDate={lockDate}
+          lockDate={lockDate ? new Date(lockDate) : new Date(0)}
           finalResult={tournamentResults}
         />
       )}
@@ -255,10 +278,35 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
                     onPredict={onPredict}
                     isAdmin={isAdmin}
                     onFinishMatch={onFinishMatch}
+                    minRankDiff={minRankDiff}
                   />
                 ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Today's Matches Hero */}
+      {todayMatches.length > 0 && (
+        <div className="bg-gradient-to-br from-brand-green/15 via-brand-green/8 to-transparent border border-brand-green/20 rounded-2xl p-5 relative overflow-hidden animate-fadeIn">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-brand-green/10 blur-2xl rounded-full -mr-8 -mt-8 pointer-events-none" />
+          <div className="relative flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Zap size={14} className="text-brand-green fill-brand-green" />
+                <span className="text-[10px] font-black text-brand-green uppercase tracking-[0.2em]">Hoje</span>
+              </div>
+              <p className="text-white font-black text-lg tracking-tight leading-none">
+                {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
+              </p>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <span className="text-3xl font-black text-brand-green leading-none">{todayMatches.length}</span>
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                {todayMatches.length === 1 ? "jogo" : "jogos"}
+              </span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -274,6 +322,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
         onPredict={onPredict}
         isAdmin={isAdmin}
         onFinishMatch={onFinishMatch}
+        minRankDiff={minRankDiff}
       />
 
       {todayMatches.length === 0 &&
@@ -301,6 +350,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
             onPredict={onPredict}
             isAdmin={isAdmin}
             onFinishMatch={onFinishMatch}
+            minRankDiff={minRankDiff}
           />
         ))}
     </div>

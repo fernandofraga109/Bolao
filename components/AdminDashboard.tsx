@@ -517,27 +517,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       {rankingSyncResult.errors.some((e) =>
                         e.includes("403"),
                       ) && (
-                        <div className="mt-3 bg-yellow-900/30 border border-yellow-600/50 rounded p-3 text-[11px]">
-                          <p className="text-yellow-300 font-bold mb-1">
-                            ⚠️ Erro 403: Permissão Negada
-                          </p>
-                          <p className="text-yellow-200 mb-2">
-                            Execute este script SQL no Supabase SQL Editor:
-                          </p>
-                          <div className="bg-slate-950 p-2 rounded border border-slate-700 font-mono text-[9px] text-green-400 overflow-x-auto">
-                            <code>
-                              GRANT UPDATE (ranking) ON public.teams TO
-                              authenticated;
-                            </code>
+                          <div className="mt-3 bg-yellow-900/30 border border-yellow-600/50 rounded p-3 text-[11px]">
+                            <p className="text-yellow-300 font-bold mb-1">
+                              ⚠️ Erro 403: Permissão Negada
+                            </p>
+                            <p className="text-yellow-200 mb-2">
+                              Execute este script SQL no Supabase SQL Editor:
+                            </p>
+                            <div className="bg-slate-950 p-2 rounded border border-slate-700 font-mono text-[9px] text-green-400 overflow-x-auto">
+                              <code>
+                                GRANT UPDATE (ranking) ON public.teams TO
+                                authenticated;
+                              </code>
+                            </div>
+                            <p className="text-yellow-200 mt-2">
+                              Ou execute o script:{" "}
+                              <span className="font-mono text-blue-400">
+                                database/sql/supabase_fix_team_ranking_update.sql
+                              </span>
+                            </p>
                           </div>
-                          <p className="text-yellow-200 mt-2">
-                            Ou execute o script:{" "}
-                            <span className="font-mono text-blue-400">
-                              database/sql/supabase_fix_team_ranking_update.sql
-                            </span>
-                          </p>
-                        </div>
-                      )}
+                        )}
                     </>
                   )}
                 </div>
@@ -767,11 +767,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="relative z-20">
             <button
               onClick={() => setShowSyncMenu(!showSyncMenu)}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg border transition-all ${
-                isAutoSyncEnabled
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg border transition-all ${isAutoSyncEnabled
                   ? "bg-slate-800 border-green-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
                   : "bg-slate-800 border-slate-700 hover:border-slate-600"
-              }`}
+                }`}
             >
               <div
                 className={`p-1.5 rounded-full ${isAutoSyncEnabled ? "bg-green-500/20 text-green-500" : "bg-slate-700 text-slate-400"}`}
@@ -835,6 +834,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <option value={15000}>15 segundos (Rápido)</option>
                       <option value={30000}>30 segundos</option>
                       <option value={60000}>1 minuto (Recomendado)</option>
+                      <option value={180000}>3minuto</option>
                       <option value={300000}>5 minutos</option>
                       <option value={600000}>10 minutos</option>
                     </select>
@@ -849,6 +849,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       A atualização consome cotas da API. Use "15 segundos"
                       apenas durante jogos importantes.
                     </p>
+                  </div>
+
+                  {/* Zebra Bonus Global Config */}
+                  <div className="space-y-2">
+                    <label className="text-xs text-slate-500 uppercase font-bold flex items-center gap-2">
+                      <Zap size={12} className="text-amber-400" /> Bônus Zebra — Mínimo de Ranking
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={db.systemConfig.underdog_min_rank_diff ?? 10}
+                        onChange={(e) =>
+                          db.updateSystemConfig({ underdog_min_rank_diff: Number(e.target.value) })
+                        }
+                        className="w-20 px-2 py-2 text-sm bg-slate-900 border border-slate-600 rounded-lg text-white text-center outline-none focus:border-amber-500"
+                      />
+                      <span className="text-xs text-slate-400">posições de diferença no ranking FIFA para ativar o bônus zebra (padrão global)</span>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -1231,6 +1251,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   Nenhum membro neste grupo.
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Zebra Bonus Override */}
+          <div className="mt-6 pt-6 border-t border-slate-700">
+            <h3 className="text-amber-400 font-bold mb-3 flex items-center gap-2 text-sm uppercase tracking-wider">
+              <Zap size={16} className="text-amber-400" /> Bônus Zebra
+            </h3>
+            <div className="bg-amber-900/10 border border-amber-500/20 rounded-lg p-4">
+              <p className="text-xs text-slate-400 mb-3">
+                Override do mínimo de diferença de ranking FIFA para ativar o bônus zebra neste grupo.
+                Deixe vazio para usar o padrão global ({db.systemConfig.underdog_min_rank_diff ?? 10}).
+              </p>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  placeholder={String(db.systemConfig.underdog_min_rank_diff ?? 10)}
+                  value={group.underdog_min_rank_diff ?? ""}
+                  onChange={async (e) => {
+                    const val = e.target.value === "" ? null : Number(e.target.value);
+                    await db.updateGroup(group.id, { underdog_min_rank_diff: val });
+                  }}
+                  className="w-24 px-2 py-2 text-sm bg-slate-900 border border-slate-600 rounded-lg text-white text-center outline-none focus:border-amber-500"
+                />
+                <span className="text-xs text-slate-400">posições de diferença no ranking FIFA</span>
+              </div>
             </div>
           </div>
 

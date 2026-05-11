@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
-import { CheckCircle2, AlertTriangle, XCircle, X, RefreshCw } from "lucide-react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { CheckCircle2, AlertTriangle, XCircle, X, RefreshCw, Clock } from "lucide-react";
 
 export type SyncToastVariant = "success" | "warning" | "error" | "syncing";
 
@@ -10,6 +10,7 @@ export interface SyncToastItem {
   variant: SyncToastVariant;
   message?: string;
   timestamp: number;
+  startedAt?: number;
 }
 
 interface SyncToastProps {
@@ -52,11 +53,20 @@ const VARIANT_CONFIG: Record<
 };
 
 const AUTO_DISMISS_MS: Record<SyncToastVariant, number> = {
-  success: 4000,
-  warning: 6000,
-  error: 8000,
+  success: 6000,
+  warning: 8000,
+  error: 10000,
   syncing: 0, // não auto-dismissar enquanto sincroniza
 };
+
+function formatTime(ts: number) {
+  return new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatDuration(ms: number) {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
 
 const SyncToastCard: React.FC<{
   toast: SyncToastItem;
@@ -65,12 +75,18 @@ const SyncToastCard: React.FC<{
   const [visible, setVisible] = useState(false);
   const config = VARIANT_CONFIG[toast.variant];
   const dismissMs = AUTO_DISMISS_MS[toast.variant];
+  const isSyncing = toast.variant === "syncing";
+
+  const meta = useMemo(() => {
+    if (isSyncing) return null;
+    const timeLabel = formatTime(toast.timestamp);
+    const duration = toast.startedAt ? formatDuration(toast.timestamp - toast.startedAt) : null;
+    return { timeLabel, duration };
+  }, [isSyncing, toast.timestamp, toast.startedAt]);
 
   useEffect(() => {
-    // Animate in
     const t1 = setTimeout(() => setVisible(true), 10);
 
-    // Auto-dismiss
     let t2: ReturnType<typeof setTimeout> | undefined;
     if (dismissMs > 0) {
       t2 = setTimeout(() => {
@@ -98,35 +114,51 @@ const SyncToastCard: React.FC<{
         ${config.bg} ${config.border}
         ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}
       `}
-      style={{ minWidth: 220, maxWidth: 300 }}
+      style={{ minWidth: 240, maxWidth: 320 }}
     >
       {/* Dot indicator */}
       <span
         className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${config.dot} ${
-          toast.variant === "syncing" ? "animate-pulse" : ""
+          isSyncing ? "animate-pulse" : ""
         }`}
       />
 
       {/* Content */}
       <div className="flex-1 min-w-0">
+        {/* Header row: icon + name + label */}
         <div className="flex items-center gap-1.5">
           {config.icon}
-          <span className="text-xs font-bold text-white tracking-wide">
+          <span className="text-xs font-bold text-white tracking-wide truncate">
             {toast.competitionName || toast.competitionCode}
           </span>
-          <span className="text-[10px] text-slate-400 font-mono uppercase ml-auto">
+          <span className="text-[10px] text-slate-400 font-mono uppercase ml-auto shrink-0">
             {config.label}
           </span>
         </div>
+
+        {/* Message */}
         {toast.message && (
           <p className="text-[11px] text-slate-300 mt-0.5 leading-tight line-clamp-2">
             {toast.message}
           </p>
         )}
+
+        {/* Meta row: time + duration */}
+        {meta && (
+          <div className="flex items-center gap-2 mt-1">
+            <span className="flex items-center gap-0.5 text-[10px] text-slate-500">
+              <Clock size={9} />
+              {meta.timeLabel}
+            </span>
+            {meta.duration && (
+              <span className="text-[10px] text-slate-500">· {meta.duration}</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Dismiss button (não mostrar para syncing) */}
-      {toast.variant !== "syncing" && (
+      {!isSyncing && (
         <button
           onClick={handleDismiss}
           className="text-slate-500 hover:text-slate-300 transition-colors shrink-0 mt-0.5"
@@ -167,6 +199,7 @@ let toastIdCounter = 0;
 export const useSyncToast = () => {
   const [toasts, setToasts] = useState<SyncToastItem[]>([]);
   const syncingIdsRef = useRef<Map<string, string>>(new Map()); // code → toast id
+  const startedAtRef = useRef<Map<string, number>>(new Map()); // code → start timestamp
 
   const dismiss = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -174,11 +207,13 @@ export const useSyncToast = () => {
 
   const showSyncing = useCallback(
     (competitionCode: string, competitionName?: string) => {
-      // Remove toast anterior da mesma competição
       const existingId = syncingIdsRef.current.get(competitionCode);
       if (existingId) {
         setToasts((prev) => prev.filter((t) => t.id !== existingId));
       }
+
+      const now = Date.now();
+      startedAtRef.current.set(competitionCode, now);
 
       const id = `toast-${++toastIdCounter}`;
       syncingIdsRef.current.set(competitionCode, id);
@@ -190,7 +225,7 @@ export const useSyncToast = () => {
           competitionCode,
           competitionName,
           variant: "syncing",
-          timestamp: Date.now(),
+          timestamp: now,
         },
       ]);
 
@@ -206,12 +241,14 @@ export const useSyncToast = () => {
       message?: string,
       competitionName?: string
     ) => {
-      // Remove o "syncing" desta competição
       const syncingId = syncingIdsRef.current.get(competitionCode);
       if (syncingId) {
         setToasts((prev) => prev.filter((t) => t.id !== syncingId));
         syncingIdsRef.current.delete(competitionCode);
       }
+
+      const startedAt = startedAtRef.current.get(competitionCode);
+      startedAtRef.current.delete(competitionCode);
 
       const id = `toast-${++toastIdCounter}`;
       const variant: SyncToastVariant = success ? "success" : "error";
@@ -225,6 +262,7 @@ export const useSyncToast = () => {
           variant,
           message,
           timestamp: Date.now(),
+          startedAt,
         },
       ]);
     },
@@ -237,6 +275,15 @@ export const useSyncToast = () => {
       message: string,
       competitionName?: string
     ) => {
+      const syncingId = syncingIdsRef.current.get(competitionCode);
+      if (syncingId) {
+        setToasts((prev) => prev.filter((t) => t.id !== syncingId));
+        syncingIdsRef.current.delete(competitionCode);
+      }
+
+      const startedAt = startedAtRef.current.get(competitionCode);
+      startedAtRef.current.delete(competitionCode);
+
       const id = `toast-${++toastIdCounter}`;
       setToasts((prev) => [
         ...prev,
@@ -247,6 +294,7 @@ export const useSyncToast = () => {
           variant: "warning",
           message,
           timestamp: Date.now(),
+          startedAt,
         },
       ]);
     },

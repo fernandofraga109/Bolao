@@ -17,6 +17,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+export const SUPABASE_SCHEMA = import.meta.env.VITE_SUPABASE_SCHEMA || "public";
 
 // Verificação de configuração
 const isConfigured =
@@ -30,7 +31,9 @@ if (!isConfigured && typeof window !== "undefined") {
 }
 
 export const supabase = isConfigured
-  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      db: { schema: SUPABASE_SCHEMA },
+    })
   : null;
 
 /**
