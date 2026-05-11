@@ -138,6 +138,31 @@ export const useUserSystem = () => {
     return hydratedUsers.find((u) => u.id === currentUserId) || null;
   }, [currentUserId, hydratedUsers]);
 
+  const resumePendingGroupJoin = useCallback(async (userId: string) => {
+    const pendingGroupId = localStorage.getItem(`bolao_pending_group_${userId}`);
+    if (!pendingGroupId || !isSupabaseEnabled() || !supabase) return;
+
+    // Guard against duplicate joins (e.g. syncSession + onAuthStateChange both firing)
+    const { data: existing } = await supabase
+      .from("user_groups")
+      .select("userId")
+      .eq("userId", userId)
+      .eq("groupId", pendingGroupId)
+      .maybeSingle();
+
+    if (!existing) {
+      await dbRef.current.addUserToGroup({
+        userId,
+        groupId: pendingGroupId,
+        joinedAt: new Date().toISOString(),
+      });
+      await dbRef.current.updateUser(userId, { activeGroupId: pendingGroupId });
+      localStorage.setItem(`bolao_active_group_${userId}`, pendingGroupId);
+    }
+
+    localStorage.removeItem(`bolao_pending_group_${userId}`);
+  }, []);
+
   const ensureProfileForAuthUser = useCallback(
     async (userId: string, email: string, metadata: Record<string, any>) => {
       const currentDb = dbRef.current;
@@ -200,6 +225,7 @@ export const useUserSystem = () => {
             sessionUser.email ?? "",
             sessionUser.user_metadata ?? {},
           );
+          await resumePendingGroupJoin(sessionUser.id);
           setCurrentUserId(sessionUser.id);
           localStorage.setItem("bolao_current_user_id", sessionUser.id);
         } else {
@@ -230,6 +256,7 @@ export const useUserSystem = () => {
               sessionUser.email ?? "",
               sessionUser.user_metadata ?? {},
             );
+            await resumePendingGroupJoin(sessionUser.id);
             setCurrentUserId(sessionUser.id);
             localStorage.setItem("bolao_current_user_id", sessionUser.id);
           } else {
@@ -250,7 +277,7 @@ export const useUserSystem = () => {
       clearTimeout(fallbackTimer);
       listener.subscription.unsubscribe();
     };
-  }, [ensureProfileForAuthUser]);
+  }, [ensureProfileForAuthUser, resumePendingGroupJoin]);
 
   // --- ACTIONS ---
 
@@ -307,9 +334,23 @@ export const useUserSystem = () => {
     groupCode: string,
     groupsList: Group[],
   ) => {
-    const group = groupsList.find(
-      (g) => g.code.toUpperCase() === groupCode.toUpperCase(),
+    const normalizedCode = groupCode.trim().toUpperCase();
+
+    // Fast path: search the in-memory list (populated when user is already authenticated)
+    let group: Group | undefined = groupsList.find(
+      (g) => g.code.toUpperCase() === normalizedCode,
     );
+
+    // Fallback: query DB directly (handles pre-auth registration where groupsList is empty)
+    if (!group && isSupabaseEnabled() && supabase) {
+      const { data } = await supabase
+        .from("groups")
+        .select("*")
+        .eq("code", normalizedCode)
+        .maybeSingle();
+      if (data) group = data as Group;
+    }
+
     if (!group) return { success: false, message: "Código de grupo inválido." };
 
     if (isSupabaseEnabled() && supabase) {
@@ -421,6 +462,10 @@ export const useUserSystem = () => {
           const needsEmailConfirmation = /confirm|verification|verify/i.test(
             msg,
           );
+          if (needsEmailConfirmation && authUserId) {
+            // Store the group so it can be joined after the user confirms their email
+            localStorage.setItem(`bolao_pending_group_${authUserId}`, group.id);
+          }
           return {
             success: false,
             message: needsEmailConfirmation

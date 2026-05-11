@@ -103,14 +103,16 @@ CREATE POLICY "user_roles_delete_admin" ON user_roles
 
 -- =============================================================================
 -- GROUPS
--- Leitura por usuários autenticados, escrita apenas por admin
+-- Leitura pública (anon + authenticated), escrita apenas por admin
+-- Anon precisa ler grupos para validar código durante o cadastro (pré-auth)
 -- =============================================================================
 DROP POLICY IF EXISTS "Public Access Groups" ON groups;
 DROP POLICY IF EXISTS "Groups read authenticated" ON groups;
 DROP POLICY IF EXISTS "Groups write admin only" ON groups;
+DROP POLICY IF EXISTS "groups_select_anon" ON groups;
 
 CREATE POLICY "groups_select" ON groups
-    FOR SELECT TO authenticated USING (true);
+    FOR SELECT TO anon, authenticated USING (true);
 
 CREATE POLICY "groups_admin_all" ON groups
     FOR ALL TO authenticated USING (is_admin()) WITH CHECK (is_admin());

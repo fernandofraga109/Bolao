@@ -112,6 +112,119 @@ Only create feature memory files for genuinely complex subsystems. Prefer fewer,
 
 ---
 
+## Planning & Execution Workflow
+
+For any sufficiently complex feature, debugging effort, migration, architectural change, or production issue investigation:
+
+### Planning Artifacts
+
+Create structured planning documents inside:
+
+`.claude/plans/`
+
+Examples:
+- `production-stabilization-plan.md`
+- `registration-debugging.md`
+- `sync-system-investigation.md`
+- `migration-edge-functions.md`
+
+These are working engineering documents — not append-only logs.
+
+Plans should contain:
+- problem summary
+- suspected and confirmed root causes
+- affected systems/files
+- investigation findings
+- execution phases
+- validation strategy
+- rollback/risk notes
+- completion tracking
+- deferred/follow-up work
+
+Prefer:
+- one primary plan per major initiative
+- focused investigation files for especially complex subsystems
+- progressive refinement over uncontrolled note accumulation
+
+### Planning Completion Criteria
+
+Planning is NOT considered complete until:
+
+- relevant plan files exist inside `.claude/plans/`
+- execution phases are documented
+- risks and validation strategy are recorded
+- deferred/backlog work is explicitly tracked
+- `SESSION_MEMORY.md` reflects the current sprint/focus
+- obsolete investigation notes are consolidated or removed
+
+Do NOT treat planning as finished after only generating analysis in-chat.
+
+Persist important operational knowledge into the repository workflow structure.
+
+### Session Memory Coordination
+
+`SESSION_MEMORY.md` remains the authoritative high-level coordination layer.
+
+Use it to track:
+- current sprint focus
+- active investigations
+- recently completed work
+- unresolved blockers
+- important architectural discoveries
+- next recommended action
+- references to relevant plan files
+
+Do NOT duplicate entire plans into memory.
+
+Memory should remain:
+- concise
+- reconstruction-oriented
+- curated
+- compressed over time
+
+Avoid append-only growth.
+
+### Context Saturation Management
+
+During long sessions:
+
+- actively monitor context fragmentation and saturation
+- avoid uncontrolled prompt growth
+- periodically consolidate discoveries into plans/memory
+- compress obsolete debugging details
+- prefer phased execution over massive multi-system changes
+
+If the session becomes too fragmented or context-heavy:
+- warn about possible context degradation
+- recommend checkpointing
+- suggest whether to:
+  - continue safely,
+  - consolidate memory first,
+  - or start a fresh session
+
+Do NOT interrupt unnecessarily after every small change.
+
+Only surface context management concerns when genuinely relevant.
+
+### Execution Discipline
+
+Prefer:
+- investigation before implementation
+- phased execution
+- isolated fixes
+- small safe commits
+- progressive validation
+- explicit root-cause documentation
+
+Avoid:
+- mixing unrelated fixes
+- massive multi-system edits
+- uncontrolled debugging sessions
+- blind memory accumulation
+- skipping operational documentation
+
+---
+
 ## Agent Delegation
 
 Use sub-agents (`.claude/agents/`) when the task is clearly scoped to one layer:
