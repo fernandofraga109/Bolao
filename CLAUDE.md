@@ -66,14 +66,27 @@ See `.env.example` for required variables (Supabase URL/key, Football Data API k
 
 ---
 
-## Session Protocol
+## Persistent Session Memory Protocol
 
-**At the start of every new session:** read [docs/SESSION_MEMORY.md](docs/SESSION_MEMORY.md) before anything else. It contains the current state of the project, last task executed, next step, and key technical decisions.
+Persistent project memory lives in: `.claude/memory/SESSION_MEMORY.md`
 
-**Update [docs/SESSION_MEMORY.md](docs/SESSION_MEMORY.md) at these checkpoints:**
+This file is the authoritative cross-session project state. Treat stale or missing memory as a project integrity issue.
+
+**At the start of EVERY session:**
+1. Read [.claude/memory/SESSION_MEMORY.md](.claude/memory/SESSION_MEMORY.md)
+2. Reconstruct: current project state, architecture, pending tasks, known issues, important technical decisions
+3. Do this BEFORE planning or editing any files
+
+**Update `.claude/memory/SESSION_MEMORY.md` at these checkpoints:**
 - After completing each significant task
 - Before starting a complex task (record intent and current state)
 - If a critical error occurs, record the broken state before attempting a fix
+
+**Memory file rules — keep it concise and actionable:**
+- DO NOT store: full conversations, chain-of-thought reasoning, repetitive logs, temporary debugging notes, large code snippets
+- ONLY store: current project status, architecture decisions, important constraints, pending tasks, known issues, relevant modified files, next recommended action
+- Before editing: read the entire file, merge and compress, remove obsolete content, rewrite sections cleanly — never blindly append
+- Required sections: Project Overview · Current Architecture · Recently Completed · Current Pending Tasks · Known Issues · Important Files · Technical Decisions · Next Session Starting Point
 
 ---
 
