@@ -146,6 +146,46 @@ Prefer:
 - focused investigation files for especially complex subsystems
 - progressive refinement over uncontrolled note accumulation
 
+### Plan Lifecycle
+
+Every plan goes through three mandatory phases. Each phase has automatic actions — do not skip them.
+
+#### Phase 1 — Acceptance (user approves the plan)
+
+Trigger: user says "bora", "let's do it", "aceito", "sim", or any clear approval.
+
+Actions (do these before writing any code):
+1. Create `.claude/plans/<slug>.md` with the full plan content
+2. Add a row to the `Active Plans` table in `SESSION_MEMORY.md`:
+   ```
+   | **Next** | <short description> | `.claude/plans/<slug>.md` |
+   ```
+3. Only then begin implementation
+
+Do NOT start implementation if no plan file exists yet.
+
+#### Phase 2 — Implementation
+
+- Edit the plan file in-place as understanding evolves (progressive refinement, not append-only)
+- Keep `SESSION_MEMORY.md` "Active Plans" table up to date
+
+#### Phase 3 — Completion (user confirms it's working)
+
+Trigger: user confirms the feature works ("tá bom", "funciona", "show", explicit approval after testing).
+
+Actions (all three are required):
+1. **Move plan:** `.claude/plans/<slug>.md` → `.claude/plans/completed/<slug>.md`
+   - Update its `_Status_` line to `DONE — YYYY-MM-DD`
+2. **Update SESSION_MEMORY.md:**
+   - Remove from "Active Plans" table
+   - Add a brief "Completed — \<Feature\> (YYYY-MM-DD)" section with bullet summary
+   - Update "Next Action"
+3. **Invoke `changelog-updater` agent** to bump version and prepend a new entry to `data/releases.ts`
+
+Do NOT mark a plan as complete until the user has explicitly confirmed it works.
+
+---
+
 ### Planning Completion Criteria
 
 Planning is NOT considered complete until:
