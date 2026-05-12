@@ -93,3 +93,10 @@ Verified working in production without code changes.
 No planned features remain. Next step is production Vercel finalization (`docs/DEPLOY_VERCEL.md`).
 
 _Last updated: 2026-05-11_
+
+## Completed — Special Predictions Update (2026-05-12)
+
+- `components/TopScorerCard.tsx` — The "Champion Team" dropdown now fetches teams from the database (`db.teams`) instead of static data. The list is filtered to include only national teams with a ranking and, additionally, only teams from the active group.
+- `components/pages/MatchesPage.tsx` — Calculates the active group's team IDs (`currentGroupTeamIds`) and passes them to `TopScorerCard` via the new `allowedChampionTeamIds` prop.
+
+_Last updated: 2026-05-12_

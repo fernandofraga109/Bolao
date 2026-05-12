@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { TournamentPredictions } from '../types';
 import { Trophy, Lock, Save, Medal, Award, Shield, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { 
@@ -9,20 +9,22 @@ import {
     POINTS_BEST_GOALKEEPER,
     calculateTournamentPoints
 } from '../utils/scoring';
-import { TEAMS } from '../constants';
+import { useDatabase } from '../contexts/DatabaseContext';
 
 interface TopScorerCardProps {
   prediction?: TournamentPredictions;
   onPredict: (data: TournamentPredictions) => void;
   lockDate: Date;
   finalResult?: TournamentPredictions;
+    allowedChampionTeamIds?: string[];
 }
 
 const TopScorerCard: React.FC<TopScorerCardProps> = ({
-  prediction,
-  onPredict,
-  lockDate,
-  finalResult
+    prediction,
+    onPredict,
+    lockDate,
+    finalResult,
+    allowedChampionTeamIds,
 }) => {
   // Collapse State
   const [isExpanded, setIsExpanded] = useState(false);
@@ -39,6 +41,23 @@ const TopScorerCard: React.FC<TopScorerCardProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [isLocked, setIsLocked] = useState(false);
+
+    const db = useDatabase();
+
+        const championTeams = useMemo(() => {
+            const filtered = db.teams.filter((team) => team.ranking != null);
+            if (allowedChampionTeamIds && allowedChampionTeamIds.length > 0) {
+                const allowedSet = new Set(allowedChampionTeamIds.map((id) => id.toLowerCase()));
+                return filtered
+                    .filter((team) => allowedSet.has(team.id.toLowerCase()))
+                    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+            }
+            return filtered.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+        }, [db.teams, allowedChampionTeamIds]);
+
+    const selectedTeam = championId
+        ? db.teams.find((team) => team.id === championId)
+        : null;
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -86,8 +105,6 @@ const TopScorerCard: React.FC<TopScorerCardProps> = ({
       { championTeamId: championId, topScorer: { player: tsPlayer, goals: parseInt(tsGoals) || 0 }, bestPlayer, bestGoalkeeper: bestGk },
       finalResult
   );
-
-  const selectedTeam = championId ? TEAMS[championId] : null;
 
   return (
     <div className="bg-slate-800 rounded-xl shadow-lg mb-8 border border-slate-700 relative">
@@ -152,7 +169,7 @@ const TopScorerCard: React.FC<TopScorerCardProps> = ({
                         {/* Dropdown Menu */}
                         {isDropdownOpen && !isLocked && (
                             <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
-                                {Object.values(TEAMS).map((team) => (
+                                {championTeams.map((team) => (
                                     <button
                                         key={team.id}
                                         onClick={() => {
