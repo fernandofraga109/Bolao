@@ -140,7 +140,7 @@ const DEFAULT_CONFIG: SystemConfigDB = {
   id: SYSTEM_CONFIG_ID,
   is_auto_sync_enabled: false,
   sync_interval_ms: 60000,
-  underdog_min_rank_diff: 10,
+  underdog_min_rank_diff: 0,
 };
 
 const mergeMatchIntoList = (list: MatchDB[], incoming: MatchDB): MatchDB[] => {

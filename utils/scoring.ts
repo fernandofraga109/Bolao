@@ -6,9 +6,9 @@ export const POINTS_GOAL_DIFF = 7;
 export const POINTS_OUTCOME = 5;
 export const POINTS_WRONG = 0;
 
-const UNDERDOG_BONUS_FACTOR = 0.25;
+const UNDERDOG_BONUS_FACTOR = 0.03;
 const MAX_UNDERDOG_BONUS = 5;
-const FALLBACK_MIN_RANK_DIFF = 10;
+const FALLBACK_MIN_RANK_DIFF = 0;
 
 export const POINTS_TOP_SCORER_NAME = 100;
 export const POINTS_TOP_SCORER_GOALS = 100;
@@ -31,7 +31,7 @@ export const calculateUnderdogBonus = (
     if (winnerRank > loserRank) {
         const diff = winnerRank - loserRank;
         if (diff <= minRankDiff) return 0;
-        const calculatedBonus = Math.ceil(diff * UNDERDOG_BONUS_FACTOR);
+        const calculatedBonus = Math.floor(diff * UNDERDOG_BONUS_FACTOR);
         return Math.min(calculatedBonus, MAX_UNDERDOG_BONUS);
     }
 

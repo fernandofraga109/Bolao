@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.2.0";
+export const CURRENT_VERSION = "1.3.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.3.0",
+    date: "2026-05-11",
+    changes: [
+      "Bônus Zebra agora proporcional à diferença de ranking FIFA (sem threshold fixo)",
+      "Tag ZEBRA nos cards exibe o bônus potencial em pontos (+1pt a +5pts)",
+      "Fórmula revisada: bônus começa em diff ≥ 34, escala suave até +5pts",
+    ],
+  },
   {
     version: "1.2.0",
     date: "2026-05-11",

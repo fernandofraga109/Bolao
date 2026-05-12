@@ -119,11 +119,16 @@ const MatchCard: React.FC<MatchCardProps> = ({
   const isFinished = match.status === MatchStatus.FINISHED;
   const isPredictionDisabled = !isAdmin && (isFinished || isLive || isLocked);
 
-  const rankDiff = Math.abs((match.homeTeam?.ranking ?? 0) - (match.awayTeam?.ranking ?? 0));
-  const isZebraCandidate = match.status === MatchStatus.SCHEDULED && rankDiff >= (minRankDiff ?? 10);
   const underdogTeam = (match.homeTeam?.ranking ?? 0) > (match.awayTeam?.ranking ?? 0)
     ? match.homeTeam
     : match.awayTeam;
+  const favoriteTeam = underdogTeam === match.homeTeam ? match.awayTeam : match.homeTeam;
+  const zebraBonus = calculateUnderdogBonus(
+    underdogTeam?.ranking,
+    favoriteTeam?.ranking,
+    minRankDiff ?? 0,
+  );
+  const isZebraCandidate = match.status === MatchStatus.SCHEDULED && zebraBonus > 0;
 
   // --- CENTRALIZED SCORING HELPER ---
   const getScoringDetails = (home: number, away: number) => {
@@ -142,7 +147,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
     if (points > 0 && match.result.home !== match.result.away) {
       const winnerRank = match.result.home > match.result.away ? match.homeTeam.ranking : match.awayTeam.ranking;
       const loserRank = match.result.home > match.result.away ? match.awayTeam.ranking : match.homeTeam.ranking;
-      bonus = calculateUnderdogBonus(winnerRank, loserRank);
+      bonus = calculateUnderdogBonus(winnerRank, loserRank, minRankDiff ?? 0);
     }
 
     return { points, bonus };
@@ -197,6 +202,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
                 <img src={underdogTeam.flag} alt={underdogTeam.name} className="w-3.5 h-3.5 rounded-sm object-cover" />
               )}
               <span className="text-[10px] text-amber-400 truncate max-w-[60px]">{underdogTeam?.name}</span>
+              <span className="text-[10px] font-black text-amber-300">+{zebraBonus}pts</span>
             </div>
           )}
         </div>
