@@ -176,6 +176,15 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
     return { pastGroups: past, todayMatches: today, futureGroups: future };
   }, [matches]);
 
+  const currentGroupTeamIds = useMemo(() => {
+    const ids = new Set<string>();
+    matches.forEach((match) => {
+      if (match.homeTeam?.id) ids.add(match.homeTeam.id);
+      if (match.awayTeam?.id) ids.add(match.awayTeam.id);
+    });
+    return Array.from(ids);
+  }, [matches]);
+
   const formatDateTitle = (dateStr: string) => {
     const date = new Date(dateStr + "T12:00:00");
     return date.toLocaleDateString("pt-BR", {
@@ -236,6 +245,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
           onPredict={onPredictTournament}
           lockDate={lockDate ? new Date(lockDate) : new Date(0)}
           finalResult={tournamentResults}
+          allowedChampionTeamIds={currentGroupTeamIds}
         />
       )}
 
