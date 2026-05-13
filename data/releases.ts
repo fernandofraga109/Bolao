@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.3.0";
+export const CURRENT_VERSION = "1.4.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.4.0",
+    date: "2026-05-12",
+    changes: [
+      "Dropdown 'Seleção Campeã' exibe apenas os times da competição ativa, carregados do banco de dados",
+      "Botão de palpites especiais exibe 'Editar Palpites Especiais' quando já existem palpites guardados",
+      "Badge 'Salvo' aparece no cabeçalho do card de palpites especiais quando há palpites registados",
+    ],
+  },
   {
     version: "1.3.0",
     date: "2026-05-11",

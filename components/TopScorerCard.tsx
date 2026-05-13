@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { TournamentPredictions } from '../types';
-import { Trophy, Lock, Save, Medal, Award, Shield, ChevronDown, ChevronUp, Check } from 'lucide-react';
+import { Trophy, Lock, Save, Edit2, Medal, Award, Shield, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { 
     POINTS_TOP_SCORER_GOALS, 
     POINTS_TOP_SCORER_NAME, 
@@ -41,6 +41,22 @@ const TopScorerCard: React.FC<TopScorerCardProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [isLocked, setIsLocked] = useState(false);
+
+  // Sync prediction prop into form state when DB hydration arrives after mount
+  useEffect(() => {
+    setChampionId(prediction?.championTeamId || '');
+    setTsPlayer(prediction?.topScorer?.player || '');
+    setTsGoals(prediction?.topScorer?.goals?.toString() || '');
+    setBestPlayer(prediction?.bestPlayer || '');
+    setBestGk(prediction?.bestGoalkeeper || '');
+  }, [prediction]);
+
+  const hasSavedPredictions = !!(
+    prediction?.championTeamId ||
+    prediction?.topScorer?.player ||
+    prediction?.bestPlayer ||
+    prediction?.bestGoalkeeper
+  );
 
     const db = useDatabase();
 
@@ -127,6 +143,11 @@ const TopScorerCard: React.FC<TopScorerCardProps> = ({
             {isLocked && (
                  <div className="flex items-center gap-1 text-xs font-bold text-orange-400 bg-orange-950/50 px-2 py-1 rounded border border-orange-500/30">
                     <Lock size={12} /> FECHADO
+                </div>
+            )}
+            {!isLocked && hasSavedPredictions && (
+                <div className="flex items-center gap-1 text-xs font-bold text-brand-green bg-brand-green/10 px-2 py-1 rounded border border-brand-green/30">
+                    <Check size={12} /> Salvo
                 </div>
             )}
             {isExpanded ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
@@ -270,12 +291,12 @@ const TopScorerCard: React.FC<TopScorerCardProps> = ({
                     </div>
                 ) : (
                     !isLocked && (
-                        <button 
+                        <button
                             onClick={handleSave}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition-colors shadow-lg shadow-indigo-900/20"
+                            className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-white text-sm font-bold transition-colors shadow-lg ${hasSavedPredictions ? 'bg-slate-600 hover:bg-slate-500 shadow-slate-900/20' : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-900/20'}`}
                         >
-                            <Save size={16} />
-                            Salvar Palpites Especiais
+                            {hasSavedPredictions ? <Edit2 size={16} /> : <Save size={16} />}
+                            {hasSavedPredictions ? 'Editar Palpites Especiais' : 'Salvar Palpites Especiais'}
                         </button>
                     )
                 )}
