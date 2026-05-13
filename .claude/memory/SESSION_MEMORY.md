@@ -8,66 +8,49 @@ _Read this first at the start of every session. Update after every significant t
 
 React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Supabase (PostgreSQL + Auth + Realtime) + Tailwind CSS.
 
-**Current branch:** `feature/03/claude-code`  
+**Current version:** `1.4.0` (user-facing — após Palpites Especiais completo)
 **Test suite:** 43 tests passing (Vitest + RTL + happy-dom)
 
 **Feature memories:** `.claude/memory/features/sync-system.md`
 
 ---
 
-## Current Sprint: Feature Resumption — COMPLETE
-
-Production stabilization sprint completed 2026-05-11.  
-"What's New" modal + changelog-updater agent completed 2026-05-11.  
-UX improvements completed 2026-05-11.
-
----
-
 ## Active Plans
 
-| Priority | Item | Plan |
-|----------|------|------|
-| Ongoing | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` |
+| Priority | Item | Plan | Estado |
+|----------|------|------|--------|
+| Deferred | Refactor de ficheiros grandes (5 fases) | `.claude/plans/large-file-refactors.md` | Planeado, não iniciado — branch `chore/structural-refactor` |
+| Ongoing | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Em aberto |
 
 ---
 
-## Completed — "What's New" Modal (2026-05-11)
+## Completed — Palpites Especiais UX (2026-05-12)
 
-- `data/releases.ts` — static release history, `CURRENT_VERSION = "1.1.0"`
-- `components/ui/WhatsNewModal.tsx` — modal using `ModalShell`, shows latest release, closes with "Entendido!" button
-- `App.tsx` — wired: `showWhatsNew` state + `useEffect` checking `bolao_last_seen_version` in localStorage, renders modal only when user is authenticated
-- `.claude/agents/changelog-updater.md` — new agent, only authorized to edit `data/releases.ts`
-- `CLAUDE.md` — "Changelog Rules" section added alongside Testing Rules
+**Duas PRs combinadas:**
 
-**Show condition:** `localStorage.getItem("bolao_last_seen_version") !== CURRENT_VERSION`  
-**Single source of truth:** `CURRENT_VERSION` in `data/releases.ts`
+**PR colaborador (merged em main via #5):**
+- `components/TopScorerCard.tsx` — dropdown de Seleção Campeã usa `db.teams` via `useDatabase()` em vez de constante estática; filtra por `ranking != null` + `allowedChampionTeamIds`
+- `components/pages/MatchesPage.tsx` — calcula `currentGroupTeamIds` a partir dos matches e passa como `allowedChampionTeamIds` para `TopScorerCard`
 
----
-
-## Completed — Production Stabilization (2026-05-11)
-
-All archived in `.claude/plans/completed/`.
-
-**Phase 1 — Registration fix:**  
-Anon RLS on `groups` (migration 0005) + fallback DB query in `register()` + `resumePendingGroupJoin()` to complete group join after email confirmation redirect.
-
-**Phase 2 — Points sync fix:**  
-Root cause: `MatchDB` (flat `resultHome`/`resultAway`) was cast as `Match` (nested `result`) — guard was always false, `finishedMatchesMap` permanently empty, all users got 0 pts. Fixed in `hooks/usePointsProcessor.ts`: use `MatchDB` fields + hydrate teams; also added `.select()` write validation + `successfulUpdates[]` accumulator.
-
-**Phase 3 — Profile name:**  
-Verified working in production without code changes.
+**Branch `feat/prediction-ux-improvements` (aguarda merge):**
+- `components/TopScorerCard.tsx` — `useEffect` sincroniza prop `prediction` com form state (fix hydration async); badge "Salvo" no header quando palpites existem; botão muda para "Editar Palpites Especiais" (ícone `Edit2`) quando `hasSavedPredictions`
 
 ---
 
-## Previously Completed
+## Completed — Structural Cleanup (2026-05-11)
 
-### 2026-05-11 — Migrations aplicadas + tabela funcionando
-- Todas as migrations SQL (`0001`–`0005`) aplicadas no Supabase
-- `TournamentStandings` exibindo corretamente
+- Eliminados: `tsc_output.txt`, `scripts/`, `database/_archive/`, `components/GroupSelection.tsx`, `data/matches.json`
+- `constants.ts` — removidas 4 exports mortas; `utils/mergeUtils.ts` adicionado
+- `contexts/DatabaseContext.tsx` — 5 funções merge* deduplicadas
 
-### 2026-05-10–11 — Sprint 3 infrastructure
-- Test suite: Vitest + RTL + happy-dom; 43 tests
-- Code splitting, `DEPLOY_VERCEL.md`, agents, memory system overhaul
+---
+
+## Completed — Zebra Bonus + UX + "What's New" + Production (2026-05-11)
+
+- Zebra bonus proporcional (0.03/floor), tag `+{n}pts` no MatchCard
+- Ranking FIFA nos cards; `RulesSection` dinâmica
+- Modal "O que há de novo" via `data/releases.ts` + `changelog-updater` agent
+- Fix registo + grupos (migration 0005); fix pontuação (`MatchDB` fields)
 
 ---
 
@@ -75,28 +58,14 @@ Verified working in production without code changes.
 
 | Note | Status |
 |------|--------|
-| Two sources of truth: auth metadata vs `user_roles.displayName` | Monitor — if name revert resurfaces, see `completed/profile-sync-investigation.md` |
-| Sync is user-triggered, not automatic | Mitigated — any user can trigger. Edge Functions + pg_cron still viable upgrade. |
+| Sync é user-triggered, não automático | Mitigado. Edge Functions + pg_cron ainda viável. |
+| Two sources of truth: auth metadata vs `user_roles.displayName` | Monitorar — ver `completed/profile-sync-investigation.md` |
+| `AdminDashboard.tsx` ~1348 linhas, `DatabaseContext.tsx` ~1246 linhas | Plano em `.claude/plans/large-file-refactors.md` |
 
 ---
 
-## Completed — UX Improvements (2026-05-11)
-
-- `components/MatchCard.tsx` — FIFA ranking (`#{n}`) rendered below each team name, conditionally when truthy
-- `components/RulesSection.tsx` — `minRankDiff` prop added (default 10); Zebra Bonus rule text now dynamic
-- `components/pages/MatchesPage.tsx` — passes `minRankDiff` down to `RulesSection`
-- Value chain already existed: `App.tsx` computes `currentGroup?.underdog_min_rank_diff ?? db.systemConfig.underdog_min_rank_diff ?? 10` and passes it through
-- `data/releases.ts` bumped to **v1.2.0** — modal "O que há de novo" aparecerá para todos os usuários
-
 ## Next Action
 
-No planned features remain. Next step is production Vercel finalization (`docs/DEPLOY_VERCEL.md`).
-
-_Last updated: 2026-05-11_
-
-## Completed — Special Predictions Update (2026-05-12)
-
-- `components/TopScorerCard.tsx` — The "Champion Team" dropdown now fetches teams from the database (`db.teams`) instead of static data. The list is filtered to include only national teams with a ranking and, additionally, only teams from the active group.
-- `components/pages/MatchesPage.tsx` — Calculates the active group's team IDs (`currentGroupTeamIds`) and passes them to `TopScorerCard` via the new `allowedChampionTeamIds` prop.
+Aguardar merge da branch `feat/prediction-ux-improvements` → main. Quando confirmado e funcionando, o plano `tournament-prediction-improvements` pode ser movido para `completed/`.
 
 _Last updated: 2026-05-12_
