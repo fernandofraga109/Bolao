@@ -114,7 +114,7 @@ const SyncToastCard: React.FC<{
         ${config.bg} ${config.border}
         ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}
       `}
-      style={{ minWidth: 240, maxWidth: 320 }}
+      style={{ minWidth: 200, maxWidth: 'min(320px, calc(100vw - 1.5rem))' }}
     >
       {/* Dot indicator */}
       <span

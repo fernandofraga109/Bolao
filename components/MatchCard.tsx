@@ -212,20 +212,20 @@ const MatchCard: React.FC<MatchCardProps> = ({
         )}
       </div>
 
-      <div className="p-6">
-        <div className="flex items-center justify-between gap-4 mb-6">
+      <div className="p-4 sm:p-6">
+        <div className="flex items-center justify-between gap-2 sm:gap-4 mb-6">
           {/* Home Team */}
           <div className="flex-1 flex flex-col items-center gap-3">
-            <div className="relative group/flag w-16 h-16 flex items-center justify-center bg-slate-900/50 rounded-2xl border border-slate-700 overflow-hidden transition-all group-hover/flag:border-slate-500 group-hover/flag:shadow-lg group-hover/flag:shadow-brand-green/10">
+            <div className="relative group/flag w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center bg-slate-900/50 rounded-2xl border border-slate-700 overflow-hidden transition-all group-hover/flag:border-slate-500 group-hover/flag:shadow-lg group-hover/flag:shadow-brand-green/10">
               <div className="absolute inset-0 bg-gradient-to-br from-white/3 to-transparent"></div>
               <img
                 src={match.homeTeam.flag}
                 alt={match.homeTeam.name}
-                className="w-12 h-12 object-contain transition-transform group-hover/flag:scale-110 relative z-10"
+                className="w-9 h-9 sm:w-12 sm:h-12 object-contain transition-transform group-hover/flag:scale-110 relative z-10"
               />
             </div>
 
-            <span className="text-xs font-black text-center text-slate-200 uppercase tracking-tight leading-none h-8 flex items-center">
+            <span className="w-full text-[10px] sm:text-xs font-black text-center text-slate-200 uppercase tracking-tight leading-none h-8 flex items-center justify-center">
               {match.homeTeam.name}
             </span>
             {match.homeTeam.ranking ? (
@@ -269,13 +269,13 @@ const MatchCard: React.FC<MatchCardProps> = ({
               </div>
             ) : (
               <div className="flex flex-col items-center gap-2">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                   {/* Home score stepper */}
                   <div className="flex flex-col items-center gap-1">
                     {!isPredictionDisabled && (
                       <button
                         onClick={() => setHomeInput(v => String(Math.max(0, (parseInt(v) || 0) + 1)))}
-                        className="w-7 h-7 flex items-center justify-center rounded-xl bg-slate-700 hover:bg-brand-green hover:text-brand-dark text-slate-400 font-black text-base transition-all active:scale-90"
+                        className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-xl bg-slate-700 hover:bg-brand-green hover:text-brand-dark text-slate-400 font-black text-base transition-all active:scale-90"
                       >+</button>
                     )}
                     <input
@@ -283,13 +283,13 @@ const MatchCard: React.FC<MatchCardProps> = ({
                       value={homeInput}
                       onChange={(e) => setHomeInput(e.target.value)}
                       disabled={isPredictionDisabled}
-                      className="w-14 h-14 text-center font-black text-2xl rounded-2xl bg-slate-900 border border-slate-700 focus:border-brand-green focus:ring-4 focus:ring-brand-green/10 transition-all outline-none disabled:opacity-50 disabled:bg-slate-800/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-12 h-12 sm:w-14 sm:h-14 text-center font-black text-xl sm:text-2xl rounded-2xl bg-slate-900 border border-slate-700 focus:border-brand-green focus:ring-4 focus:ring-brand-green/10 transition-all outline-none disabled:opacity-50 disabled:bg-slate-800/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       placeholder="-"
                     />
                     {!isPredictionDisabled && (
                       <button
                         onClick={() => setHomeInput(v => String(Math.max(0, (parseInt(v) || 0) - 1)))}
-                        className="w-7 h-7 flex items-center justify-center rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-400 font-black text-base transition-all active:scale-90"
+                        className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-400 font-black text-base transition-all active:scale-90"
                       >−</button>
                     )}
                   </div>
@@ -301,7 +301,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
                     {!isPredictionDisabled && (
                       <button
                         onClick={() => setAwayInput(v => String(Math.max(0, (parseInt(v) || 0) + 1)))}
-                        className="w-7 h-7 flex items-center justify-center rounded-xl bg-slate-700 hover:bg-brand-green hover:text-brand-dark text-slate-400 font-black text-base transition-all active:scale-90"
+                        className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-xl bg-slate-700 hover:bg-brand-green hover:text-brand-dark text-slate-400 font-black text-base transition-all active:scale-90"
                       >+</button>
                     )}
                     <input
@@ -309,13 +309,13 @@ const MatchCard: React.FC<MatchCardProps> = ({
                       value={awayInput}
                       onChange={(e) => setAwayInput(e.target.value)}
                       disabled={isPredictionDisabled}
-                      className="w-14 h-14 text-center font-black text-2xl rounded-2xl bg-slate-900 border border-slate-700 focus:border-brand-green focus:ring-4 focus:ring-brand-green/10 transition-all outline-none disabled:opacity-50 disabled:bg-slate-800/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-12 h-12 sm:w-14 sm:h-14 text-center font-black text-xl sm:text-2xl rounded-2xl bg-slate-900 border border-slate-700 focus:border-brand-green focus:ring-4 focus:ring-brand-green/10 transition-all outline-none disabled:opacity-50 disabled:bg-slate-800/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       placeholder="-"
                     />
                     {!isPredictionDisabled && (
                       <button
                         onClick={() => setAwayInput(v => String(Math.max(0, (parseInt(v) || 0) - 1)))}
-                        className="w-7 h-7 flex items-center justify-center rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-400 font-black text-base transition-all active:scale-90"
+                        className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-400 font-black text-base transition-all active:scale-90"
                       >−</button>
                     )}
                   </div>
@@ -330,16 +330,16 @@ const MatchCard: React.FC<MatchCardProps> = ({
 
           {/* Away Team */}
           <div className="flex-1 flex flex-col items-center gap-3">
-            <div className="relative group/flag w-16 h-16 flex items-center justify-center bg-slate-900/50 rounded-2xl border border-slate-700 overflow-hidden transition-all group-hover/flag:border-slate-500 group-hover/flag:shadow-lg group-hover/flag:shadow-brand-green/10">
+            <div className="relative group/flag w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center bg-slate-900/50 rounded-2xl border border-slate-700 overflow-hidden transition-all group-hover/flag:border-slate-500 group-hover/flag:shadow-lg group-hover/flag:shadow-brand-green/10">
               <div className="absolute inset-0 bg-gradient-to-br from-white/3 to-transparent"></div>
               <img
                 src={match.awayTeam.flag}
                 alt={match.awayTeam.name}
-                className="w-12 h-12 object-contain transition-transform group-hover/flag:scale-110 relative z-10"
+                className="w-9 h-9 sm:w-12 sm:h-12 object-contain transition-transform group-hover/flag:scale-110 relative z-10"
               />
             </div>
 
-            <span className="text-xs font-black text-center text-slate-200 uppercase tracking-tight leading-none h-8 flex items-center">
+            <span className="w-full text-[10px] sm:text-xs font-black text-center text-slate-200 uppercase tracking-tight leading-none h-8 flex items-center justify-center">
               {match.awayTeam.name}
             </span>
             {match.awayTeam.ranking ? (
