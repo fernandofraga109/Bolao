@@ -8,6 +8,8 @@ import {
   Hash,
   LogIn,
   UserPlus,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { User } from "../types";
 import { isSupabaseEnabled } from "../services/supabase";
@@ -55,10 +57,13 @@ const Login: React.FC<LoginProps> = ({
   // Login Form
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPass, setLoginPass] = useState("");
+  const [showLoginPass, setShowLoginPass] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
 
   useEffect(() => {
     setMode(initialMode);
@@ -69,6 +74,7 @@ const Login: React.FC<LoginProps> = ({
   const [regName, setRegName] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPass, setRegPass] = useState("");
+  const [showRegPass, setShowRegPass] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -282,18 +288,18 @@ const Login: React.FC<LoginProps> = ({
                   Senha
                 </label>
                 <div className="relative">
-                  <Lock
-                    className="absolute left-3 top-3 text-slate-500"
-                    size={18}
-                  />
+                  <Lock className="absolute left-3 top-3 text-slate-500" size={18} />
                   <input
-                    type="password"
+                    type={showLoginPass ? "text" : "password"}
                     required
                     value={loginPass}
                     onChange={(e) => setLoginPass(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-600 text-white pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:border-brand-green focus:ring-1 focus:ring-brand-green transition-all"
+                    className="w-full bg-slate-900 border border-slate-600 text-white pl-10 pr-10 py-3 rounded-xl focus:outline-none focus:border-brand-green focus:ring-1 focus:ring-brand-green transition-all"
                     placeholder="••••••"
                   />
+                  <button type="button" onClick={() => setShowLoginPass(v => !v)} className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 transition-colors">
+                    {showLoginPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
                 </div>
               </div>
               <button
@@ -385,14 +391,19 @@ const Login: React.FC<LoginProps> = ({
                   <label className="text-xs font-bold text-slate-400 uppercase ml-1">
                     Senha
                   </label>
-                  <input
-                    type="password"
-                    required
-                    value={regPass}
-                    onChange={(e) => setRegPass(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-600 text-white px-4 py-3 rounded-xl focus:outline-none focus:border-brand-green transition-all"
-                    placeholder="Senha"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showRegPass ? "text" : "password"}
+                      required
+                      value={regPass}
+                      onChange={(e) => setRegPass(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-600 text-white px-4 pr-10 py-3 rounded-xl focus:outline-none focus:border-brand-green transition-all"
+                      placeholder="Senha"
+                    />
+                    <button type="button" onClick={() => setShowRegPass(v => !v)} className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 transition-colors">
+                      {showRegPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -468,18 +479,18 @@ const Login: React.FC<LoginProps> = ({
                   Nova senha
                 </label>
                 <div className="relative">
-                  <Lock
-                    className="absolute left-3 top-3 text-slate-500"
-                    size={18}
-                  />
+                  <Lock className="absolute left-3 top-3 text-slate-500" size={18} />
                   <input
-                    type="password"
+                    type={showNewPass ? "text" : "password"}
                     required
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-600 text-white pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:border-brand-green focus:ring-1 focus:ring-brand-green transition-all"
+                    className="w-full bg-slate-900 border border-slate-600 text-white pl-10 pr-10 py-3 rounded-xl focus:outline-none focus:border-brand-green focus:ring-1 focus:ring-brand-green transition-all"
                     placeholder="Mínimo 6 caracteres"
                   />
+                  <button type="button" onClick={() => setShowNewPass(v => !v)} className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 transition-colors">
+                    {showNewPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
                 </div>
               </div>
 
@@ -488,18 +499,18 @@ const Login: React.FC<LoginProps> = ({
                   Confirmar nova senha
                 </label>
                 <div className="relative">
-                  <Lock
-                    className="absolute left-3 top-3 text-slate-500"
-                    size={18}
-                  />
+                  <Lock className="absolute left-3 top-3 text-slate-500" size={18} />
                   <input
-                    type="password"
+                    type={showConfirmPass ? "text" : "password"}
                     required
                     value={confirmNewPassword}
                     onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-600 text-white pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:border-brand-green focus:ring-1 focus:ring-brand-green transition-all"
+                    className="w-full bg-slate-900 border border-slate-600 text-white pl-10 pr-10 py-3 rounded-xl focus:outline-none focus:border-brand-green focus:ring-1 focus:ring-brand-green transition-all"
                     placeholder="Repita a senha"
                   />
+                  <button type="button" onClick={() => setShowConfirmPass(v => !v)} className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 transition-colors">
+                    {showConfirmPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
                 </div>
               </div>
 
