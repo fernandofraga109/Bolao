@@ -157,6 +157,10 @@ const App: React.FC = () => {
     showResult(competitionCode, result.success, result.message, name);
   };
 
+  const handleRefreshData = async () => {
+    await Promise.all([db.refetchMatches(), db.refetchPredictions()]);
+  };
+
   const handleManualMatchesSync = async () => {
     const name = db.competitions.find(c => c.code.toUpperCase() === activeCompetitionCode.toUpperCase())?.name;
 
@@ -442,6 +446,7 @@ const App: React.FC = () => {
             tournamentResults={tournamentResults}
             lockDate={lockDate}
             onManualSync={() => void handleManualMatchesSync()}
+            onRefreshData={handleRefreshData}
             onPredict={predictMatch}
             onFinishMatch={adminControls.finishMatch}
             onPredictTournament={predictTournament}

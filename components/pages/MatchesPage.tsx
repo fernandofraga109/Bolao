@@ -1,8 +1,10 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { Match, User, TournamentPredictions } from "../../types";
 import MatchCard from "../MatchCard";
 import RulesSection from "../RulesSection";
 import TopScorerCard from "../TopScorerCard";
+import PullToRefreshIndicator from "../ui/PullToRefreshIndicator";
+import { usePullToRefresh } from "../../hooks/usePullToRefresh";
 import { CalendarDays, History, ChevronDown, ChevronUp, Zap, Users } from "lucide-react";
 
 // --- Helper: Date Group Accordion ---
@@ -13,6 +15,7 @@ interface MatchGroupProps {
   icon?: React.ReactNode;
   userPredictions: Record<string, any>;
   leaderboardData: any[];
+  currentUserId: string;
   onPredict: (id: string, h: number, a: number) => Promise<void>;
   isAdmin: boolean;
   onFinishMatch: (id: string, h: number, a: number) => void;
@@ -27,6 +30,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
   icon,
   userPredictions,
   leaderboardData,
+  currentUserId,
   onPredict,
   isAdmin,
   onFinishMatch,
@@ -83,6 +87,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
                   : undefined
               }
               friends={leaderboardData}
+              currentUserId={currentUserId}
               onPredict={onPredict}
               isAdmin={isAdmin}
               onFinishMatch={onFinishMatch}
@@ -107,6 +112,7 @@ interface MatchesPageProps {
   tournamentResults?: any;
   lockDate: string | null;
   onManualSync: () => void;
+  onRefreshData: () => Promise<void>;
   onPredict: (id: string, h: number, a: number) => Promise<void>;
   onFinishMatch: (id: string, h: number, a: number) => void;
   onPredictTournament: (predictions: TournamentPredictions) => void;
@@ -125,6 +131,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
   tournamentResults,
   lockDate,
   onManualSync,
+  onRefreshData,
   onPredict,
   onFinishMatch,
   onPredictTournament,
@@ -196,8 +203,14 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
 
   const isAdmin = currentUser.role === "ADMIN";
 
+  const { containerRef, pullDistance, isRefreshing, handlers } = usePullToRefresh({
+    onRefresh: onRefreshData,
+    disabled: isSyncing,
+  });
+
   return (
-    <div className="space-y-6">
+    <div ref={containerRef} className="space-y-6" {...handlers}>
+      <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
       {matches.length === 0 && !userHasGroup && (
         <div className="text-center py-10 border border-slate-700 rounded-xl bg-slate-800/50 border-dashed space-y-3">
           <Users className="mx-auto text-slate-500" size={32} />
@@ -285,6 +298,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
                     icon={<History size={14} className="text-slate-500" />}
                     userPredictions={userPredictions}
                     leaderboardData={leaderboardData}
+                    currentUserId={currentUser.id}
                     onPredict={onPredict}
                     isAdmin={isAdmin}
                     onFinishMatch={onFinishMatch}
@@ -329,6 +343,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
         icon={<CalendarDays size={20} className="text-brand-green" />}
         userPredictions={userPredictions}
         leaderboardData={leaderboardData}
+        currentUserId={currentUser.id}
         onPredict={onPredict}
         isAdmin={isAdmin}
         onFinishMatch={onFinishMatch}
@@ -357,6 +372,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
             icon={<CalendarDays size={18} className="text-slate-500" />}
             userPredictions={userPredictions}
             leaderboardData={leaderboardData}
+            currentUserId={currentUser.id}
             onPredict={onPredict}
             isAdmin={isAdmin}
             onFinishMatch={onFinishMatch}

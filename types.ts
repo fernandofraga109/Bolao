@@ -92,6 +92,7 @@ export interface PredictionDB {
 
 export interface TournamentPredictionDB {
   userId: string;
+  groupId: string;
   championTeamId?: string;
   topScorerPlayer?: string;
   topScorerGoals?: number;

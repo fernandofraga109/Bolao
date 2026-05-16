@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.4.0";
+export const CURRENT_VERSION = "1.5.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,17 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.5.0",
+    date: "2026-05-16",
+    changes: [
+      "Palpites dos outros participantes não exibem mais o próprio usuário na lista",
+      "Badge colorido mostra quantos pontos cada palpite está rendendo em jogos ao vivo ou finalizados",
+      "Modal do avatar exibe Pontos e Rank do usuário, visível também no mobile",
+      "Pull-to-Refresh: puxe a tela para baixo para atualizar partidas e palpites direto do banco",
+      "Palpites Especiais agora são por grupo — cada grupo tem sua própria Seleção Campeã, Artilheiro, etc.",
+    ],
+  },
   {
     version: "1.4.0",
     date: "2026-05-12",

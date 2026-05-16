@@ -100,8 +100,12 @@ export const useUserSystem = () => {
           };
         });
 
-      // Join Tournament Predictions
-      const tpDb = db.tournamentPredictions.find((tp) => tp.userId === user.id);
+      // Join Tournament Predictions — scoped to the user's active group
+      const tpDb = db.tournamentPredictions.find(
+        (tp) =>
+          tp.userId === user.id &&
+          tp.groupId === resolvedActiveGroupId,
+      );
       const tp: TournamentPredictions | undefined = tpDb
         ? {
             championTeamId: resolveChampionIdForUi(tpDb.championTeamId),
@@ -573,8 +577,12 @@ export const useUserSystem = () => {
 
   const predictTournament = (data: TournamentPredictions) => {
     if (!currentUser) return;
+    const activeGroupId =
+      currentUser.activeGroupId ?? currentUser.groupIds?.[0];
+    if (!activeGroupId) return;
     db.upsertTournamentPrediction({
       userId: currentUser.id,
+      groupId: activeGroupId,
       championTeamId: resolveChampionIdForDb(data.championTeamId),
       topScorerPlayer: data.topScorer?.player,
       topScorerGoals: data.topScorer?.goals,
