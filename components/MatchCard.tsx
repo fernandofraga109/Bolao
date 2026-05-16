@@ -35,6 +35,7 @@ interface MatchCardProps {
   match: Match;
   userPrediction?: Prediction;
   friends: Friend[];
+  currentUserId?: string;
   onPredict: (
     matchId: string,
     home: number,
@@ -49,6 +50,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
   match,
   userPrediction,
   friends,
+  currentUserId,
   onPredict,
   isAdmin = false,
   onFinishMatch,
@@ -422,20 +424,35 @@ const MatchCard: React.FC<MatchCardProps> = ({
       {showFriends && (
         <div className="px-6 pb-6 border-t border-slate-700/50 bg-slate-900/20 pt-4 animate-slideDown">
            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">O que a galera acha</h4>
-           <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-              {friends.length === 0 ? <p className="text-xs text-slate-600 italic">Ainda ninguém palpitou...</p> : 
-                friends.filter(f => f.predictions[match.id]).map(f => (
-                  <div key={f.id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/40 border border-slate-700/30">
-                     <div className="flex items-center gap-2">
+           <div className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+              {(() => {
+                const others = friends.filter(f => f.predictions[match.id] && f.id !== currentUserId);
+                if (others.length === 0) return <p className="text-xs text-slate-600 italic">Ainda ninguém palpitou...</p>;
+                return others.map(f => {
+                  const pred = f.predictions[match.id];
+                  const pts = (isPredictionDisabled && match.result)
+                    ? calculatePoints(pred.home, pred.away, match.result.home, match.result.away, match.homeTeam?.ranking, match.awayTeam?.ranking, minRankDiff)
+                    : null;
+                  return (
+                    <div key={f.id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/40 border border-slate-700/30">
+                      <div className="flex items-center gap-2">
                         <AvatarWithFallback src={f.avatar} alt={f.name} className="w-6 h-6 rounded-full" iconSize={12} />
-                        <span className={`text-xs font-bold ${f.id === 'me' ? 'text-brand-green' : 'text-slate-300'}`}>{f.name}</span>
-                     </div>
-                     <span className="font-mono font-black text-slate-400 bg-slate-950 px-2 py-0.5 rounded-lg border border-slate-800">
-                        {isPredictionDisabled || f.id === 'me' ? `${f.predictions[match.id].home} - ${f.predictions[match.id].away}` : <EyeOff size={12} />}
-                     </span>
-                  </div>
-                ))
-              }
+                        <span className="text-xs font-bold text-slate-300">{f.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {pts !== null && (
+                          <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${pts > 0 ? 'text-brand-green bg-brand-green/10' : 'text-slate-600 bg-slate-800'}`}>
+                            {pts > 0 ? `+${pts}pts` : '0pts'}
+                          </span>
+                        )}
+                        <span className="font-mono font-black text-slate-400 bg-slate-950 px-2 py-0.5 rounded-lg border border-slate-800">
+                          {isPredictionDisabled ? `${pred.home} - ${pred.away}` : <EyeOff size={12} />}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
            </div>
         </div>
       )}

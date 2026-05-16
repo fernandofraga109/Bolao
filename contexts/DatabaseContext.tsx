@@ -455,7 +455,11 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         case "tournament_predictions":
           if (eventType === "INSERT" || eventType === "UPDATE") {
             setTournamentPredictions((prev) => {
-              const idx = prev.findIndex((p) => p.userId === newRecord.userId);
+              const idx = prev.findIndex(
+                (p) =>
+                  p.userId === newRecord.userId &&
+                  p.groupId === newRecord.groupId,
+              );
               if (idx >= 0) {
                 const newArr = [...prev];
                 newArr[idx] = { ...newArr[idx], ...newRecord };
@@ -465,7 +469,13 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
             });
           } else if (eventType === "DELETE") {
             setTournamentPredictions((prev) =>
-              prev.filter((p) => p.userId !== oldRecord.userId),
+              prev.filter(
+                (p) =>
+                  !(
+                    p.userId === oldRecord.userId &&
+                    p.groupId === oldRecord.groupId
+                  ),
+              ),
             );
           }
           break;
@@ -1103,7 +1113,9 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
 
   const upsertTournamentPrediction = async (pred: TournamentPredictionDB) => {
     setTournamentPredictions((prev) => {
-      const index = prev.findIndex((p) => p.userId === pred.userId);
+      const index = prev.findIndex(
+        (p) => p.userId === pred.userId && p.groupId === pred.groupId,
+      );
       if (index >= 0) {
         const newArr = [...prev];
         newArr[index] = { ...newArr[index], ...pred };
@@ -1115,7 +1127,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     if (isSupabaseEnabled() && supabase) {
       const { error } = await supabase
         .from("tournament_predictions")
-        .upsert(pred, { onConflict: "userId" });
+        .upsert(pred, { onConflict: "userId,groupId" });
 
       if (error) {
         throw new Error(

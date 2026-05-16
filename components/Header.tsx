@@ -133,6 +133,24 @@ const Header: React.FC<HeaderProps> = ({
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm px-4 animate-fadeIn">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 w-full max-w-sm shadow-2xl">
             <h2 className="text-2xl font-black mb-6 text-white tracking-tight">FOTO DE PERFIL</h2>
+
+            {currentUser.role !== "ADMIN" && (
+              <div className="flex items-center justify-center gap-8 mb-6 pb-6 border-b border-slate-800">
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Pontos</span>
+                  <span className="text-2xl font-black text-brand-green">{userPoints}</span>
+                </div>
+                <div className="w-px h-8 bg-slate-800" />
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Rank</span>
+                  <div className="flex items-center gap-1">
+                    <Star size={14} className="text-yellow-400 fill-yellow-400" />
+                    <span className="text-2xl font-black text-white">{userRank}º</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="mb-8 flex justify-center">
                <div className="relative">
                   <div className="absolute inset-0 rounded-full bg-brand-green/20 blur-xl animate-pulse"></div>
