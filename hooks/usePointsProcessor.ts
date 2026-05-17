@@ -78,6 +78,17 @@ export const usePointsProcessor = (dbRef: any) => {
         continue;
       }
 
+      if (!preds || preds.length === 0) {
+        const existingMembers = (dbRef.current.userGroups as any[]).filter(
+          (ug: any) => ug.groupId === groupId
+        );
+        const hasExistingPoints = existingMembers.some((m: any) => (m.points ?? 0) > 0);
+        if (hasExistingPoints) {
+          console.warn(`⚠️ Empty predictions for group ${groupId} with existing points — skipping update`);
+          continue;
+        }
+      }
+
       if (members && members.length > 0) {
         const finalUpdates = members.map((u) => ({
           ...u,
@@ -86,32 +97,15 @@ export const usePointsProcessor = (dbRef: any) => {
 
         console.log(`📤 Enviando classificação atualizada para o grupo ${groupId} (${finalUpdates.length} usuários)`);
 
-        const successfulUpdates: typeof finalUpdates = [];
-        for (const update of finalUpdates) {
-          const { data: updated, error: updateError } = await supabase
-            .from("user_groups")
-            .update({ points: update.points })
-            .eq("userId", update.userId)
-            .eq("groupId", update.groupId)
-            .select("userId, groupId, points");
+        const { error: upsertError } = await supabase
+          .from("user_groups")
+          .upsert(finalUpdates, { onConflict: "userId,groupId" });
 
-          if (updateError) {
-            console.error(`❌ Erro ao atualizar pontos do membro ${update.userId}:`, updateError);
-          } else if (!updated || updated.length === 0) {
-            console.error(`❌ Update matched 0 rows:`, { userId: update.userId, groupId: update.groupId });
-          } else {
-            successfulUpdates.push(update);
-          }
-        }
-
-        if (successfulUpdates.length > 0) {
-          dbRef.current.updateLocalUserGroups(successfulUpdates);
-        }
-
-        if (successfulUpdates.length === finalUpdates.length) {
-          console.log(`✨ Classificação sincronizada com sucesso para o grupo ${groupId}`);
+        if (upsertError) {
+          console.error(`❌ Erro ao atualizar pontos do grupo ${groupId}:`, upsertError);
         } else {
-          console.warn(`⚠️ ${successfulUpdates.length}/${finalUpdates.length} pontos atualizados no grupo ${groupId}`);
+          dbRef.current.updateLocalUserGroups(finalUpdates);
+          console.log(`✨ Classificação sincronizada com sucesso para o grupo ${groupId}`);
         }
       }
     }
