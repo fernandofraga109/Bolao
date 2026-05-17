@@ -64,7 +64,7 @@ export const useLeaderboard = (
 
               if (activeRuleset === "regulamento_2") {
                 const matchPredictions = users
-                  .filter((u) => u.predictions && u.predictions[match.id])
+                  .filter((u) => u.groupIds.includes(activeGroupId || "") && u.predictions && u.predictions[match.id])
                   .map((u) => ({
                     userId: u.id,
                     homeScore: u.predictions[match.id].home,

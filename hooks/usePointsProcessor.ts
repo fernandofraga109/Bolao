@@ -17,8 +17,14 @@ export const usePointsProcessor = (dbRef: any) => {
     const uniqueGroupIds = Array.from(new Set(groupIds));
     console.log(`🔄 Iniciando recálculo in-memory para ${uniqueGroupIds.length} grupos:`, uniqueGroupIds);
 
-    // Hydrate raw MatchDB rows with team objects so calculatePoints can access rankings
-    const rawMatches = dbRef.current.matches as MatchDB[];
+    // Fetch fresh matches from database to guarantee we aren't using stale React state
+    // during asynchronous sync operations
+    const { data: dbMatches, error: matchesError } = await supabase
+      .from("matches")
+      .select("*")
+      .eq("status", "FINISHED");
+
+    const rawMatches = matchesError ? (dbRef.current.matches as MatchDB[]) : (dbMatches as MatchDB[]);
     const teams = dbRef.current.teams as any[];
     const finishedMatchesMap = new Map<string, Match>();
     rawMatches.forEach(m => {
