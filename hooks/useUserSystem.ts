@@ -143,6 +143,9 @@ export const useUserSystem = () => {
                 : undefined,
             bestPlayer: tpDb.bestPlayer,
             bestGoalkeeper: tpDb.bestGoalkeeper,
+            mostGoalsTeamId: tpDb.mostGoalsTeamId,
+            mostConcededTeamId: tpDb.mostConcededTeamId,
+            groupClassifications: tpDb.groupClassifications,
           }
         : undefined;
 
@@ -615,6 +618,9 @@ export const useUserSystem = () => {
       topScorerGoals: data.topScorer?.goals,
       bestPlayer: data.bestPlayer,
       bestGoalkeeper: data.bestGoalkeeper,
+      mostGoalsTeamId: data.mostGoalsTeamId,
+      mostConcededTeamId: data.mostConcededTeamId,
+      groupClassifications: data.groupClassifications,
     });
   };
 

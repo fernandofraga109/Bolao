@@ -21,6 +21,7 @@ export const useGroupSystem = () => {
     name: string,
     adminId: string,
     competitionCode: string = DEFAULT_COMPETITION_CODE,
+    ruleset: "regulamento_1" | "regulamento_2" = "regulamento_1",
   ): Group => {
     let code = generateGroupCode();
     // Ensure uniqueness
@@ -37,6 +38,7 @@ export const useGroupSystem = () => {
       competitionCode: (
         competitionCode || DEFAULT_COMPETITION_CODE
       ).toUpperCase(),
+      ruleset,
     };
 
     db.addGroup(newGroup);

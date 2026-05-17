@@ -27,6 +27,7 @@ import LeaderboardPage from "./components/pages/LeaderboardPage";
 import StatsPage from "./components/pages/StatsPage";
 import TournamentPage from "./components/pages/TournamentPage";
 import AdminPage from "./components/pages/AdminPage";
+import SpecialsPage from "./components/pages/SpecialsPage";
 
 import { DEFAULT_COMPETITION_CODE, getCompetitionByCode } from "./data/competitions";
 import { CURRENT_VERSION } from "./data/releases";
@@ -135,6 +136,22 @@ const App: React.FC = () => {
     getGroupsByIds,
   } = useGroupSystem();
 
+  const resolvedActiveGroupId =
+    currentUser?.activeGroupId || currentUser?.groupIds?.[0];
+
+  const currentGroup = resolvedActiveGroupId
+    ? getGroupById(resolvedActiveGroupId)
+    : undefined;
+
+  const currentGroupTeamIds = useMemo(() => {
+    const ids = new Set<string>();
+    matches.forEach((match) => {
+      if (match.homeTeam?.id) ids.add(match.homeTeam.id);
+      if (match.awayTeam?.id) ids.add(match.awayTeam.id);
+    });
+    return Array.from(ids);
+  }, [matches]);
+
   const [activeTab, setActiveTab] = useState<Tab>("matches");
   const [groupError, setGroupError] = useState<string | null>(null);
   const [isGroupSwitcherOpen, setIsGroupSwitcherOpen] = useState(false);
@@ -144,6 +161,13 @@ const App: React.FC = () => {
     const seen = localStorage.getItem("bolao_last_seen_version");
     if (seen !== CURRENT_VERSION) setShowWhatsNew(true);
   }, []);
+
+  // Reset tab to matches if group ruleset switches away from regulamento_2 while on specials tab
+  useEffect(() => {
+    if (activeTab === "specials" && currentGroup?.ruleset !== "regulamento_2") {
+      setActiveTab("matches");
+    }
+  }, [currentGroup?.ruleset, activeTab]);
 
   const handleWhatsNewClose = () => {
     localStorage.setItem("bolao_last_seen_version", CURRENT_VERSION);
@@ -190,12 +214,7 @@ const App: React.FC = () => {
     groups
   );
 
-  const resolvedActiveGroupId =
-    currentUser?.activeGroupId || currentUser?.groupIds?.[0];
 
-  const currentGroup = resolvedActiveGroupId
-    ? getGroupById(resolvedActiveGroupId)
-    : undefined;
 
   // O background sync (via useBackgroundSync dentro de useMatchSystem)
   // já cuida de manter os dados atualizados para todos os usuários.
@@ -257,6 +276,7 @@ const App: React.FC = () => {
     name: string,
     competitionCode: string,
     options: { joinCreator: boolean },
+    ruleset: "regulamento_1" | "regulamento_2" = "regulamento_1",
   ) => {
     const normalizedCompetitionCode = (
       competitionCode || DEFAULT_COMPETITION_CODE
@@ -272,6 +292,7 @@ const App: React.FC = () => {
       name,
       currentUser.id,
       normalizedCompetitionCode,
+      ruleset,
     );
 
     if (options.joinCreator) {
@@ -292,10 +313,14 @@ const App: React.FC = () => {
     return newGroup;
   };
 
-  const handleCreateGroup = (name: string, competitionCode: string) => {
+  const handleCreateGroup = (
+    name: string,
+    competitionCode: string,
+    ruleset: "regulamento_1" | "regulamento_2" = "regulamento_1",
+  ) => {
     void createGroupWithCompetitionBootstrap(name, competitionCode, {
       joinCreator: true,
-    });
+    }, ruleset);
     setGroupError(null);
     setIsGroupSwitcherOpen(false);
   };
@@ -459,6 +484,20 @@ const App: React.FC = () => {
             onPredictTournament={predictTournament}
             onOpenGroupSwitcher={() => setIsGroupSwitcherOpen(true)}
             minRankDiff={currentGroup?.underdog_min_rank_diff ?? db.systemConfig.underdog_min_rank_diff ?? 10}
+            ruleset={currentGroup?.ruleset}
+          />
+        )}
+
+        {/* Specials Tab */}
+        {activeTab === "specials" && currentUser.role !== "ADMIN" && (
+          <SpecialsPage
+            matches={matches}
+            currentUser={currentUser}
+            tournamentResults={tournamentResults}
+            lockDate={lockDate}
+            onPredictTournament={predictTournament}
+            allowedChampionTeamIds={currentGroupTeamIds}
+            ruleset={currentGroup?.ruleset}
           />
         )}
 
@@ -474,7 +513,11 @@ const App: React.FC = () => {
 
         {/* Leaderboard Tab */}
         {activeTab === "leaderboard" && currentUser.role !== "ADMIN" && (
-          <LeaderboardPage sections={leaderboardSections} />
+          <LeaderboardPage
+            sections={leaderboardSections.filter(
+              (s) => s.groupId === resolvedActiveGroupId
+            )}
+          />
         )}
 
         {/* User Stats Tab */}
@@ -518,6 +561,7 @@ const App: React.FC = () => {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         userRole={currentUser.role}
+        ruleset={currentGroup?.ruleset}
       />
 
     </div>

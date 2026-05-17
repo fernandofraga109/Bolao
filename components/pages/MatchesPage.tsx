@@ -3,6 +3,7 @@ import { Match, User, TournamentPredictions } from "../../types";
 import MatchCard from "../MatchCard";
 import RulesSection from "../RulesSection";
 import TopScorerCard from "../TopScorerCard";
+import { ExtraPhasePredictionsCard } from "../ExtraPhasePredictionsCard";
 import { CalendarDays, History, ChevronDown, ChevronUp, Zap, Users } from "lucide-react";
 
 // --- Helper: Date Group Accordion ---
@@ -19,6 +20,7 @@ interface MatchGroupProps {
   onFinishMatch: (id: string, h: number, a: number) => void;
   isToday?: boolean;
   minRankDiff?: number;
+  ruleset?: "regulamento_1" | "regulamento_2";
 }
 
 const MatchGroup: React.FC<MatchGroupProps> = ({
@@ -34,6 +36,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
   onFinishMatch,
   isToday,
   minRankDiff,
+  ruleset,
 }) => {
   const [isOpen, setIsOpen] = useState(isOpenDefault);
 
@@ -43,11 +46,10 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
     <div className="mb-4">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${
-          isToday
+        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${isToday
             ? "bg-brand-green/10 border-brand-green/30 text-white mb-3 shadow-lg shadow-brand-green/5"
             : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700/80"
-        }`}
+          }`}
       >
         <div className="flex items-center gap-3">
           {icon}
@@ -78,10 +80,10 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
               userPrediction={
                 userPredictions[match.id]
                   ? {
-                      matchId: match.id,
-                      homeScore: userPredictions[match.id].home,
-                      awayScore: userPredictions[match.id].away,
-                    }
+                    matchId: match.id,
+                    homeScore: userPredictions[match.id].home,
+                    awayScore: userPredictions[match.id].away,
+                  }
                   : undefined
               }
               friends={leaderboardData}
@@ -90,6 +92,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
               isAdmin={isAdmin}
               onFinishMatch={onFinishMatch}
               minRankDiff={minRankDiff}
+              ruleset={ruleset}
             />
           ))}
         </div>
@@ -115,6 +118,7 @@ interface MatchesPageProps {
   onPredictTournament: (predictions: TournamentPredictions) => void;
   onOpenGroupSwitcher?: () => void;
   minRankDiff?: number;
+  ruleset?: "regulamento_1" | "regulamento_2";
 }
 
 const MatchesPage: React.FC<MatchesPageProps> = ({
@@ -133,6 +137,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
   onPredictTournament,
   onOpenGroupSwitcher,
   minRankDiff,
+  ruleset = "regulamento_1",
 }) => {
   const [isPastMatchesOpen, setIsPastMatchesOpen] = useState(false);
 
@@ -234,21 +239,22 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
             {!canWriteCompetitionData
               ? "Apenas admin sincroniza"
               : isSyncing
-              ? "Sincronizando..."
-              : "Sincronizar jogos"}
+                ? "Sincronizando..."
+                : "Sincronizar jogos"}
           </button>
         </div>
       )}
 
-      {!isAdmin && <RulesSection minRankDiff={minRankDiff} />}
+      {!isAdmin && <RulesSection minRankDiff={minRankDiff} ruleset={ruleset} />}
 
-      {!isAdmin && (
+      {!isAdmin && ruleset !== "regulamento_2" && (
         <TopScorerCard
           prediction={currentUser.tournamentPredictions}
           onPredict={onPredictTournament}
           lockDate={lockDate ? new Date(lockDate) : new Date(0)}
           finalResult={tournamentResults}
           allowedChampionTeamIds={currentGroupTeamIds}
+          ruleset={ruleset}
         />
       )}
 
@@ -293,6 +299,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
                     isAdmin={isAdmin}
                     onFinishMatch={onFinishMatch}
                     minRankDiff={minRankDiff}
+                    ruleset={ruleset}
                   />
                 ))}
             </div>
@@ -338,6 +345,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
         isAdmin={isAdmin}
         onFinishMatch={onFinishMatch}
         minRankDiff={minRankDiff}
+        ruleset={ruleset}
       />
 
       {todayMatches.length === 0 &&
@@ -367,6 +375,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
             isAdmin={isAdmin}
             onFinishMatch={onFinishMatch}
             minRankDiff={minRankDiff}
+            ruleset={ruleset}
           />
         ))}
     </div>

@@ -1,6 +1,14 @@
 import { useCallback } from "react";
 import { Match, MatchDB, MatchStatus } from "../types";
-import { calculatePoints } from "../utils/scoring";
+import {
+  calculatePoints,
+  calculatePointsRegulamento2,
+  calculateTournamentPoints,
+  calculateTournamentPointsRegulamento2,
+  calculateExtraPhasePoints,
+  getMatchPhase,
+  TournamentPredictions
+} from "../utils/scoring";
 import { supabase } from "../services/supabase";
 
 export const usePointsProcessor = (dbRef: any) => {
@@ -28,6 +36,8 @@ export const usePointsProcessor = (dbRef: any) => {
       // Resolve effective underdog threshold for this group
       const allGroups = dbRef.current.groups as any[];
       const group = allGroups.find((g: any) => g.id === groupId);
+      const isRegulamento2 = group?.ruleset === 'regulamento_2';
+
       const globalMinRankDiff: number =
         dbRef.current.systemConfig?.underdog_min_rank_diff ?? 10;
       const effectiveMinRankDiff: number =
@@ -36,7 +46,7 @@ export const usePointsProcessor = (dbRef: any) => {
       // 1. Fetch all predictions for the group from the DB (always fresh — never local state)
       const { data: preds, error } = await supabase
         .from("predictions")
-        .select("userId, matchId, groupId, homeScore, awayScore, points")
+        .select("userId, matchId, groupId, homeScore, awayScore, points, timestamp")
         .eq("groupId", groupId);
 
       if (error) {
@@ -44,27 +54,113 @@ export const usePointsProcessor = (dbRef: any) => {
         continue;
       }
 
-      // 2. Calculate total points per user and track which predictions need their points column updated
+      // 2. Fetch tournament predictions for the group
+      const { data: tournPreds, error: tournError } = await supabase
+        .from("tournament_predictions")
+        .select("*")
+        .eq("groupId", groupId);
+
+      if (tournError) {
+        console.error(`❌ Erro ao buscar predições do torneio do grupo ${groupId}:`, tournError);
+      }
+
+      // 3. Fetch extra phase predictions for the group (only for Regulamento 2)
+      let extraPhasePreds: any[] = [];
+      if (isRegulamento2) {
+        const { data: epPreds, error: epError } = await supabase
+          .from("extra_phase_predictions")
+          .select("*")
+          .eq("groupId", groupId);
+        
+        if (epError) {
+          console.error(`❌ Erro ao buscar palpites extras de fase do grupo ${groupId}:`, epError);
+        } else if (epPreds) {
+          extraPhasePreds = epPreds;
+        }
+      }
+
+      // 4. Fetch the current competition's actual results
+      const compCode = group?.competitionCode || "WC";
+      const { data: compData } = await supabase
+        .from("competitions")
+        .select("*")
+        .eq("code", compCode)
+        .single();
+      
+      const tournamentResults: TournamentPredictions | null = compData
+        ? {
+            championTeamId: compData.championTeamId || undefined,
+            topScorer: compData.topScorerName
+              ? { player: compData.topScorerName, goals: compData.topScorerGoals || 0 }
+              : undefined,
+            bestPlayer: compData.bestPlayerName || undefined,
+            bestGoalkeeper: compData.bestGoalkeeperName || undefined,
+            mostGoalsTeamId: compData.mostGoalsTeamId || undefined,
+            mostConcededTeamId: compData.mostConcededTeamId || undefined,
+          }
+        : null;
+
+      // 5. Calculate total points per user and track which predictions need their points column updated
       const pointsByUser: Record<string, number> = {};
       const predPointsUpdates: Array<{
         userId: string; matchId: string; groupId: string;
         homeScore: number; awayScore: number; points: number;
       }> = [];
 
+      const latePenaltiesByUser: Record<string, number> = {};
+
+      // Build group matches context map for placar isolado checks
+      const matchPredictionsMap = new Map<string, Array<{ userId: string; homeScore: number; awayScore: number }>>();
+      (preds || []).forEach((p) => {
+        const item = { userId: p.userId, homeScore: p.homeScore, awayScore: p.awayScore };
+        const existing = matchPredictionsMap.get(p.matchId) || [];
+        existing.push(item);
+        matchPredictionsMap.set(p.matchId, existing);
+      });
+
       (preds || []).forEach((p) => {
         if (!pointsByUser[p.userId]) pointsByUser[p.userId] = 0;
+        if (!latePenaltiesByUser[p.userId]) latePenaltiesByUser[p.userId] = 0;
 
         const match = finishedMatchesMap.get(p.matchId);
         if (match) {
-          const pts = calculatePoints(
-            p.homeScore,
-            p.awayScore,
-            match.result?.home ?? 0,
-            match.result?.away ?? 0,
-            match.homeTeam?.ranking,
-            match.awayTeam?.ranking,
-            effectiveMinRankDiff
-          );
+          let pts = 0;
+          if (isRegulamento2) {
+            const phase = getMatchPhase(match.stage, match.group);
+            const matchPredictionsGroup = matchPredictionsMap.get(p.matchId) || [];
+            pts = calculatePointsRegulamento2(
+              p.homeScore,
+              p.awayScore,
+              match.result?.home ?? 0,
+              match.result?.away ?? 0,
+              phase,
+              matchPredictionsGroup,
+              p.userId
+            );
+
+            // Auto-calculate late penalty
+            if (p.timestamp && match.date) {
+              const predTime = new Date(p.timestamp).getTime();
+              const matchTime = new Date(match.date).getTime();
+              // Apply penalty if prediction was made/updated > 60 seconds after match kickoff
+              if (predTime > matchTime + 60000) {
+                if (pts > 0) {
+                  latePenaltiesByUser[p.userId] += 3;
+                }
+              }
+            }
+          } else {
+            pts = calculatePoints(
+              p.homeScore,
+              p.awayScore,
+              match.result?.home ?? 0,
+              match.result?.away ?? 0,
+              match.homeTeam?.ranking,
+              match.awayTeam?.ranking,
+              effectiveMinRankDiff
+            );
+          }
+
           pointsByUser[p.userId] += pts;
           if (p.points !== pts) {
             predPointsUpdates.push({
@@ -75,7 +171,107 @@ export const usePointsProcessor = (dbRef: any) => {
         }
       });
 
-      // 3. Buscamos os membros atuais para preservar metadados
+      // Apply late penalties cap of -40 points
+      if (isRegulamento2) {
+        Object.keys(latePenaltiesByUser).forEach((userId) => {
+          const penalty = Math.min(latePenaltiesByUser[userId], 40);
+          if (penalty > 0) {
+            console.log(`⚠️ Aplicando penalidade de -${penalty} pontos de palpites atrasados para o usuário ${userId}`);
+            pointsByUser[userId] = Math.max(0, (pointsByUser[userId] || 0) - penalty);
+          }
+        });
+      }
+
+      // 6. Calculate and add tournament predictions points
+      if (tournamentResults) {
+        if (isRegulamento2) {
+          const groupTournPreds = (tournPreds || []).map((tp) => ({
+            userId: tp.userId,
+            championTeamId: tp.championTeamId || undefined,
+            topScorerPlayer: tp.topScorerPlayer || undefined,
+          }));
+
+          (tournPreds || []).forEach((tp) => {
+            if (!pointsByUser[tp.userId]) pointsByUser[tp.userId] = 0;
+            const predTourn: TournamentPredictions = {
+              championTeamId: tp.championTeamId || undefined,
+              topScorer: tp.topScorerPlayer
+                ? { player: tp.topScorerPlayer, goals: tp.topScorerGoals || 0 }
+                : undefined,
+              bestPlayer: tp.bestPlayer || undefined,
+              bestGoalkeeper: tp.bestGoalkeeper || undefined,
+              mostGoalsTeamId: tp.mostGoalsTeamId || undefined,
+              mostConcededTeamId: tp.mostConcededTeamId || undefined,
+              groupClassifications: tp.groupClassifications || undefined,
+            };
+
+            const pts = calculateTournamentPointsRegulamento2(
+              predTourn,
+              tournamentResults,
+              groupTournPreds,
+              tp.userId
+            );
+            if (pts > 0) {
+              console.log(`🏆 Pontos de Torneio (Regulamento 2) para ${tp.userId}: +${pts}`);
+              pointsByUser[tp.userId] += pts;
+            }
+          });
+        } else {
+          // Regulamento 1: Stateless tournament points
+          (tournPreds || []).forEach((tp) => {
+            if (!pointsByUser[tp.userId]) pointsByUser[tp.userId] = 0;
+            const predTourn: TournamentPredictions = {
+              championTeamId: tp.championTeamId || undefined,
+              topScorer: tp.topScorerPlayer
+                ? { player: tp.topScorerPlayer, goals: tp.topScorerGoals || 0 }
+                : undefined,
+              bestPlayer: tp.bestPlayer || undefined,
+              bestGoalkeeper: tp.bestGoalkeeper || undefined,
+            };
+
+            const pts = calculateTournamentPoints(predTourn, tournamentResults);
+            if (pts > 0) {
+              pointsByUser[tp.userId] += pts;
+            }
+          });
+        }
+      }
+
+      // 7. Calculate and add extra phase predictions points (only for Regulamento 2)
+      if (isRegulamento2 && extraPhasePreds.length > 0) {
+        // Hydrate all phase matches
+        const phaseMatches = rawMatches.map((m) => ({
+          id: m.id,
+          resultHome: m.resultHome,
+          resultAway: m.resultAway,
+          status: m.status,
+          stage: m.stage,
+          group: m.group,
+        }));
+
+        extraPhasePreds.forEach((ep) => {
+          if (!pointsByUser[ep.userId]) pointsByUser[ep.userId] = 0;
+
+          // Filter matches belonging to this phase
+          const epPhase = ep.phase; // e.g. 'groups', 'oitavas', 'quartas', 'semi'
+          const phaseMatchesFiltered = phaseMatches.filter((m) => {
+            const phaseMapped = getMatchPhase(m.stage, m.group);
+            return phaseMapped === epPhase;
+          });
+
+          const pts = calculateExtraPhasePoints(
+            { phase: ep.phase, matchId: ep.matchId || undefined },
+            phaseMatchesFiltered
+          );
+
+          if (pts > 0) {
+            console.log(`⚡ Pontos de Palpite Extra da Fase ${ep.phase} para ${ep.userId}: +${pts}`);
+            pointsByUser[ep.userId] += pts;
+          }
+        });
+      }
+
+      // 8. Buscamos os membros atuais para preservar metadados
       const { data: members, error: ugError } = await supabase
         .from("user_groups")
         .select("userId, groupId, role, joinedAt")
@@ -117,10 +313,7 @@ export const usePointsProcessor = (dbRef: any) => {
         }
       }
 
-      // 4. Persist calculated points back to predictions.points in the DB.
-      // Uses direct upsert (not upsertPrediction) so local state is NOT pre-updated —
-      // this avoids the idempotency-poisoning bug where a failed DB write causes
-      // subsequent syncs to skip the write because local state already shows the correct value.
+      // 9. Persist calculated points back to predictions.points in the DB.
       if (predPointsUpdates.length > 0) {
         const { error: predError } = await supabase
           .from("predictions")
@@ -152,20 +345,44 @@ export const usePointsProcessor = (dbRef: any) => {
         for (const pred of matchPredictions) {
           const allGroups = dbRef.current.groups as any[];
           const predGroup = allGroups.find((g: any) => g.id === pred.groupId);
+          const isRegulamento2 = predGroup?.ruleset === 'regulamento_2';
+
           const globalMinRankDiff: number =
             dbRef.current.systemConfig?.underdog_min_rank_diff ?? 10;
           const effectiveMinRankDiff: number =
             predGroup?.underdog_min_rank_diff ?? globalMinRankDiff;
 
-          const pts = calculatePoints(
-            pred.homeScore,
-            pred.awayScore,
-            match.result?.home || 0,
-            match.result?.away || 0,
-            match.homeTeam.ranking,
-            match.awayTeam.ranking,
-            effectiveMinRankDiff,
-          );
+          let pts = 0;
+          if (isRegulamento2) {
+            const phase = getMatchPhase(match.stage, match.group);
+            const matchPredictionsGroup = matchPredictions
+              .filter((p: any) => p.groupId === pred.groupId)
+              .map((p: any) => ({
+                userId: p.userId,
+                homeScore: p.homeScore,
+                awayScore: p.awayScore,
+              }));
+
+            pts = calculatePointsRegulamento2(
+              pred.homeScore,
+              pred.awayScore,
+              match.result?.home || 0,
+              match.result?.away || 0,
+              phase,
+              matchPredictionsGroup,
+              pred.userId
+            );
+          } else {
+            pts = calculatePoints(
+              pred.homeScore,
+              pred.awayScore,
+              match.result?.home || 0,
+              match.result?.away || 0,
+              match.homeTeam.ranking,
+              match.awayTeam.ranking,
+              effectiveMinRankDiff,
+            );
+          }
 
           if (pred.points !== pts) {
             updatesToUpsert.push({
@@ -231,11 +448,20 @@ export const usePointsProcessor = (dbRef: any) => {
 
     for (const groupId of affectedGroupIds) {
       const group = allGroups.find((g: any) => g.id === groupId);
+      const isRegulamento2 = group?.ruleset === 'regulamento_2';
       const effectiveMinRankDiff: number =
         group?.underdog_min_rank_diff ?? globalMinRankDiff;
 
       const members = allUserGroups.filter((ug: any) => ug.groupId === groupId);
       const groupPreds = allPredictions.filter((p: any) => p.groupId === groupId);
+      
+      const matchPredictionsGroup = groupPreds.map((p: any) => ({
+        userId: p.userId,
+        homeScore: p.homeScore,
+        awayScore: p.awayScore,
+        matchId: p.matchId,
+      }));
+
       for (const member of members) {
         let total = 0;
         groupPreds
@@ -243,12 +469,24 @@ export const usePointsProcessor = (dbRef: any) => {
           .forEach((p: any) => {
             const match = hydratedMatchesMap.get(p.matchId);
             if (match) {
-              total += calculatePoints(
-                p.homeScore, p.awayScore,
-                match.resultHome ?? 0, match.resultAway ?? 0,
-                match.homeTeam?.ranking, match.awayTeam?.ranking,
-                effectiveMinRankDiff
-              );
+              if (isRegulamento2) {
+                const phase = getMatchPhase(match.stage, match.group);
+                const predsForMatch = matchPredictionsGroup.filter((pg) => pg.matchId === p.matchId);
+                total += calculatePointsRegulamento2(
+                  p.homeScore, p.awayScore,
+                  match.resultHome ?? 0, match.resultAway ?? 0,
+                  phase,
+                  predsForMatch,
+                  p.userId
+                );
+              } else {
+                total += calculatePoints(
+                  p.homeScore, p.awayScore,
+                  match.resultHome ?? 0, match.resultAway ?? 0,
+                  match.homeTeam?.ranking, match.awayTeam?.ranking,
+                  effectiveMinRankDiff
+                );
+              }
             }
           });
         updates.push({ userId: member.userId, groupId, points: total });

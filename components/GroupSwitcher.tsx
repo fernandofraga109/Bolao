@@ -12,7 +12,7 @@ interface GroupSwitcherProps {
   myGroups: Group[];
   activeGroupId?: string;
   onSwitch: (groupId: string) => void;
-  onCreate: (name: string, competitionCode: string) => void;
+  onCreate: (name: string, competitionCode: string, ruleset: "regulamento_1" | "regulamento_2") => void;
   onJoin: (code: string) => void;
   onClose: () => void;
   error?: string | null;
@@ -36,11 +36,12 @@ const GroupSwitcher: React.FC<GroupSwitcherProps> = ({
   const [competitionCode, setCompetitionCode] = useState(
     DEFAULT_COMPETITION_CODE,
   );
+  const [ruleset, setRuleset] = useState<"regulamento_1" | "regulamento_2">("regulamento_1");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleAction = () => {
     if (!inputVal.trim()) return;
-    if (mode === "create") onCreate(inputVal, competitionCode);
+    if (mode === "create") onCreate(inputVal, competitionCode, ruleset);
     if (mode === "join") onJoin(inputVal);
   };
 
@@ -205,22 +206,43 @@ const GroupSwitcher: React.FC<GroupSwitcherProps> = ({
           </div>
 
           {mode === "create" && (
-            <div>
-              <label className="text-xs font-bold text-slate-400 uppercase block mb-2">
-                Competicao
-              </label>
-              <select
-                value={competitionCode}
-                onChange={(e) => setCompetitionCode(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-600 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green"
-              >
-                {COMPETITION_OPTIONS.map((competition) => (
-                  <option key={competition.code} value={competition.code}>
-                    {competition.code} - {competition.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <>
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase block mb-2">
+                  Competicao
+                </label>
+                <select
+                  value={competitionCode}
+                  onChange={(e) => setCompetitionCode(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-600 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green"
+                >
+                  {COMPETITION_OPTIONS.map((competition) => (
+                    <option key={competition.code} value={competition.code}>
+                      {competition.code} - {competition.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase block mb-2">
+                  Regulamento (Regras de Pontuação)
+                </label>
+                <select
+                  value={ruleset}
+                  onChange={(e) => setRuleset(e.target.value as any)}
+                  className="w-full bg-slate-900 border border-slate-600 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green"
+                >
+                  <option value="regulamento_1">Regulamento 1 (Padrão Antigo)</option>
+                  <option value="regulamento_2">Regulamento 2 (Bolão do Mesa 2026)</option>
+                </select>
+                <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                  {ruleset === "regulamento_1" 
+                    ? "Regras tradicionais: Exato (10 pts), Saldo (7 pts), Vencedor (5 pts), com Bônus Underdog."
+                    : "Regras especiais: Exato (15-22 pts), Saldo (13-19 pts), Vencedor (10-16 pts), Empate sem bônus saldo, Placar Sozinho (+5 pts), Penalidade Atraso e palpites divididos."}
+                </p>
+              </div>
+            </>
           )}
         </div>
       )}

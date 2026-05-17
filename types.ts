@@ -24,6 +24,8 @@ export interface CompetitionDB {
   championTeamId?: string;
   bestPlayerName?: string;
   bestGoalkeeperName?: string;
+  mostGoalsTeamId?: string;
+  mostConcededTeamId?: string;
 }
 
 export interface StadiumDB {
@@ -98,6 +100,17 @@ export interface TournamentPredictionDB {
   topScorerGoals?: number;
   bestPlayer?: string;
   bestGoalkeeper?: string;
+  mostGoalsTeamId?: string;
+  mostConcededTeamId?: string;
+  groupClassifications?: Record<string, string[]>;
+}
+
+export interface ExtraPhasePredictionDB {
+  userId: string;
+  groupId: string;
+  phase: string;
+  matchId?: string;
+  createdAt?: string;
 }
 
 export interface UserDB {
@@ -120,6 +133,7 @@ export interface GroupDB {
   createdAt: string;
   competitionCode?: string; // e.g., 'WC' (Copa do Mundo), 'PL' (Premier League), 'BSA' (Campeonato Brasileiro)
   underdog_min_rank_diff?: number | null;
+  ruleset: "regulamento_1" | "regulamento_2";
 }
 
 export interface UserGroupDB {
@@ -174,6 +188,9 @@ export interface TournamentPredictions {
   };
   bestPlayer?: string;
   bestGoalkeeper?: string;
+  mostGoalsTeamId?: string;
+  mostConcededTeamId?: string;
+  groupClassifications?: Record<string, string[]>;
 }
 
 // "Hydrated" User with nested data for easy UI consumption
@@ -212,7 +229,7 @@ export interface Match {
 export type Group = GroupDB;
 export type Friend = User; // Legacy alias
 
-export type Tab = "matches" | "leaderboard" | "stats" | "tournament" | "admin";
+export type Tab = "matches" | "leaderboard" | "stats" | "tournament" | "admin" | "specials";
 
 export interface AIPredictionResult {
   homeScore: number;
