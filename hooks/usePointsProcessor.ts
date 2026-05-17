@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { Match, MatchDB, MatchStatus, PredictionDB } from "../types";
+import { Match, MatchDB, MatchStatus } from "../types";
 import { calculatePoints } from "../utils/scoring";
 import { supabase } from "../services/supabase";
 
@@ -33,12 +33,10 @@ export const usePointsProcessor = (dbRef: any) => {
       const effectiveMinRankDiff: number =
         group?.underdog_min_rank_diff ?? globalMinRankDiff;
 
-      // 1. Buscamos todas as predições (raw scores) do grupo
-      // Nota: Não confiamos na coluna 'points' do banco, pois ela pode estar
-      // desatualizada se o sync anterior foi feito por um usuário sem permissão de escrita.
+      // 1. Fetch all predictions for the group from the DB (always fresh — never local state)
       const { data: preds, error } = await supabase
         .from("predictions")
-        .select("userId, matchId, homeScore, awayScore")
+        .select("userId, matchId, groupId, homeScore, awayScore, points")
         .eq("groupId", groupId);
 
       if (error) {
@@ -46,8 +44,12 @@ export const usePointsProcessor = (dbRef: any) => {
         continue;
       }
 
-      // 2. Calculamos os pontos totais por usuário baseados nos resultados oficiais
+      // 2. Calculate total points per user and track which predictions need their points column updated
       const pointsByUser: Record<string, number> = {};
+      const predPointsUpdates: Array<{
+        userId: string; matchId: string; groupId: string;
+        homeScore: number; awayScore: number; points: number;
+      }> = [];
 
       (preds || []).forEach((p) => {
         if (!pointsByUser[p.userId]) pointsByUser[p.userId] = 0;
@@ -64,6 +66,12 @@ export const usePointsProcessor = (dbRef: any) => {
             effectiveMinRankDiff
           );
           pointsByUser[p.userId] += pts;
+          if (p.points !== pts) {
+            predPointsUpdates.push({
+              userId: p.userId, matchId: p.matchId, groupId: p.groupId,
+              homeScore: p.homeScore, awayScore: p.awayScore, points: pts,
+            });
+          }
         }
       });
 
@@ -78,6 +86,17 @@ export const usePointsProcessor = (dbRef: any) => {
         continue;
       }
 
+      if (!preds || preds.length === 0) {
+        const existingMembers = (dbRef.current.userGroups as any[]).filter(
+          (ug: any) => ug.groupId === groupId
+        );
+        const hasExistingPoints = existingMembers.some((m: any) => (m.points ?? 0) > 0);
+        if (hasExistingPoints) {
+          console.warn(`⚠️ Empty predictions for group ${groupId} with existing points — skipping update`);
+          continue;
+        }
+      }
+
       if (members && members.length > 0) {
         const finalUpdates = members.map((u) => ({
           ...u,
@@ -86,32 +105,30 @@ export const usePointsProcessor = (dbRef: any) => {
 
         console.log(`📤 Enviando classificação atualizada para o grupo ${groupId} (${finalUpdates.length} usuários)`);
 
-        const successfulUpdates: typeof finalUpdates = [];
-        for (const update of finalUpdates) {
-          const { data: updated, error: updateError } = await supabase
-            .from("user_groups")
-            .update({ points: update.points })
-            .eq("userId", update.userId)
-            .eq("groupId", update.groupId)
-            .select("userId, groupId, points");
+        const { error: upsertError } = await supabase
+          .from("user_groups")
+          .upsert(finalUpdates, { onConflict: "userId,groupId" });
 
-          if (updateError) {
-            console.error(`❌ Erro ao atualizar pontos do membro ${update.userId}:`, updateError);
-          } else if (!updated || updated.length === 0) {
-            console.error(`❌ Update matched 0 rows:`, { userId: update.userId, groupId: update.groupId });
-          } else {
-            successfulUpdates.push(update);
-          }
-        }
-
-        if (successfulUpdates.length > 0) {
-          dbRef.current.updateLocalUserGroups(successfulUpdates);
-        }
-
-        if (successfulUpdates.length === finalUpdates.length) {
-          console.log(`✨ Classificação sincronizada com sucesso para o grupo ${groupId}`);
+        if (upsertError) {
+          console.error(`❌ Erro ao atualizar pontos do grupo ${groupId}:`, upsertError);
         } else {
-          console.warn(`⚠️ ${successfulUpdates.length}/${finalUpdates.length} pontos atualizados no grupo ${groupId}`);
+          dbRef.current.updateLocalUserGroups(finalUpdates);
+          console.log(`✨ Classificação sincronizada com sucesso para o grupo ${groupId}`);
+        }
+      }
+
+      // 4. Persist calculated points back to predictions.points in the DB.
+      // Uses direct upsert (not upsertPrediction) so local state is NOT pre-updated —
+      // this avoids the idempotency-poisoning bug where a failed DB write causes
+      // subsequent syncs to skip the write because local state already shows the correct value.
+      if (predPointsUpdates.length > 0) {
+        const { error: predError } = await supabase
+          .from("predictions")
+          .upsert(predPointsUpdates, { onConflict: '"userId", "matchId", "groupId"' });
+        if (predError) {
+          console.error(`❌ Error updating prediction points for group ${groupId}:`, predError);
+        } else {
+          console.log(`✓ Updated points column for ${predPointsUpdates.length} predictions in group ${groupId}`);
         }
       }
     }
@@ -166,15 +183,6 @@ export const usePointsProcessor = (dbRef: any) => {
 
       if (updatesToUpsert.length > 0) {
         console.log(`📦 Processando pontos para ${updatesToUpsert.length} palpites...`);
-        try {
-          // Tentamos salvar os pontos na tabela de predictions.
-          // Em background sync de usuários comuns, isso falhará para palpites de outros usuários via RLS.
-          // Isso é OK, pois o recalculateUserGroupPoints agora calcula em memória.
-          await dbRef.current.upsertPrediction(updatesToUpsert);
-        } catch (err) {
-          console.debug("[SYNC] Upsert de predictions limitado por RLS (comportamento esperado em background sync).");
-        }
-
         const groupIdsToRecalculate = Array.from(
           new Set(updatesToUpsert.map((u) => u.groupId).filter(Boolean)),
         );

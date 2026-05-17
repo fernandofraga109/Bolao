@@ -56,6 +56,25 @@ export const useUserSystem = () => {
 
   // --- HYDRATION: Convert DB Normalized Data to UI User Objects ---
   // This performs the "SQL JOIN" logic
+
+  // Compute the VIEWER's active group ID independently from hydratedUsers.
+  // This is needed to correctly filter other users' predictions: their localStorage
+  // keys don't exist on the viewer's device, so their per-user resolvedActiveGroupId
+  // would resolve to the wrong group, silently dropping their predictions.
+  const viewerActiveGroupId = useMemo(() => {
+    if (!currentUserId) return undefined;
+    const viewerGroups = db.userGroups
+      .filter((ug) => ug.userId === currentUserId)
+      .map((ug) => ug.groupId);
+    const fromStorage = localStorage.getItem(`bolao_active_group_${currentUserId}`);
+    return (fromStorage && viewerGroups.includes(fromStorage) ? fromStorage : undefined)
+      || (db.users.find((u) => u.id === currentUserId)?.activeGroupId &&
+          viewerGroups.includes(db.users.find((u) => u.id === currentUserId)!.activeGroupId!)
+            ? db.users.find((u) => u.id === currentUserId)!.activeGroupId!
+            : undefined)
+      || viewerGroups[0];
+  }, [currentUserId, db.users, db.userGroups]);
+
   const hydratedUsers: User[] = useMemo(() => {
     return db.users.map((user) => {
       // Join UserGroups
@@ -77,14 +96,20 @@ export const useUserSystem = () => {
           : undefined) ||
         myGroups[0];
 
-      // Join Predictions
+      // Join Predictions.
+      // For the current viewer, use their own resolvedActiveGroupId (accurate on their device).
+      // For all other users, use viewerActiveGroupId — their localStorage doesn't exist here,
+      // so their per-user resolved group would be wrong and silently drop their predictions.
+      const effectiveGroupId =
+        user.id === currentUserId ? resolvedActiveGroupId : viewerActiveGroupId;
+
       const myPredictionsMap: Record<string, { home: number; away: number; points?: number }> =
         {};
       db.predictions
         .filter((p) => p.userId === user.id)
         .forEach((p) => {
           const isExactGroupPrediction =
-            !!resolvedActiveGroupId && p.groupId === resolvedActiveGroupId;
+            !!effectiveGroupId && p.groupId === effectiveGroupId;
           const isLegacyPrediction = !p.groupId;
 
           if (!isExactGroupPrediction && !isLegacyPrediction) return;
@@ -135,6 +160,8 @@ export const useUserSystem = () => {
     db.predictions,
     db.tournamentPredictions,
     resolveChampionIdForUi,
+    currentUserId,
+    viewerActiveGroupId,
   ]);
 
   const currentUser = useMemo(() => {

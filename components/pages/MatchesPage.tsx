@@ -3,8 +3,6 @@ import { Match, User, TournamentPredictions } from "../../types";
 import MatchCard from "../MatchCard";
 import RulesSection from "../RulesSection";
 import TopScorerCard from "../TopScorerCard";
-import PullToRefreshIndicator from "../ui/PullToRefreshIndicator";
-import { usePullToRefresh } from "../../hooks/usePullToRefresh";
 import { CalendarDays, History, ChevronDown, ChevronUp, Zap, Users } from "lucide-react";
 
 // --- Helper: Date Group Accordion ---
@@ -112,7 +110,6 @@ interface MatchesPageProps {
   tournamentResults?: any;
   lockDate: string | null;
   onManualSync: () => void;
-  onRefreshData: () => Promise<void>;
   onPredict: (id: string, h: number, a: number) => Promise<void>;
   onFinishMatch: (id: string, h: number, a: number) => void;
   onPredictTournament: (predictions: TournamentPredictions) => void;
@@ -131,7 +128,6 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
   tournamentResults,
   lockDate,
   onManualSync,
-  onRefreshData,
   onPredict,
   onFinishMatch,
   onPredictTournament,
@@ -203,14 +199,8 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
 
   const isAdmin = currentUser.role === "ADMIN";
 
-  const { containerRef, pullDistance, isRefreshing, handlers } = usePullToRefresh({
-    onRefresh: onRefreshData,
-    disabled: isSyncing,
-  });
-
   return (
-    <div ref={containerRef} className="space-y-6" {...handlers}>
-      <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
+    <div className="space-y-6">
       {matches.length === 0 && !userHasGroup && (
         <div className="text-center py-10 border border-slate-700 rounded-xl bg-slate-800/50 border-dashed space-y-3">
           <Users className="mx-auto text-slate-500" size={32} />

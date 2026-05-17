@@ -14,6 +14,8 @@ import Header from "./components/Header";
 import BottomNav from "./components/BottomNav";
 import SplashScreen from "./components/ui/SplashScreen";
 import { SyncToastContainer, useSyncToast } from "./components/ui/SyncToast";
+import { usePullToRefresh } from "./hooks/usePullToRefresh";
+import PullToRefreshIndicator from "./components/ui/PullToRefreshIndicator";
 
 // Auth
 import Login from "./components/Login";
@@ -158,7 +160,7 @@ const App: React.FC = () => {
   };
 
   const handleRefreshData = async () => {
-    await Promise.all([db.refetchMatches(), db.refetchPredictions()]);
+    await Promise.all([db.refetchMatches(), db.refetchPredictions(), db.refetchTeamStandings()]);
   };
 
   const handleManualMatchesSync = async () => {
@@ -216,6 +218,11 @@ const App: React.FC = () => {
     const section = leaderboardSections.find(s => s.groupId === activeGroupId);
     return section?.users.find(u => u.id === currentUser.id)?.totalPoints || 0;
   }, [currentUser, leaderboardSections]);
+
+  const { containerRef: mainRef, pullDistance, isRefreshing, handlers: pullHandlers } = usePullToRefresh({
+    onRefresh: handleRefreshData,
+    disabled: isSyncing,
+  });
 
   // --- Render Auth Screen ---
   if (!authReady) {
@@ -432,7 +439,8 @@ const App: React.FC = () => {
         />
       )}
 
-      <main className="max-w-2xl mx-auto p-4">
+      <main ref={mainRef} className="max-w-2xl mx-auto p-4" {...pullHandlers}>
+        <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
         {/* Matches Tab */}
         {activeTab === "matches" && (
           <MatchesPage
@@ -446,7 +454,6 @@ const App: React.FC = () => {
             tournamentResults={tournamentResults}
             lockDate={lockDate}
             onManualSync={() => void handleManualMatchesSync()}
-            onRefreshData={handleRefreshData}
             onPredict={predictMatch}
             onFinishMatch={adminControls.finishMatch}
             onPredictTournament={predictTournament}
