@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.5.0";
+export const CURRENT_VERSION = "1.5.1";
 
 export interface Release {
   version: string;
@@ -7,6 +7,16 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.5.1",
+    date: "2026-05-16",
+    changes: [
+      "Palpites de outros participantes agora aparecem corretamente para todos os membros do grupo",
+      "Pontuação dos grupos não é mais zerada durante a sincronização de resultados",
+      "Pull-to-Refresh disponível em todas as abas (Partidas, Classificação, Torneio, Stats)",
+      "Pontos dos palpites gravados corretamente no banco após sincronização — Histórico de Palpites exibe valores corretos",
+    ],
+  },
   {
     version: "1.5.0",
     date: "2026-05-16",

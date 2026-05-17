@@ -18,17 +18,17 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 
 | Priority | Item | Plan | Status |
 |----------|------|------|--------|
-| **Next** | StatsPage shows 0 pts (pred.points stale) | `.claude/plans/fix-stats-points-display.md` | Planned, not started |
 | Deferred | Large file refactor (5 phases) | `.claude/plans/large-file-refactors.md` | Planned, not started — branch `chore/structural-refactor` |
 | Ongoing | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Open |
 
 ---
 
-## Completed — Data Sync Reliability + Global PTR (2026-05-16, branch `fix/data-sync-and-ptr`)
+## Completed — Data Sync Reliability + Global PTR + predictions.points fix (2026-05-16, branch `fix/data-sync-and-ptr`)
 
 - **Fix 1 — Other users' predictions not appearing:** `hydratedUsers` in `hooks/useUserSystem.ts` was filtering each user's predictions using their own `resolvedActiveGroupId`, computed from the viewer's device. Fix: added `viewerActiveGroupId` memo computed from the current user's data, used as the effective group filter for all other users.
 - **Fix 2 — `user_groups` zeroing during sync:** `usePointsProcessor.recalculateUserGroupPoints` did sequential individual UPDATEs in a loop; if the predictions query returned empty, all members got 0 points, with N Realtime events showing intermediate state. Fix: (a) safety guard — if `preds` is empty but members already have points > 0, skip the update entirely; (b) batch `upsert` with `onConflict: "userId,groupId"` replaces the loop — one operation, one Realtime event.
 - **Fix 3 — PTR global:** Moved `usePullToRefresh` + `PullToRefreshIndicator` from `MatchesPage.tsx` to `App.tsx` on the `<main>` container. `handleRefreshData` now calls all three: `refetchMatches + refetchPredictions + refetchTeamStandings`. Removed `onRefreshData` prop from `MatchesPage` entirely.
+- **Fix 4 — `predictions.points` not written during sync:** `batchProcessPointsForMatches` called `upsertPrediction` which updated local state before the DB write; if the DB write failed silently, local state poisoned the idempotency check (`pred.points === pts`) so subsequent syncs skipped the write. Fix: removed the call from `batchProcessPointsForMatches`; moved the `predictions.points` update into `recalculateUserGroupPoints` using a direct `supabase.upsert` on fresh DB-sourced data (no local state side effect). StatsPage now shows correct pts after sync + hard reload.
 
 ---
 
@@ -62,9 +62,9 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 | Note | Status |
 |------|--------|
 | Sync is user-triggered, not automatic | Mitigated. PTR resolves predictions; Edge Functions + pg_cron for scores still viable. |
-| `hydratedUsers` predictions bug — **FIXED** | Root cause: `resolvedActiveGroupId` for other users computed on the viewer's device where their localStorage doesn't exist → predictions filtered out. Fix: separate `viewerActiveGroupId` memo used for all other users. |
-| `user_groups` zeroing during sync — **FIXED** | Root cause: `usePointsProcessor` looped individual UPDATEs; empty predictions query zeroed everyone. Fix: safety guard + single batch upsert. |
-| `predictions.points` never written during sync — **PENDING FIX** | Root cause: `batchProcessPointsForMatches` calls `upsertPrediction` which updates local state first, then tries DB write. If DB write fails (silenced error), local state shows correct pts → next sync sees `pred.points === pts` → skips DB write → loop. Fix: move `predictions.points` update into `recalculateUserGroupPoints` which reads from DB directly (no poisoning). Plan: `.claude/plans/fix-stats-points-display.md`. |
+| `hydratedUsers` predictions bug — **FIXED** | Root cause: `resolvedActiveGroupId` for other users computed on the viewer's device → predictions filtered out. Fix: `viewerActiveGroupId` memo. |
+| `user_groups` zeroing during sync — **FIXED** | Root cause: sequential UPDATEs in a loop + empty predictions query zeroed everyone. Fix: safety guard + single batch upsert. |
+| `predictions.points` not written during sync — **FIXED** | Root cause: `upsertPrediction` updated local state before DB write; if DB write failed (silenced), local state poisoned idempotency check → DB never corrected on retry. Fix: moved `predictions.points` update into `recalculateUserGroupPoints` using direct `supabase.upsert` (no local state side effect). |
 | Two sources of truth: auth metadata vs `user_roles.displayName` | Monitor — see `completed/profile-sync-investigation.md` |
 | `AdminDashboard.tsx` ~1348 lines, `DatabaseContext.tsx` ~1246 lines | Plan in `.claude/plans/large-file-refactors.md` |
 
@@ -72,10 +72,6 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 
 ## Next Action
 
-Implement fix for StatsPage 0 pts bug (`.claude/plans/fix-stats-points-display.md`):
-- `StatsPage.tsx` — import `calculatePoints`, add `minRankDiff` prop, replace `pred.points` reads
-- `App.tsx` — pass `minRankDiff` to `<StatsPage>`
-
-Then: commit + merge `fix/data-sync-and-ptr` → `main` and invoke `changelog-updater` agent.
+Merge `fix/data-sync-and-ptr` → `main` when ready.
 
 _Last updated: 2026-05-16_

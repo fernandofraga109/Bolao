@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { Match, MatchDB, MatchStatus, PredictionDB } from "../types";
+import { Match, MatchDB, MatchStatus } from "../types";
 import { calculatePoints } from "../utils/scoring";
 import { supabase } from "../services/supabase";
 
@@ -33,12 +33,10 @@ export const usePointsProcessor = (dbRef: any) => {
       const effectiveMinRankDiff: number =
         group?.underdog_min_rank_diff ?? globalMinRankDiff;
 
-      // 1. Buscamos todas as predições (raw scores) do grupo
-      // Nota: Não confiamos na coluna 'points' do banco, pois ela pode estar
-      // desatualizada se o sync anterior foi feito por um usuário sem permissão de escrita.
+      // 1. Fetch all predictions for the group from the DB (always fresh — never local state)
       const { data: preds, error } = await supabase
         .from("predictions")
-        .select("userId, matchId, homeScore, awayScore")
+        .select("userId, matchId, groupId, homeScore, awayScore, points")
         .eq("groupId", groupId);
 
       if (error) {
@@ -46,8 +44,12 @@ export const usePointsProcessor = (dbRef: any) => {
         continue;
       }
 
-      // 2. Calculamos os pontos totais por usuário baseados nos resultados oficiais
+      // 2. Calculate total points per user and track which predictions need their points column updated
       const pointsByUser: Record<string, number> = {};
+      const predPointsUpdates: Array<{
+        userId: string; matchId: string; groupId: string;
+        homeScore: number; awayScore: number; points: number;
+      }> = [];
 
       (preds || []).forEach((p) => {
         if (!pointsByUser[p.userId]) pointsByUser[p.userId] = 0;
@@ -64,6 +66,12 @@ export const usePointsProcessor = (dbRef: any) => {
             effectiveMinRankDiff
           );
           pointsByUser[p.userId] += pts;
+          if (p.points !== pts) {
+            predPointsUpdates.push({
+              userId: p.userId, matchId: p.matchId, groupId: p.groupId,
+              homeScore: p.homeScore, awayScore: p.awayScore, points: pts,
+            });
+          }
         }
       });
 
@@ -106,6 +114,21 @@ export const usePointsProcessor = (dbRef: any) => {
         } else {
           dbRef.current.updateLocalUserGroups(finalUpdates);
           console.log(`✨ Classificação sincronizada com sucesso para o grupo ${groupId}`);
+        }
+      }
+
+      // 4. Persist calculated points back to predictions.points in the DB.
+      // Uses direct upsert (not upsertPrediction) so local state is NOT pre-updated —
+      // this avoids the idempotency-poisoning bug where a failed DB write causes
+      // subsequent syncs to skip the write because local state already shows the correct value.
+      if (predPointsUpdates.length > 0) {
+        const { error: predError } = await supabase
+          .from("predictions")
+          .upsert(predPointsUpdates, { onConflict: '"userId", "matchId", "groupId"' });
+        if (predError) {
+          console.error(`❌ Error updating prediction points for group ${groupId}:`, predError);
+        } else {
+          console.log(`✓ Updated points column for ${predPointsUpdates.length} predictions in group ${groupId}`);
         }
       }
     }
@@ -160,15 +183,6 @@ export const usePointsProcessor = (dbRef: any) => {
 
       if (updatesToUpsert.length > 0) {
         console.log(`📦 Processando pontos para ${updatesToUpsert.length} palpites...`);
-        try {
-          // Tentamos salvar os pontos na tabela de predictions.
-          // Em background sync de usuários comuns, isso falhará para palpites de outros usuários via RLS.
-          // Isso é OK, pois o recalculateUserGroupPoints agora calcula em memória.
-          await dbRef.current.upsertPrediction(updatesToUpsert);
-        } catch (err) {
-          console.debug("[SYNC] Upsert de predictions limitado por RLS (comportamento esperado em background sync).");
-        }
-
         const groupIdsToRecalculate = Array.from(
           new Set(updatesToUpsert.map((u) => u.groupId).filter(Boolean)),
         );
