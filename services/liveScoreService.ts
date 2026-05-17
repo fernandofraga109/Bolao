@@ -62,6 +62,7 @@ export interface ExternalMatch {
   matchday?: number;
   group?: string | null;
   stage?: string;
+  minute?: number | null;
   homeTeam: {
     id: number;
     name: string;
@@ -215,6 +216,41 @@ export const fetchExternalMatches = async (
       error,
     );
     return [];
+  }
+};
+
+/**
+ * Busca apenas os jogos ao vivo (IN_PLAY) e retorna um mapa de
+ * externalMatchId → minute. O endpoint /matches?status=IN_PLAY
+ * é o único que retorna o campo "minute" na API football-data.org.
+ */
+export const fetchLiveMatchMinutes = async (): Promise<Record<number, number | null>> => {
+  try {
+    const response = await fetch("/api/live-matches");
+    const contentType = response.headers.get("content-type") || "";
+
+    if (!contentType.includes("application/json")) {
+      return {};
+    }
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      console.warn("[LIVE MINUTES] Erro ao buscar jogos ao vivo:", payload.message);
+      return {};
+    }
+
+    const minuteMap: Record<number, number | null> = {};
+    for (const match of payload.matches || []) {
+      if (match.id != null) {
+        minuteMap[match.id] = match.minute ?? null;
+      }
+    }
+
+    return minuteMap;
+  } catch (error) {
+    console.warn("[LIVE MINUTES] Falha ao buscar /api/live-matches:", error);
+    return {};
   }
 };
 

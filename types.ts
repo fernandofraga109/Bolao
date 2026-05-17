@@ -80,6 +80,7 @@ export interface MatchDB {
   resultAway?: number;
   stage?: string;
   matchday?: number;
+  minute?: number | null;
 }
 
 export interface PredictionDB {
@@ -224,6 +225,7 @@ export interface Match {
   result?: { home: number; away: number };
   stage?: string;
   matchday?: number;
+  minute?: number | null;
 }
 
 export type Group = GroupDB;

@@ -227,7 +227,9 @@ const MatchCard: React.FC<MatchCardProps> = ({
           {isLive && (
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-red/10 border border-brand-red/30">
                <span className="w-1.5 h-1.5 rounded-full bg-brand-red animate-pulse"></span>
-               <span className="text-[10px] font-black text-brand-red uppercase tracking-tighter">AO VIVO</span>
+               <span className="text-[10px] font-black text-brand-red uppercase tracking-tighter">
+                 {match.minute ? `AO VIVO • ${match.minute}'` : "AO VIVO"}
+               </span>
             </div>
           )}
 
@@ -285,7 +287,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
                     </span>
                   </div>
                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">
-                    {isLive ? "Ao Vivo" : "Resultado"}
+                    {isLive ? (match.minute ? `Minuto ${match.minute}'` : "Ao Vivo") : "Resultado"}
                   </span>
                 </div>
 
