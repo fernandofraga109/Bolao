@@ -68,6 +68,20 @@ export default defineConfig(({ mode }) => {
         });
       },
     },
+    "/api/live-matches": {
+      target: "https://api.football-data.org",
+      changeOrigin: true,
+      secure: true,
+      rewrite: () => "/v4/matches?status=IN_PLAY,PAUSED",
+      configure: (proxy: any) => {
+        proxy.on("proxyReq", (proxyReq: any) => {
+          if (footballDataToken) {
+            proxyReq.setHeader("X-Auth-Token", footballDataToken);
+          }
+          proxyReq.setHeader("Content-Type", "application/json");
+        });
+      },
+    },
   };
 
   return {
