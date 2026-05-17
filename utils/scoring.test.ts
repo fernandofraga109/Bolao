@@ -3,6 +3,9 @@ import {
   calculatePoints,
   calculateUnderdogBonus,
   calculateTournamentPoints,
+  calculatePointsRegulamento2,
+  calculateTournamentPointsRegulamento2,
+  calculateExtraPhasePoints,
   POINTS_EXACT,
   POINTS_GOAL_DIFF,
   POINTS_OUTCOME,
@@ -228,5 +231,175 @@ describe("calculateTournamentPoints", () => {
       { topScorer: { player: "vini jr" } }
     );
     expect(pts).toBe(100);
+  });
+});
+
+describe("calculatePointsRegulamento2", () => {
+  const matchPredsMock = [
+    { userId: "u1", homeScore: 2, awayScore: 1 },
+    { userId: "u2", homeScore: 1, awayScore: 1 },
+    { userId: "u3", homeScore: 0, awayScore: 2 },
+  ];
+
+  it("retorna pontos de placar exato e bônus de placar sozinho (+5) se for o único no grupo", () => {
+    // Fase de grupos: Exato = 15. Apenas u1 apostou 2-1 (exato)
+    const pts = calculatePointsRegulamento2(2, 1, 2, 1, "groups", matchPredsMock, "u1");
+    expect(pts).toBe(20); // 15 + 5
+  });
+
+  it("retorna apenas pontos de placar exato (sem bônus de placar sozinho) se outros acertaram", () => {
+    const sharedPreds = [
+      { userId: "u1", homeScore: 2, awayScore: 1 },
+      { userId: "u2", homeScore: 2, awayScore: 1 },
+    ];
+    const pts = calculatePointsRegulamento2(2, 1, 2, 1, "groups", sharedPreds, "u1");
+    expect(pts).toBe(15); // Sem +5 de bônus
+  });
+
+  it("não concede bônus de saldo de gols para empates", () => {
+    // Resultado real = 1-1 (empate)
+    // Palpite = 2-2 (empate mas não exato)
+    // Pelo regulamento 2, ganha apenas Resultado (10 pts), não Saldo (13 pts)
+    const pts = calculatePointsRegulamento2(2, 2, 1, 1, "groups", matchPredsMock, "u1");
+    expect(pts).toBe(10);
+  });
+
+  it("retorna pontos de diferença de gols para vitórias com diferença correta", () => {
+    // Resultado real = 2-0 (vitória com diff = 2)
+    // Palpite = 3-1 (vitória com diff = 2)
+    // Fase de oitavas (ko): Saldo = 13 pts
+    const pts = calculatePointsRegulamento2(3, 1, 2, 0, "ko", matchPredsMock, "u1");
+    expect(pts).toBe(13);
+  });
+
+  it("retorna pontos corretos para as diferentes fases (Terceiro Lugar e Final)", () => {
+    // 3º Lugar: Exato = 17, se for sozinho = 22
+    const pts3 = calculatePointsRegulamento2(1, 0, 1, 0, "third_place", matchPredsMock, "u1");
+    expect(pts3).toBe(22);
+
+    // Final: Exato = 22, se for sozinho = 27
+    const ptsFinal = calculatePointsRegulamento2(1, 0, 1, 0, "final", matchPredsMock, "u1");
+    expect(ptsFinal).toBe(27);
+  });
+});
+
+describe("calculateTournamentPointsRegulamento2", () => {
+  const groupTournMock = [
+    { userId: "u1", championTeamId: "bra", topScorerPlayer: "Neymar" },
+    { userId: "u2", championTeamId: "fra", topScorerPlayer: "Mbappe" },
+    { userId: "u3", championTeamId: "bra", topScorerPlayer: "Messi" },
+  ];
+
+  it("pontua campeão com rateio proporcional a quem acertou no grupo", () => {
+    // u1 e u3 acertaram 'bra' (2 acertam = 70 pontos cada)
+    const actual = { championTeamId: "bra" };
+    const ptsU1 = calculateTournamentPointsRegulamento2(
+      { championTeamId: "bra" },
+      actual,
+      groupTournMock,
+      "u1"
+    );
+    expect(ptsU1).toBe(70);
+  });
+
+  it("pontua campeão com 100 pontos se for o único a acertar no grupo", () => {
+    // Apenas u2 acertou 'fra' (1 acerta = 100 pontos)
+    const actual = { championTeamId: "fra" };
+    const ptsU2 = calculateTournamentPointsRegulamento2(
+      { championTeamId: "fra" },
+      actual,
+      groupTournMock,
+      "u2"
+    );
+    expect(ptsU2).toBe(100);
+  });
+
+  it("pontua artilheiro com rateio proporcional", () => {
+    // Apenas u2 apostou 'Mbappe' (1 acerta = 60 pontos)
+    const actual = { topScorer: { player: "Mbappe", goals: 6 } };
+    const ptsU2 = calculateTournamentPointsRegulamento2(
+      { topScorer: { player: "Mbappe", goals: 6 } },
+      actual,
+      groupTournMock,
+      "u2"
+    );
+    expect(ptsU2).toBe(60);
+  });
+
+  it("pontua palpites extras pré-copa adicionais (Melhor Ataque / Pior Defesa)", () => {
+    const prediction = {
+      championTeamId: "fra",
+      mostGoalsTeamId: "ger",
+      mostConcededTeamId: "pan",
+    };
+    const actual = {
+      championTeamId: "fra",
+      mostGoalsTeamId: "ger",
+      mostConcededTeamId: "pan",
+    };
+    // u2 acerta campeão sozinho (100) + maior ataque (20) + pior defesa (20) = 140 pts
+    const pts = calculateTournamentPointsRegulamento2(
+      prediction,
+      actual,
+      groupTournMock,
+      "u2"
+    );
+    expect(pts).toBe(140);
+  });
+
+  it("pontua classificados de fase com 10 pts para grupo normal e 5 pts para Oitavas, Quartas e Semis", () => {
+    const prediction = {
+      groupClassifications: {
+        "Grupo A": ["bra", "arg"], // 2 corretos
+        "Oitavas": ["bra", "arg", "fra", "ger"], // 4 no palpite
+        "Quartas": ["bra", "arg"], // 2 no palpite
+      },
+    };
+    const actual = {
+      groupClassifications: {
+        "Grupo A": ["bra", "arg"], // bra, arg = 20 pts
+        "Oitavas": ["bra", "fra", "ita", "esp"], // bra, fra corretos = 2 * 5 = 10 pts
+        "Quartas": ["arg", "esp"], // arg correto = 1 * 5 = 5 pts
+      },
+    };
+    const pts = calculateTournamentPointsRegulamento2(
+      prediction as any,
+      actual as any,
+      groupTournMock,
+      "u2"
+    );
+    // 20 (Grupo A) + 10 (Oitavas) + 5 (Quartas) = 35 pts
+    expect(pts).toBe(35);
+  });
+});
+
+describe("calculateExtraPhasePoints", () => {
+  const matchesMock = [
+    { id: "m1", resultHome: 3, resultAway: 0, status: "FINISHED" }, // diff = 3
+    { id: "m2", resultHome: 1, resultAway: 1, status: "FINISHED" }, // diff = 0
+    { id: "m3", resultHome: 4, resultAway: 2, status: "FINISHED" }, // diff = 2
+  ];
+
+  it("concede 20 pontos se o palpite corresponder ao jogo de maior saldo da fase", () => {
+    const userPred = { phase: "groups", matchId: "m1" };
+    const pts = calculateExtraPhasePoints(userPred, matchesMock);
+    expect(pts).toBe(20);
+  });
+
+  it("concede 0 pontos se o palpite não for o jogo de maior saldo da fase", () => {
+    const userPred = { phase: "groups", matchId: "m3" };
+    const pts = calculateExtraPhasePoints(userPred, matchesMock);
+    expect(pts).toBe(0);
+  });
+
+  it("aceita empate se múltiplos jogos compartilharem o maior saldo", () => {
+    const tiedMatches = [
+      { id: "m1", resultHome: 3, resultAway: 0, status: "FINISHED" }, // diff = 3
+      { id: "m2", resultHome: 0, resultAway: 3, status: "FINISHED" }, // diff = 3
+    ];
+    const pts1 = calculateExtraPhasePoints({ phase: "groups", matchId: "m1" }, tiedMatches);
+    const pts2 = calculateExtraPhasePoints({ phase: "groups", matchId: "m2" }, tiedMatches);
+    expect(pts1).toBe(20);
+    expect(pts2).toBe(20);
   });
 });

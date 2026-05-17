@@ -124,6 +124,76 @@ export const useMatchSystem = (
     );
     if (!comp) return null;
 
+    // Dynamically compute actual groupClassifications (qualifiers) from teamStandings
+    const groupClassifications: Record<string, string[]> = {};
+    db.teamStandings.forEach((standing) => {
+      if (
+        normalizeCompetitionCode(standing.competitionCode) ===
+          normalizeCompetitionCode(activeCompetitionCode) &&
+        standing.group &&
+        standing.group.startsWith("Grupo") &&
+        standing.position != null &&
+        (standing.position === 1 || standing.position === 2)
+      ) {
+        if (!groupClassifications[standing.group]) {
+          groupClassifications[standing.group] = [];
+        }
+        groupClassifications[standing.group][standing.position - 1] = standing.teamId;
+      }
+    });
+
+    // Populate knockout stage actual qualifiers based on matches that are scheduled/played with real teams
+    const oitavasTeams = new Set<string>();
+    const quartasTeams = new Set<string>();
+    const semisTeams = new Set<string>();
+
+    const isPlaceholder = (id: string) => {
+      if (!id) return true;
+      const lower = id.toLowerCase();
+      return (
+        lower === "placeholder" ||
+        lower === "tbd" ||
+        lower.startsWith("placeholder") ||
+        lower.includes("_") ||
+        /^[1-2][a-l]$/i.test(lower)
+      );
+    };
+
+    db.matches.forEach((m) => {
+      if (
+        normalizeCompetitionCode(m.competitionCode) ===
+        normalizeCompetitionCode(activeCompetitionCode)
+      ) {
+        const stage = (m.stage || "").toUpperCase();
+        const groupStr = (m.group || "").toUpperCase();
+
+        const isOitavas = stage.includes("ROUND_OF_16") || groupStr.includes("OITAVAS");
+        const isQuartas = stage.includes("QUARTER") || groupStr.includes("QUARTAS");
+        const isSemis = stage.includes("SEMI") || groupStr.includes("SEMI");
+
+        if (isOitavas) {
+          if (m.homeTeamId && !isPlaceholder(m.homeTeamId)) oitavasTeams.add(m.homeTeamId);
+          if (m.awayTeamId && !isPlaceholder(m.awayTeamId)) oitavasTeams.add(m.awayTeamId);
+        } else if (isQuartas) {
+          if (m.homeTeamId && !isPlaceholder(m.homeTeamId)) quartasTeams.add(m.homeTeamId);
+          if (m.awayTeamId && !isPlaceholder(m.awayTeamId)) quartasTeams.add(m.awayTeamId);
+        } else if (isSemis) {
+          if (m.homeTeamId && !isPlaceholder(m.homeTeamId)) semisTeams.add(m.homeTeamId);
+          if (m.awayTeamId && !isPlaceholder(m.awayTeamId)) semisTeams.add(m.awayTeamId);
+        }
+      }
+    });
+
+    if (oitavasTeams.size > 0) {
+      groupClassifications["Oitavas"] = Array.from(oitavasTeams);
+    }
+    if (quartasTeams.size > 0) {
+      groupClassifications["Quartas"] = Array.from(quartasTeams);
+    }
+    if (semisTeams.size > 0) {
+      groupClassifications["Semis"] = Array.from(semisTeams);
+    }
+
     return {
       topScorer: {
         player: comp.topScorerName || "",
@@ -132,8 +202,11 @@ export const useMatchSystem = (
       championTeamId: comp.championTeamId || "",
       bestPlayer: comp.bestPlayerName || "",
       bestGoalkeeper: comp.bestGoalkeeperName || "",
+      mostGoalsTeamId: comp.mostGoalsTeamId || "",
+      mostConcededTeamId: comp.mostConcededTeamId || "",
+      groupClassifications,
     };
-  }, [db.competitions, activeCompetitionCode]);
+  }, [db.competitions, db.teamStandings, activeCompetitionCode]);
 
   // Lê config do admin: se auto-sync está ativo e qual é o intervalo
   const isAutoSyncEnabled = db.systemConfig.is_auto_sync_enabled;

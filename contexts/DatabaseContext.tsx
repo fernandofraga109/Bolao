@@ -18,6 +18,7 @@ import {
   StadiumDB,
   PredictionDB,
   TournamentPredictionDB,
+  ExtraPhasePredictionDB,
   SystemConfigDB,
   CompetitionDB,
   TeamStandingsDB,
@@ -100,6 +101,7 @@ interface DatabaseContextType {
   matches: MatchDB[];
   predictions: PredictionDB[];
   tournamentPredictions: TournamentPredictionDB[];
+  extraPhasePredictions: ExtraPhasePredictionDB[];
   teamStandings: TeamStandingsDB[];
   systemConfig: SystemConfigDB;
 
@@ -123,6 +125,7 @@ interface DatabaseContextType {
 
   upsertPrediction: (pred: PredictionDB) => Promise<void>;
   upsertTournamentPrediction: (pred: TournamentPredictionDB) => Promise<void>;
+  upsertExtraPhasePrediction: (pred: ExtraPhasePredictionDB) => Promise<void>;
 
   updateSystemConfig: (data: Partial<SystemConfigDB>) => Promise<void>;
   updateLocalUserGroups: (updates: UserGroupDB[]) => void;
@@ -274,6 +277,9 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   const [tournamentPredictions, setTournamentPredictions] = useState<
     TournamentPredictionDB[]
   >(() => loadTable("tournamentPredictions", INITIAL_DB.tournamentPredictions));
+  const [extraPhasePredictions, setExtraPhasePredictions] = useState<
+    ExtraPhasePredictionDB[]
+  >(() => loadTable("extraPhasePredictions", []));
   const [teamStandings, setTeamStandings] = useState<TeamStandingsDB[]>(() =>
     loadTable("teamStandings", []),
   );
@@ -309,6 +315,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         configRes,
         competitionsRes,
         teamStandingsRes,
+        extraPhasePredsRes,
       ] = await Promise.all([
         isAuthenticated
           ? supabase.from("user_roles").select("*")
@@ -331,7 +338,36 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         supabase.from("system_config").select("*").single(),
         supabase.from("competitions").select("*"),
         supabase.from("team_standings").select("*"),
+        isAuthenticated
+          ? supabase.from("extra_phase_predictions").select("*")
+          : Promise.resolve({ data: null, error: null } as any),
       ]);
+      
+      console.log("🔍 [Supabase Debug] Status das Tabelas no schema", SUPABASE_SCHEMA);
+      if (rolesRes.error) console.error("❌ [user_roles] erro:", rolesRes.error);
+      else console.log("✅ [user_roles] carregada, total de registros:", rolesRes.data?.length);
+      if (teamsRes.error) console.error("❌ [teams] erro:", teamsRes.error);
+      else console.log("✅ [teams] carregada, total de registros:", teamsRes.data?.length);
+      if (stadiumsRes.error) console.error("❌ [stadiums] erro:", stadiumsRes.error);
+      else console.log("✅ [stadiums] carregada, total de registros:", stadiumsRes.data?.length);
+      if (groupsRes.error) console.error("❌ [groups] erro:", groupsRes.error);
+      else console.log("✅ [groups] carregada, total de registros:", groupsRes.data?.length);
+      if (userGroupsRes.error) console.error("❌ [user_groups] erro:", userGroupsRes.error);
+      else console.log("✅ [user_groups] carregada, total de registros:", userGroupsRes.data?.length);
+      if (matchesRes.error) console.error("❌ [matches] erro:", matchesRes.error);
+      else console.log("✅ [matches] carregada, total de registros:", matchesRes.data?.length);
+      if (predsRes.error) console.error("❌ [predictions] erro:", predsRes.error);
+      else console.log("✅ [predictions] carregada, total de registros:", predsRes.data?.length);
+      if (tournPredsRes.error) console.error("❌ [tournament_predictions] erro:", tournPredsRes.error);
+      else console.log("✅ [tournament_predictions] carregada, total de registros:", tournPredsRes.data?.length);
+      if (configRes.error) console.error("❌ [system_config] erro:", configRes.error);
+      else console.log("✅ [system_config] carregada:", configRes.data);
+      if (competitionsRes.error) console.error("❌ [competitions] erro:", competitionsRes.error);
+      else console.log("✅ [competitions] carregada, total de registros:", competitionsRes.data?.length);
+      if (teamStandingsRes.error) console.error("❌ [team_standings] erro:", teamStandingsRes.error);
+      else console.log("✅ [team_standings] carregada, total de registros:", teamStandingsRes.data?.length);
+      if (extraPhasePredsRes.error) console.error("❌ [extra_phase_predictions] erro:", extraPhasePredsRes.error);
+      else console.log("✅ [extra_phase_predictions] carregada, total de registros:", extraPhasePredsRes.data?.length);
 
       if (!isMounted) return;
 
@@ -371,6 +407,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       }
       if (predsRes.data) setPredictions(predsRes.data);
       if (tournPredsRes.data) setTournamentPredictions(tournPredsRes.data);
+      if (extraPhasePredsRes.data) setExtraPhasePredictions(extraPhasePredsRes.data);
       if (configRes.data) setSystemConfig(configRes.data);
       if (competitionsRes.data) {
         const mapped = (competitionsRes.data as any[]).map(mapCompetitionRow);
@@ -384,6 +421,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         setUserGroups([]);
         setPredictions([]);
         setTournamentPredictions([]);
+        setExtraPhasePredictions([]);
       }
     };
 
@@ -395,10 +433,14 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
 
     // 2. Realtime Subscriptions Handler
     const handleRealtimeEvent = (payload: any) => {
-      const { table, eventType, new: newRecord, old: oldRecord } = payload;
+      const { table: rawTable, eventType, new: newRecord, old: oldRecord } = payload;
+      const prefix = import.meta.env.VITE_DB_TABLE_PREFIX || "";
+      const table = prefix && rawTable.startsWith(prefix)
+        ? rawTable.slice(prefix.length)
+        : rawTable;
 
       if (eventType !== "UPDATE") {
-        console.log(`⚡ Realtime Event: ${eventType} on ${table}`, payload);
+        console.log(`⚡ Realtime Event: ${eventType} on ${table} (raw: ${rawTable})`, payload);
       }
 
       switch (table) {
@@ -474,6 +516,37 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
                   !(
                     p.userId === oldRecord.userId &&
                     p.groupId === oldRecord.groupId
+                  ),
+              ),
+            );
+          }
+          break;
+
+        // --- EXTRA PHASE PREDICTIONS ---
+        case "extra_phase_predictions":
+          if (eventType === "INSERT" || eventType === "UPDATE") {
+            setExtraPhasePredictions((prev) => {
+              const idx = prev.findIndex(
+                (p) =>
+                  p.userId === newRecord.userId &&
+                  p.groupId === newRecord.groupId &&
+                  p.phase === newRecord.phase,
+              );
+              if (idx >= 0) {
+                const newArr = [...prev];
+                newArr[idx] = { ...newArr[idx], ...newRecord };
+                return newArr;
+              }
+              return [...prev, newRecord];
+            });
+          } else if (eventType === "DELETE") {
+            setExtraPhasePredictions((prev) =>
+              prev.filter(
+                (p) =>
+                  !(
+                    p.userId === oldRecord.userId &&
+                    p.groupId === oldRecord.groupId &&
+                    p.phase === oldRecord.phase
                   ),
               ),
             );
@@ -589,46 +662,52 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       }
     };
 
+    const prefix = import.meta.env.VITE_DB_TABLE_PREFIX || "";
     const channel = supabase
       .channel("db-realtime-changes")
       .on(
         "postgres_changes",
-        { event: "*", schema: SUPABASE_SCHEMA, table:"matches" },
+        { event: "*", schema: SUPABASE_SCHEMA, table: `${prefix}matches` },
         handleRealtimeEvent,
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: SUPABASE_SCHEMA, table:"predictions" },
+        { event: "*", schema: SUPABASE_SCHEMA, table: `${prefix}predictions` },
         handleRealtimeEvent,
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: SUPABASE_SCHEMA, table:"tournament_predictions" },
+        { event: "*", schema: SUPABASE_SCHEMA, table: `${prefix}tournament_predictions` },
         handleRealtimeEvent,
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: SUPABASE_SCHEMA, table:"user_roles" },
+        { event: "*", schema: SUPABASE_SCHEMA, table: `${prefix}extra_phase_predictions` },
         handleRealtimeEvent,
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: SUPABASE_SCHEMA, table:"groups" },
+        { event: "*", schema: SUPABASE_SCHEMA, table: `${prefix}user_roles` },
         handleRealtimeEvent,
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: SUPABASE_SCHEMA, table:"user_groups" },
+        { event: "*", schema: SUPABASE_SCHEMA, table: `${prefix}groups` },
         handleRealtimeEvent,
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: SUPABASE_SCHEMA, table:"system_config" },
+        { event: "*", schema: SUPABASE_SCHEMA, table: `${prefix}user_groups` },
         handleRealtimeEvent,
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: SUPABASE_SCHEMA, table:"competitions" },
+        { event: "*", schema: SUPABASE_SCHEMA, table: `${prefix}system_config` },
+        handleRealtimeEvent,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: SUPABASE_SCHEMA, table: `${prefix}competitions` },
         handleRealtimeEvent,
       )
       .subscribe((status) => {
@@ -681,6 +760,14 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         JSON.stringify(tournamentPredictions),
       ),
     [tournamentPredictions],
+  );
+  useEffect(
+    () =>
+      localStorage.setItem(
+        "bolao_db_extraPhasePredictions",
+        JSON.stringify(extraPhasePredictions),
+      ),
+    [extraPhasePredictions],
   );
 
   // --- Actions ---
@@ -1137,6 +1224,32 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
+  const upsertExtraPhasePrediction = async (pred: ExtraPhasePredictionDB) => {
+    setExtraPhasePredictions((prev) => {
+      const index = prev.findIndex(
+        (p) => p.userId === pred.userId && p.groupId === pred.groupId && p.phase === pred.phase,
+      );
+      if (index >= 0) {
+        const newArr = [...prev];
+        newArr[index] = { ...newArr[index], ...pred };
+        return newArr;
+      }
+      return [...prev, pred];
+    });
+
+    if (isSupabaseEnabled() && supabase) {
+      const { error } = await supabase
+        .from("extra_phase_predictions")
+        .upsert(pred, { onConflict: '"userId", "groupId", "phase"' });
+
+      if (error) {
+        throw new Error(
+          `Erro ao salvar extra phase prediction: ${error.message}`,
+        );
+      }
+    }
+  };
+
   const refetchMatches = useCallback(async () => {
     if (!isSupabaseEnabled() || !supabase) return;
     const { data } = await supabase.from("matches").select("*");
@@ -1175,6 +1288,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         matches,
         predictions,
         tournamentPredictions,
+        extraPhasePredictions,
         teamStandings,
         systemConfig,
         addUser,
@@ -1209,6 +1323,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         updateMatch,
         upsertPrediction,
         upsertTournamentPrediction,
+        upsertExtraPhasePrediction,
         updateSystemConfig,
         refetchMatches,
         refetchTeamStandings,
@@ -1223,6 +1338,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         matches,
         predictions,
         tournamentPredictions,
+        extraPhasePredictions,
         systemConfig,
         addUser,
         updateUser,
@@ -1239,6 +1355,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         updateMatch,
         upsertPrediction,
         upsertTournamentPrediction,
+        upsertExtraPhasePrediction,
         updateSystemConfig,
         refetchMatches,
         refetchTeamStandings,

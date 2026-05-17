@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { User, Match, MatchStatus, TournamentPredictions, Group } from "../types";
-import { calculatePoints, calculateTournamentPoints } from "../utils/scoring";
+import { calculatePoints, calculateTournamentPoints, calculatePointsRegulamento2, getMatchPhase, calculateTournamentPointsRegulamento2 } from "../utils/scoring";
 import { DEFAULT_COMPETITION_CODE } from "../data/competitions";
 
 interface UserGroupDB {
@@ -28,6 +28,19 @@ export const useLeaderboard = (
 ) => {
   // --- Calculations (Leaderboard) ---
   const usersWithCalculatedPoints = useMemo(() => {
+    const activeGroupId =
+      currentUser?.activeGroupId || (currentUser?.groupIds && currentUser?.groupIds[0]);
+    const activeGroup = groups.find((g) => g.id === activeGroupId);
+    const activeRuleset = activeGroup?.ruleset || "regulamento_1";
+
+    const allGroupPredictions = users
+      .filter((u) => u.groupIds.includes(activeGroupId || ""))
+      .map((u) => ({
+        userId: u.id,
+        championTeamId: u.tournamentPredictions?.championTeamId,
+        topScorerPlayer: u.tournamentPredictions?.topScorer?.player,
+      }));
+
     return users
       .filter((user) => user.role !== "ADMIN")
       .map((user) => {
@@ -44,28 +57,62 @@ export const useLeaderboard = (
               total += pred.points;
             } else {
               // Fallback: On-the-fly calculation if not yet synced to DB
-              total += calculatePoints(
-                pred.home,
-                pred.away,
-                match.result.home,
-                match.result.away,
-                match.homeTeam.ranking,
-                match.awayTeam.ranking,
-              );
+              const activeGroupId =
+                currentUser?.activeGroupId || (currentUser?.groupIds && currentUser?.groupIds[0]);
+              const activeGroup = groups.find((g) => g.id === activeGroupId);
+              const activeRuleset = activeGroup?.ruleset || "regulamento_1";
+
+              if (activeRuleset === "regulamento_2") {
+                const matchPredictions = users
+                  .filter((u) => u.groupIds.includes(activeGroupId || "") && u.predictions && u.predictions[match.id])
+                  .map((u) => ({
+                    userId: u.id,
+                    homeScore: u.predictions[match.id].home,
+                    awayScore: u.predictions[match.id].away,
+                  }));
+
+                total += calculatePointsRegulamento2(
+                  pred.home,
+                  pred.away,
+                  match.result.home,
+                  match.result.away,
+                  getMatchPhase(match.stage, match.group),
+                  matchPredictions,
+                  user.id
+                );
+              } else {
+                total += calculatePoints(
+                  pred.home,
+                  pred.away,
+                  match.result.home,
+                  match.result.away,
+                  match.homeTeam.ranking,
+                  match.awayTeam.ranking,
+                );
+              }
             }
           }
         });
 
         if (tournamentResults) {
-          total += calculateTournamentPoints(
-            user.tournamentPredictions,
-            tournamentResults,
-          );
+          if (activeRuleset === "regulamento_2") {
+            total += calculateTournamentPointsRegulamento2(
+              user.tournamentPredictions,
+              tournamentResults,
+              allGroupPredictions,
+              user.id
+            );
+          } else {
+            total += calculateTournamentPoints(
+              user.tournamentPredictions,
+              tournamentResults,
+            );
+          }
         }
 
         return { ...user, totalPoints: total };
       });
-  }, [matches, users, tournamentResults]);
+  }, [matches, users, tournamentResults, currentUser, groups]);
 
   const leaderboardData = useMemo(() => {
     if (!currentUser) return [];

@@ -44,6 +44,29 @@ const Header: React.FC<HeaderProps> = ({
   const [isAvatarModalOpen, setIsAvatarModalOpen] = React.useState(false);
   const [newAvatarUrl, setNewAvatarUrl] = React.useState(currentUser.avatar || "");
   const [isUpdatingAvatar, setIsUpdatingAvatar] = React.useState(false);
+  const [isFetchingGravatar, setIsFetchingGravatar] = React.useState(false);
+
+  // SHA-256 hash for Gravatar support
+  const getGravatarHash = async (email: string) => {
+    const msgBuffer = new TextEncoder().encode(email.trim().toLowerCase());
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+
+  const handleUseGravatar = async () => {
+    if (!currentUser.email) return;
+    setIsFetchingGravatar(true);
+    try {
+      const hash = await getGravatarHash(currentUser.email);
+      // d=identicon generates a unique pattern if they don't have a gravatar account
+      setNewAvatarUrl(`https://www.gravatar.com/avatar/${hash}?d=identicon&s=400`);
+    } catch (e) {
+      console.error("Erro ao gerar Gravatar:", e);
+    } finally {
+      setIsFetchingGravatar(false);
+    }
+  };
 
   const handleSaveAvatar = async () => {
     if (!onUpdateAvatar || !newAvatarUrl) return;
@@ -165,16 +188,27 @@ const Header: React.FC<HeaderProps> = ({
             </div>
             <div className="mb-8">
               <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">URL da Imagem</label>
-              <input
-                type="text"
-                value={newAvatarUrl}
-                onChange={(e) => setNewAvatarUrl(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-green transition-all"
-                placeholder="https://..."
-              />
-              <p className="text-[10px] text-slate-600 mt-3 font-bold uppercase tracking-tighter">
-                DICA: Use URLs de imagens públicas (Discord, GitHub, etc).
-              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newAvatarUrl}
+                  onChange={(e) => setNewAvatarUrl(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-green transition-all"
+                  placeholder="https://..."
+                />
+              </div>
+              <div className="mt-3 flex justify-between items-center">
+                <p className="text-[10px] text-slate-600 font-bold uppercase tracking-tighter">
+                  DICA: Cole o link ou use o Gravatar.
+                </p>
+                <button
+                  onClick={handleUseGravatar}
+                  disabled={isFetchingGravatar}
+                  className="text-[10px] font-black text-brand-blue uppercase tracking-widest hover:text-blue-400 transition-colors"
+                >
+                  {isFetchingGravatar ? "Buscando..." : "Usar Gravatar"}
+                </button>
+              </div>
             </div>
             <div className="flex gap-4">
               <button

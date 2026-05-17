@@ -1,0 +1,35 @@
+[
+    {
+        "create_table_statement": "CREATE TABLE competitions (last_updated timestamp with time zone, code character varying NOT NULL, type character varying, emblem character varying, name character varying NOT NULL, last_sync timestamp with time zone);"
+    },
+    {
+        "create_table_statement": "CREATE TABLE groups (createdAt timestamp with time zone, underdog_min_rank_diff integer, id uuid NOT NULL, competitionCode text, adminId uuid NOT NULL, code text NOT NULL, name text NOT NULL);"
+    },
+    {
+        "create_table_statement": "CREATE TABLE matches (homeTeamId uuid NOT NULL, stage text, externalMatchId text, group text NOT NULL, competitionCode text, status text NOT NULL, matchday integer, resultAway integer, resultHome integer, stadiumId uuid, date timestamp with time zone NOT NULL, awayTeamId uuid NOT NULL, id uuid NOT NULL);"
+    },
+    {
+        "create_table_statement": "CREATE TABLE predictions (groupId uuid NOT NULL, userId uuid NOT NULL, matchId uuid NOT NULL, homeScore integer NOT NULL, awayScore integer NOT NULL, timestamp timestamp with time zone, points integer);"
+    },
+    {
+        "create_table_statement": "CREATE TABLE stadiums (country text NOT NULL, name text NOT NULL, capacity integer, city text NOT NULL, id uuid NOT NULL);"
+    },
+    {
+        "create_table_statement": "CREATE TABLE system_config (sync_interval_ms integer, underdog_min_rank_diff integer, is_auto_sync_enabled boolean, id uuid NOT NULL);"
+    },
+    {
+        "create_table_statement": "CREATE TABLE team_standings (lost integer, points integer, goalsFor integer, form text, goalDifference integer, updatedAt text, goalsAgainst integer, teamId uuid NOT NULL, position integer, playedGames integer, won integer, draw integer, competitionCode character varying NOT NULL, season text, stage text, type text, group text);"
+    },
+    {
+        "create_table_statement": "CREATE TABLE teams (pot integer, id uuid NOT NULL, externalTeamId integer, code text NOT NULL, flag text NOT NULL, name text NOT NULL, ranking integer);"
+    },
+    {
+        "create_table_statement": "CREATE TABLE tournament_predictions (bestPlayer text, championTeamId uuid, groupId uuid NOT NULL, topScorerPlayer text, topScorerGoals integer, bestGoalkeeper text, userId uuid NOT NULL);"
+    },
+    {
+        "create_table_statement": "CREATE TABLE user_groups (role text, joinedAt timestamp with time zone, groupId uuid NOT NULL, userId uuid NOT NULL, points integer NOT NULL);"
+    },
+    {
+        "create_table_statement": "CREATE TABLE user_roles (avatar text, displayName text NOT NULL, userId uuid NOT NULL, email text NOT NULL, activeGroupId uuid, totalPoints integer, role text NOT NULL);"
+    }
+]

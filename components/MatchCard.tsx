@@ -9,6 +9,8 @@ import {
 import {
   calculatePoints,
   calculateUnderdogBonus,
+  calculatePointsRegulamento2,
+  getMatchPhase,
   POINTS_EXACT,
   POINTS_GOAL_DIFF,
   POINTS_OUTCOME,
@@ -44,6 +46,7 @@ interface MatchCardProps {
   isAdmin?: boolean;
   onFinishMatch?: (matchId: string, home: number, away: number) => void;
   minRankDiff?: number;
+  ruleset?: "regulamento_1" | "regulamento_2";
 }
 
 const MatchCard: React.FC<MatchCardProps> = ({
@@ -55,6 +58,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
   isAdmin = false,
   onFinishMatch,
   minRankDiff,
+  ruleset = "regulamento_1",
 }) => {
   const [showFriends, setShowFriends] = useState(false);
   const [homeInput, setHomeInput] = useState<string>("");
@@ -125,17 +129,47 @@ const MatchCard: React.FC<MatchCardProps> = ({
     ? match.homeTeam
     : match.awayTeam;
   const favoriteTeam = underdogTeam === match.homeTeam ? match.awayTeam : match.homeTeam;
-  const zebraBonus = calculateUnderdogBonus(
+  const zebraBonus = ruleset === "regulamento_2" ? 0 : calculateUnderdogBonus(
     underdogTeam?.ranking,
     favoriteTeam?.ranking,
     minRankDiff ?? 0,
   );
-  const isZebraCandidate = match.status === MatchStatus.SCHEDULED && zebraBonus > 0;
+  const isZebraCandidate = ruleset !== "regulamento_2" && match.status === MatchStatus.SCHEDULED && zebraBonus > 0;
 
   // --- CENTRALIZED SCORING HELPER ---
   const getScoringDetails = (home: number, away: number) => {
     if (!match.result) return { points: 0, bonus: 0 };
     
+    if (ruleset === "regulamento_2") {
+      const matchPredictions = friends
+        .filter((f) => f.predictions && f.predictions[match.id])
+        .map((f) => ({
+          userId: f.id,
+          homeScore: f.predictions[match.id].home,
+          awayScore: f.predictions[match.id].away,
+        }));
+      
+      if (userPrediction && currentUserId && !matchPredictions.some(p => p.userId === currentUserId)) {
+        matchPredictions.push({
+          userId: currentUserId,
+          homeScore: userPrediction.homeScore,
+          awayScore: userPrediction.awayScore
+        });
+      }
+
+      const points = calculatePointsRegulamento2(
+        home,
+        away,
+        match.result.home,
+        match.result.away,
+        getMatchPhase(match.stage, match.group),
+        matchPredictions,
+        currentUserId || ""
+      );
+
+      return { points, bonus: 0 };
+    }
+
     const points = calculatePoints(
       home,
       away,
@@ -193,7 +227,9 @@ const MatchCard: React.FC<MatchCardProps> = ({
           {isLive && (
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-red/10 border border-brand-red/30">
                <span className="w-1.5 h-1.5 rounded-full bg-brand-red animate-pulse"></span>
-               <span className="text-[10px] font-black text-brand-red uppercase tracking-tighter">AO VIVO</span>
+               <span className="text-[10px] font-black text-brand-red uppercase tracking-tighter">
+                 {match.minute ? `AO VIVO • ${match.minute}'` : "AO VIVO"}
+               </span>
             </div>
           )}
 
@@ -251,7 +287,7 @@ const MatchCard: React.FC<MatchCardProps> = ({
                     </span>
                   </div>
                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">
-                    {isLive ? "Ao Vivo" : "Resultado"}
+                    {isLive ? (match.minute ? `Minuto ${match.minute}'` : "Ao Vivo") : "Resultado"}
                   </span>
                 </div>
 
@@ -430,9 +466,38 @@ const MatchCard: React.FC<MatchCardProps> = ({
                 if (others.length === 0) return <p className="text-xs text-slate-600 italic">Ainda ninguém palpitou...</p>;
                 return others.map(f => {
                   const pred = f.predictions[match.id];
-                  const pts = (isPredictionDisabled && match.result)
-                    ? calculatePoints(pred.home, pred.away, match.result.home, match.result.away, match.homeTeam?.ranking, match.awayTeam?.ranking, minRankDiff)
-                    : null;
+                  let pts: number | null = null;
+                  if (isPredictionDisabled && match.result) {
+                    if (ruleset === "regulamento_2") {
+                      const matchPredictions = friends
+                        .filter((fr) => fr.predictions && fr.predictions[match.id])
+                        .map((fr) => ({
+                          userId: fr.id,
+                          homeScore: fr.predictions[match.id].home,
+                          awayScore: fr.predictions[match.id].away,
+                        }));
+                      
+                      pts = calculatePointsRegulamento2(
+                        pred.home,
+                        pred.away,
+                        match.result.home,
+                        match.result.away,
+                        getMatchPhase(match.stage, match.group),
+                        matchPredictions,
+                        f.id
+                      );
+                    } else {
+                      pts = calculatePoints(
+                        pred.home,
+                        pred.away,
+                        match.result.home,
+                        match.result.away,
+                        match.homeTeam?.ranking,
+                        match.awayTeam?.ranking,
+                        minRankDiff
+                      );
+                    }
+                  }
                   return (
                     <div key={f.id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/40 border border-slate-700/30">
                       <div className="flex items-center gap-2">

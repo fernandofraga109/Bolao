@@ -48,9 +48,8 @@ interface AdminDashboardProps {
   onInvite: (email: string) => void;
   onUpdateRole: (userId: string, newRole: "ADMIN" | "USER") => void;
   onRemoveUser: (userId: string) => void;
-  onCreateGroup: (name: string, competitionCode: string) => void;
+  onCreateGroup: (name: string, competitionCode: string, ruleset?: "regulamento_1" | "regulamento_2") => void;
   onDeleteGroup: (id: string) => Promise<void>;
-  // Fix: changed onAddUserToGroup to return Promise<void> to match async nature of db operations
   onAddUserToGroup: (uid: string, gid: string) => Promise<void>;
   onRemoveUserFromGroup: (uid: string, gid: string) => Promise<void>;
   isSyncing: boolean;
@@ -84,6 +83,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newGroupCompetitionCode, setNewGroupCompetitionCode] = useState(
     DEFAULT_COMPETITION_CODE,
   );
+  const [newGroupRuleset, setNewGroupRuleset] = useState<"regulamento_1" | "regulamento_2">("regulamento_1");
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [copiedGroup, setCopiedGroup] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState("");
@@ -200,9 +200,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleCreateGroup = () => {
     if (!newGroupName.trim()) return;
-    onCreateGroup(newGroupName, newGroupCompetitionCode);
+    onCreateGroup(newGroupName, newGroupCompetitionCode, newGroupRuleset);
     setNewGroupName("");
     setNewGroupCompetitionCode(DEFAULT_COMPETITION_CODE);
+    setNewGroupRuleset("regulamento_1");
   };
 
   const handleRequestDeleteGroup = (e: React.MouseEvent, group: Group) => {
@@ -946,41 +947,63 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </h2>
 
         {/* Create Group */}
-        <div className="flex flex-col sm:flex-row gap-2 mb-6">
-          <input
-            type="text"
-            value={newGroupName}
-            onChange={(e) => setNewGroupName(e.target.value)}
-            placeholder="Nome do novo grupo..."
-            className="sm:flex-1 bg-slate-900 border border-slate-600 text-white px-4 py-2 rounded-lg focus:outline-none focus:border-brand-green"
-          />
-          <div className="sm:w-[290px]">
-            <label className="sr-only" htmlFor="group-competition-select">
-              Competicao
-            </label>
-            <select
-              id="group-competition-select"
-              value={newGroupCompetitionCode}
-              onChange={(e) => setNewGroupCompetitionCode(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-600 text-white px-3 py-2 rounded-lg focus:outline-none focus:border-brand-green"
-            >
-              {(db.competitions.length > 0
-                ? db.competitions
-                : COMPETITION_OPTIONS
-              ).map((competition) => (
-                <option key={competition.code} value={competition.code}>
-                  {competition.code} - {competition.name}
-                </option>
-              ))}
-            </select>
+        <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 mb-6 space-y-4">
+          <h3 className="text-sm font-bold text-slate-300">Criar Novo Grupo</h3>
+          <div className="grid gap-3 sm:grid-cols-12 items-end">
+            <div className="sm:col-span-4">
+              <label className="text-xs text-slate-400 block mb-1 font-semibold">Nome do Grupo</label>
+              <input
+                type="text"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                placeholder="Ex: Bolão do Mesa 2026"
+                className="w-full bg-slate-900 border border-slate-600 text-white px-4 py-2 rounded-lg focus:outline-none focus:border-brand-green"
+              />
+            </div>
+            <div className="sm:col-span-3">
+              <label className="text-xs text-slate-400 block mb-1 font-semibold">Competição</label>
+              <select
+                id="group-competition-select"
+                value={newGroupCompetitionCode}
+                onChange={(e) => setNewGroupCompetitionCode(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-600 text-white px-3 py-2 rounded-lg focus:outline-none focus:border-brand-green"
+              >
+                {(db.competitions.length > 0
+                  ? db.competitions
+                  : COMPETITION_OPTIONS
+                ).map((competition) => (
+                  <option key={competition.code} value={competition.code}>
+                    {competition.code} - {competition.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-3">
+              <label className="text-xs text-slate-400 block mb-1 font-semibold">Regulamento</label>
+              <select
+                value={newGroupRuleset}
+                onChange={(e) => setNewGroupRuleset(e.target.value as any)}
+                className="w-full bg-slate-900 border border-slate-600 text-white px-3 py-2 rounded-lg focus:outline-none focus:border-brand-green"
+              >
+                <option value="regulamento_1">Regulamento 1 (Padrão)</option>
+                <option value="regulamento_2">Regulamento 2 (Mesa 2026)</option>
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <button
+                onClick={handleCreateGroup}
+                disabled={!newGroupName.trim()}
+                className="w-full bg-brand-green hover:bg-emerald-400 text-slate-900 font-bold px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Plus size={18} /> Criar
+              </button>
+            </div>
           </div>
-          <button
-            onClick={handleCreateGroup}
-            disabled={!newGroupName.trim()}
-            className="bg-brand-green hover:bg-emerald-400 text-slate-900 font-bold px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            <Plus size={18} /> Criar
-          </button>
+          <p className="text-[11px] text-slate-400 leading-relaxed pl-2 border-l border-brand-green/30">
+            {newGroupRuleset === "regulamento_1" 
+              ? "Regras tradicionais: Exato (10 pts), Saldo (7 pts), Vencedor (5 pts), com Bônus Underdog."
+              : "Regras especiais: Exato (15-22 pts), Saldo (13-19 pts), Vencedor (10-16 pts), Empate sem bônus saldo, Placar Sozinho (+5 pts), Penalidade Atraso e palpites divididos."}
+          </p>
         </div>
 
         {/* List Groups */}

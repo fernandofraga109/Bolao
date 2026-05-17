@@ -1,11 +1,12 @@
 import React from 'react';
 import { Tab, UserRole } from '../types';
-import { Calendar, Trophy, ShieldCheck, Table2, Activity } from 'lucide-react';
+import { Calendar, Trophy, ShieldCheck, Table2, Activity, Sparkles } from 'lucide-react';
 
 interface BottomNavProps {
   activeTab: Tab;
   setActiveTab: (tab: Tab) => void;
   userRole: UserRole;
+  ruleset?: "regulamento_1" | "regulamento_2";
 }
 
 const NavButton: React.FC<{
@@ -30,7 +31,7 @@ const NavButton: React.FC<{
   );
 };
 
-const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, userRole }) => {
+const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, userRole, ruleset }) => {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 pb-safe z-40">
       <div className="max-w-2xl mx-auto flex justify-around">
@@ -48,6 +49,15 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, userRole
           icon={<Table2 size={20} strokeWidth={activeTab === 'tournament' ? 3 : 2} />}
           label="Tabela"
         />
+        {userRole !== 'ADMIN' && ruleset === 'regulamento_2' && (
+          <NavButton
+            tab="specials"
+            activeTab={activeTab}
+            onClick={() => setActiveTab('specials')}
+            icon={<Sparkles size={20} strokeWidth={activeTab === 'specials' ? 3 : 2} />}
+            label="Especiais"
+          />
+        )}
         {userRole !== 'ADMIN' && (
           <NavButton
             tab="leaderboard"

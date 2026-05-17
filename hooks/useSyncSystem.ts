@@ -4,6 +4,7 @@ import {
   fetchExternalStandings,
   fetchExternalMatches,
   fetchCompetitionTeams,
+  fetchLiveMatchMinutes,
   findInternalMatch,
   getCurrentSeason,
   mapExternalStatusToInternal,
@@ -398,6 +399,15 @@ export const useSyncSystem = (
         const matchUpserts: any[] = [];
         const finishedMatchesForPoints: Match[] = [];
 
+        // Fetch live minutes if there are any IN_PLAY matches in this batch
+        const hasLiveMatches = externalMatches.some(
+          (em) => em.status === "IN_PLAY" || em.status === "PAUSED"
+        );
+        const liveMinuteMap = hasLiveMatches ? await fetchLiveMatchMinutes() : {};
+        if (hasLiveMatches) {
+          console.log(`[SYNC] Minutos ao vivo obtidos para ${Object.keys(liveMinuteMap).length} jogos.`);
+        }
+
         for (const em of externalMatches) {
           const status = mapExternalStatusToInternal(em.status);
           
@@ -409,13 +419,14 @@ export const useSyncSystem = (
           const existing = findInternalMatch(em, hydratedInternalMatches);
 
           if (existing) {
-            // Log para depuração se necessário
-            // console.log(`[SYNC] Comparando ${em.homeTeam?.name}: API(${homeScore}) vs DB(${existing.resultHome})`);
+            // Resolve minute from the dedicated live endpoint (em.minute is null in the bulk endpoint)
+            const liveMinute = liveMinuteMap[em.id] ?? em.minute ?? null;
 
             const hasChanged =
               existing.status !== status ||
               (homeScore != null && existing.result?.home !== homeScore) ||
-              (awayScore != null && existing.result?.away !== awayScore);
+              (awayScore != null && existing.result?.away !== awayScore) ||
+              existing.minute !== liveMinute;
 
 
 
@@ -430,6 +441,7 @@ export const useSyncSystem = (
                 resultHome: homeScore ?? null,
                 resultAway: awayScore ?? null,
                 date: em.utcDate,
+                minute: liveMinute,
               });
 
 
@@ -467,6 +479,7 @@ export const useSyncSystem = (
                 resultAway: result?.away ?? null,
                 stage: em.stage,
                 matchday: em.matchday,
+                minute: em.minute ?? null,
               });
             } else {
               // Times com id/tla nulos = jogos de fase eliminatória ainda não definidos (TBD).

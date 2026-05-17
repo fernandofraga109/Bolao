@@ -11,6 +11,7 @@
 export const SUPABASE_SCHEMA_SQL = `
 
 -- LIMPEZA INICIAL (Cuidado: Apaga dados existentes!)
+DROP TABLE IF EXISTS public.extra_phase_predictions CASCADE;
 DROP TABLE IF EXISTS public.tournament_predictions CASCADE;
 DROP TABLE IF EXISTS public.predictions CASCADE;
 DROP TABLE IF EXISTS public.matches CASCADE;
@@ -88,7 +89,8 @@ CREATE TABLE IF NOT EXISTS public.groups (
     code text NOT NULL,
     "adminId" uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     "createdAt" text,
-    "competitionCode" text DEFAULT 'WC' -- e.g., 'WC' (Copa do Mundo), 'PL' (Premier League), 'BSA' (Campeonato Brasileiro)
+    "competitionCode" text DEFAULT 'WC', -- e.g., 'WC' (Copa do Mundo), 'PL' (Premier League), 'BSA' (Campeonato Brasileiro)
+    "ruleset" text NOT NULL DEFAULT 'regulamento_1'
 );
 
 -- 6. TABELA USER_GROUPS (Relação Usuário <-> Grupo)
@@ -134,7 +136,19 @@ CREATE TABLE IF NOT EXISTS public.tournament_predictions (
     "topScorerPlayer" text,
     "topScorerGoals" integer,
     "bestPlayer" text,
-    "bestGoalkeeper" text
+    "bestGoalkeeper" text,
+    "mostGoalsTeamId" text,
+    "mostConcededTeamId" text
+);
+
+-- 9.A TABELA EXTRA_PHASE_PREDICTIONS (Jogo com maior diferença de gols por fase)
+CREATE TABLE IF NOT EXISTS public.extra_phase_predictions (
+    "userId" uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    "groupId" text NOT NULL REFERENCES public.groups(id) ON DELETE CASCADE,
+    "phase" text NOT NULL,
+    "matchId" text REFERENCES public.matches(id) ON DELETE SET NULL,
+    "createdAt" text,
+    PRIMARY KEY ("userId", "groupId", "phase")
 );
 
 -- Habilitar Row Level Security (Opcional, mas recomendado para produção)
@@ -148,6 +162,7 @@ ALTER TABLE public.user_groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.matches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.predictions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tournament_predictions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.extra_phase_predictions ENABLE ROW LEVEL SECURITY;
 
 -- Políticas de acesso LIBERADAS (Para desenvolvimento inicial)
 -- IMPORTANTE: Em produção, você deve restringir quem pode editar o quê.
@@ -162,5 +177,6 @@ CREATE POLICY "Public Read Matches" ON public.matches FOR SELECT USING (true);
 CREATE POLICY "Admin Edit Matches" ON public.matches FOR ALL USING (true); -- Simplificação
 CREATE POLICY "Public Access Predictions" ON public.predictions FOR ALL USING (true);
 CREATE POLICY "Public Access TournPreds" ON public.tournament_predictions FOR ALL USING (true);
+CREATE POLICY "Public Access ExtraPhasePreds" ON public.extra_phase_predictions FOR ALL USING (true);
 
 `;

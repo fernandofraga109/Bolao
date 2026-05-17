@@ -18,6 +18,7 @@ import { createClient } from "@supabase/supabase-js";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 export const SUPABASE_SCHEMA = import.meta.env.VITE_SUPABASE_SCHEMA || "public";
+console.log("🔌 [Supabase] Schema em uso pelo Frontend:", SUPABASE_SCHEMA);
 
 // Verificação de configuração
 const isConfigured =
@@ -30,9 +31,26 @@ if (!isConfigured && typeof window !== "undefined") {
   );
 }
 
-export const supabase = isConfigured
+const rawSupabase = isConfigured
   ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       db: { schema: SUPABASE_SCHEMA },
+    })
+  : null;
+
+// Monkeypatch / Proxy para interceptar as chamadas de tabela (.from)
+// E aplicar o prefixo dinamicamente se estiver definido no .env
+export const supabase = rawSupabase
+  ? new Proxy(rawSupabase, {
+      get(target, prop, receiver) {
+        if (prop === "from") {
+          return (relation: string) => {
+            const prefix = import.meta.env.VITE_DB_TABLE_PREFIX || "";
+            const prefixed = prefix ? `${prefix}${relation}` : relation;
+            return target.from(prefixed);
+          };
+        }
+        return Reflect.get(target, prop, receiver);
+      },
     })
   : null;
 
