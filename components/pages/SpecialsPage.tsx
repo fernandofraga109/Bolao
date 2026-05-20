@@ -42,6 +42,15 @@ const SpecialsPage: React.FC<SpecialsPageProps> = ({
         </div>
       </div>
 
+      <TopScorerCard
+        prediction={currentUser.tournamentPredictions}
+        onPredict={onPredictTournament}
+        lockDate={lockDate ? new Date(lockDate) : new Date(0)}
+        finalResult={tournamentResults}
+        allowedChampionTeamIds={allowedChampionTeamIds}
+        ruleset={ruleset}
+      />
+
       {ruleset === "regulamento_2" && (
         <>
           <GroupClassificationsCard
@@ -58,15 +67,6 @@ const SpecialsPage: React.FC<SpecialsPageProps> = ({
           />
         </>
       )}
-
-      <TopScorerCard
-        prediction={currentUser.tournamentPredictions}
-        onPredict={onPredictTournament}
-        lockDate={lockDate ? new Date(lockDate) : new Date(0)}
-        finalResult={tournamentResults}
-        allowedChampionTeamIds={allowedChampionTeamIds}
-        ruleset={ruleset}
-      />
 
       {currentUser.activeGroupId && (
         <ExtraPhasePredictionsCard

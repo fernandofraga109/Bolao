@@ -84,7 +84,7 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
     (value || "WC").toUpperCase();
 
   const normalizeGroupName = (groupName: string) => {
-    const m = /^Group\s+([A-Z])$/i.exec(groupName.trim());
+    const m = /^(?:Group|GROUP)[_\s]+([A-Z])$/i.exec(groupName.trim());
     if (!m) return groupName;
     return `Grupo ${m[1]}`;
   };
@@ -596,7 +596,7 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
                 className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-sm"
               >
                 <div className="bg-slate-900/50 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
-                  <h3 className="font-bold text-white">{groupName}</h3>
+                  <h3 className="font-bold text-white">{normalizeGroupName(groupName)}</h3>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -683,14 +683,15 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
                   <div key={groupName} className="space-y-3">
                     <button
                       onClick={() => toggleKnockoutGroup(groupName)}
-                      className="w-full flex items-center justify-between px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition-all"
+                      className="w-full flex items-center justify-between px-4 py-3 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors"
                     >
+                      <span className="font-bold text-white">{normalizeGroupName(groupName)}</span>
                       <div className="flex items-center gap-3">
                         <div className="p-1.5 bg-brand-green/10 rounded-lg text-brand-green">
                           <GitMerge size={16} />
                         </div>
                         <h3 className="text-white font-bold text-sm uppercase tracking-wider">
-                          {groupName}
+                          {normalizeGroupName(groupName)}
                         </h3>
                       </div>
                       {isOpen ? (

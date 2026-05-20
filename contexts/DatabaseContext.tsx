@@ -260,9 +260,36 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   // Static data usually doesn't change, but we allow fetching updates
-  const [teams, setTeams] = useState<TeamDB[]>(() =>
-    loadTable("teams", INITIAL_DB.teams),
-  );
+  const [teams, setTeams] = useState<TeamDB[]>(() => {
+    const loaded = loadTable("teams", INITIAL_DB.teams);
+    const flagProvider = import.meta.env.VITE_FLAG_PROVIDER;
+    
+    // Fix broken flag URLs from crests.football-data.org on initial load from cache
+    // Only if using flagcdn provider
+    if (flagProvider === 'flagcdn') {
+      return loaded.map((t: TeamDB) => {
+        if (t.flag && t.flag.includes("crests.football-data.org")) {
+          const codeToCountry: Record<string, string> = {
+            'USA': 'us', 'MEX': 'mx', 'CAN': 'ca', 'ESP': 'es', 'ARG': 'ar',
+            'FRA': 'fr', 'ENG': 'gb-eng', 'BRA': 'br', 'POR': 'pt', 'NED': 'nl',
+            'BEL': 'be', 'GER': 'de', 'CRO': 'hr', 'MAR': 'ma', 'COL': 'co',
+            'URU': 'uy', 'SUI': 'ch', 'JPN': 'jp', 'SEN': 'sn', 'IRN': 'ir',
+            'KOR': 'kr', 'ECU': 'ec', 'AUT': 'at', 'AUS': 'au', 'NOR': 'no',
+            'PAN': 'pa', 'EGY': 'eg', 'ALG': 'dz', 'SCO': 'gb-sct', 'PAR': 'py',
+            'TUN': 'tn', 'CIV': 'ci', 'UZB': 'uz', 'QAT': 'qa', 'KSA': 'sa',
+            'RSA': 'za', 'JOR': 'jo', 'CPV': 'cv', 'GHA': 'gh', 'CUW': 'cw',
+            'HAI': 'ht', 'NZL': 'nz', 'CZE': 'cz', 'ITA': 'it', 'DEN': 'dk',
+            'SWE': 'se', 'POL': 'pl', 'WAL': 'gb-wls', 'SRB': 'rs', 'CMR': 'cm',
+            'NGA': 'ng', 'IRQ': 'iq',
+          };
+          const cc = codeToCountry[(t.code || '').toUpperCase()];
+          if (cc) return { ...t, flag: `https://flagcdn.com/w160/${cc}.png` };
+        }
+        return t;
+      });
+    }
+    return loaded;
+  });
   const [stadiums, setStadiums] = useState<StadiumDB[]>(() =>
     loadTable("stadiums", INITIAL_DB.stadiums),
   );
@@ -382,7 +409,39 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       if (usersById.size > 0) {
         setUsers(Array.from(usersById.values()));
       }
-      if (teamsRes.data) setTeams(teamsRes.data);
+      if (teamsRes.data) {
+        const flagProvider = import.meta.env.VITE_FLAG_PROVIDER;
+        
+        // Fix broken flag URLs from crests.football-data.org by replacing with flagcdn.com
+        // Only if using flagcdn provider
+        if (flagProvider === 'flagcdn') {
+          const fixedTeams = (teamsRes.data as TeamDB[]).map((t) => {
+            if (t.flag && t.flag.includes("crests.football-data.org")) {
+              const codeToCountry: Record<string, string> = {
+                'USA': 'us', 'MEX': 'mx', 'CAN': 'ca', 'ESP': 'es', 'ARG': 'ar',
+                'FRA': 'fr', 'ENG': 'gb-eng', 'BRA': 'br', 'POR': 'pt', 'NED': 'nl',
+                'BEL': 'be', 'GER': 'de', 'CRO': 'hr', 'MAR': 'ma', 'COL': 'co',
+                'URU': 'uy', 'SUI': 'ch', 'JPN': 'jp', 'SEN': 'sn', 'IRN': 'ir',
+                'KOR': 'kr', 'ECU': 'ec', 'AUT': 'at', 'AUS': 'au', 'NOR': 'no',
+                'PAN': 'pa', 'EGY': 'eg', 'ALG': 'dz', 'SCO': 'gb-sct', 'PAR': 'py',
+                'TUN': 'tn', 'CIV': 'ci', 'UZB': 'uz', 'QAT': 'qa', 'KSA': 'sa',
+                'RSA': 'za', 'JOR': 'jo', 'CPV': 'cv', 'GHA': 'gh', 'CUW': 'cw',
+                'HAI': 'ht', 'NZL': 'nz', 'CZE': 'cz', 'ITA': 'it', 'DEN': 'dk',
+                'SWE': 'se', 'POL': 'pl', 'WAL': 'gb-wls', 'SRB': 'rs', 'CMR': 'cm',
+                'NGA': 'ng', 'IRQ': 'iq',
+              };
+              const cc = codeToCountry[(t.code || '').toUpperCase()];
+              if (cc) {
+                return { ...t, flag: `https://flagcdn.com/w160/${cc}.png` };
+              }
+            }
+            return t;
+          });
+          setTeams(fixedTeams);
+        } else {
+          setTeams(teamsRes.data);
+        }
+      }
       if (stadiumsRes.data) setStadiums(stadiumsRes.data);
       if (groupsRes.data) {
         const deduped = (groupsRes.data as GroupDB[]).reduce(

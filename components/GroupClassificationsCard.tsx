@@ -17,11 +17,21 @@ export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> =
   lockDate,
   onPredict,
 }) => {
-  const isLocked = new Date() > new Date(lockDate);
+  const [isLocked, setIsLocked] = useState(false);
   const db = useDatabase();
 
+  useEffect(() => {
+    const checkLock = () => {
+      const now = new Date();
+      setIsLocked(now >= lockDate);
+    };
+    checkLock();
+    const timer = setInterval(checkLock, 60000);
+    return () => clearInterval(timer);
+  }, [lockDate]);
+
   const normalizeGroupName = (groupName: string) => {
-    const m = /^Group\s+([A-Z])$/i.exec(groupName.trim());
+    const m = /^(?:Group|GROUP)[_\s]+([A-Z])$/i.exec(groupName.trim());
     if (!m) return groupName;
     return `Grupo ${m[1]}`;
   };
@@ -229,7 +239,7 @@ export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> =
       {/* Card Header - Clickable to toggle accordion */}
       <div
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-[#1f2937] mb-6 gap-4 cursor-pointer select-none group"
+        className="flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer select-none group"
       >
         <div className="flex items-center gap-4">
           <div className="p-3.5 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 rounded-2xl group-hover:from-indigo-500/30 group-hover:to-purple-500/30 transition-all duration-200">
@@ -251,7 +261,7 @@ export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> =
               </span>
             </div>
             <p className="text-sm text-gray-400 mt-1">
-              Acerte o 1º e 2º de cada grupo. +10 pontos por seleção correta!
+              {isLocked ? 'Encerrado (Início da Copa)' : `Encerra em: ${lockDate.toLocaleDateString('pt-BR')} às ${lockDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
             </p>
           </div>
         </div>
@@ -260,7 +270,13 @@ export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> =
           {isLocked && (
             <div className="flex items-center gap-2 px-4 py-2 bg-red-950/30 border border-red-900/40 rounded-xl text-red-400 text-sm font-semibold">
               <Lock className="w-4 h-4" />
-              Palpites Bloqueados
+              FECHADO
+            </div>
+          )}
+          {!isLocked && allGroupsFilled && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-emerald-950/30 border border-emerald-900/40 rounded-xl text-emerald-400 text-sm font-semibold">
+              <Check className="w-4 h-4" />
+              Salvo
             </div>
           )}
           <button
@@ -282,7 +298,7 @@ export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> =
 
       {/* Accordion Content */}
       {isExpanded && (
-        <>
+        <div className="pt-6 border-t border-[#1f2937]">
           {/* Grid of Groups */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {groupsList.map(([groupName, teams]) => {
@@ -296,7 +312,7 @@ export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> =
                   className="bg-[#1f2937]/35 border border-[#374151]/40 rounded-2xl p-5 hover:border-indigo-500/30 transition-all duration-200"
                 >
                   <h3 className="text-lg font-bold text-white mb-4 border-b border-[#1f2937] pb-2 tracking-wide">
-                    {groupName}
+                    {normalizeGroupName(groupName)}
                   </h3>
 
                   {/* 1st place selector */}
@@ -327,7 +343,7 @@ export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> =
                             <span className="truncate">{firstPlaceTeam.name}</span>
                           </div>
                         ) : (
-                          <span className="text-gray-500">Selecione o Líder...</span>
+                          <span className="text-gray-500">Líder...</span>
                         )}
                         <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 ml-1" />
                       </button>
@@ -391,7 +407,7 @@ export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> =
                             <span className="truncate">{secondPlaceTeam.name}</span>
                           </div>
                         ) : (
-                          <span className="text-gray-500">Selecione o Vice...</span>
+                          <span className="text-gray-500">Vice...</span>
                         )}
                         <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 ml-1" />
                       </button>
@@ -433,7 +449,7 @@ export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> =
 
           {/* Save Button Action */}
           {!isLocked && (
-            <div className="flex justify-end pt-4 border-t border-[#1f2937]">
+            <div className="flex justify-end pt-4">
               <button
                 onClick={handleSave}
                 className="px-8 py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl shadow-lg hover:from-indigo-500 hover:to-purple-500 active:scale-95 transition-all duration-150 flex items-center gap-2 tracking-wide"
@@ -451,7 +467,7 @@ export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> =
               </button>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );

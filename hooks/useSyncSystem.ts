@@ -12,6 +12,68 @@ import {
 } from "../services/liveScoreService";
 import { supabase, isSupabaseEnabled } from "../services/supabase";
 
+// Map team codes to ISO 3166-1 alpha-2 country codes for flagcdn.com
+const teamCodeToCountryCode: Record<string, string> = {
+  'USA': 'us',
+  'MEX': 'mx',
+  'CAN': 'ca',
+  'ESP': 'es',
+  'ARG': 'ar',
+  'FRA': 'fr',
+  'ENG': 'gb-eng',
+  'BRA': 'br',
+  'POR': 'pt',
+  'NED': 'nl',
+  'BEL': 'be',
+  'GER': 'de',
+  'CRO': 'hr',
+  'MAR': 'ma',
+  'COL': 'co',
+  'URU': 'uy',
+  'SUI': 'ch',
+  'JPN': 'jp',
+  'SEN': 'sn',
+  'IRN': 'ir',
+  'KOR': 'kr',
+  'ECU': 'ec',
+  'AUT': 'at',
+  'AUS': 'au',
+  'NOR': 'no',
+  'PAN': 'pa',
+  'EGY': 'eg',
+  'ALG': 'dz',
+  'SCO': 'gb-sct',
+  'PAR': 'py',
+  'TUN': 'tn',
+  'CIV': 'ci',
+  'UZB': 'uz',
+  'QAT': 'qa',
+  'KSA': 'sa',
+  'RSA': 'za',
+  'JOR': 'jo',
+  'CPV': 'cv',
+  'GHA': 'gh',
+  'CUW': 'cw',
+  'HAI': 'ht',
+  'NZL': 'nz',
+};
+
+const getFlagUrl = (teamCode: string): string => {
+  const flagProvider = import.meta.env.VITE_FLAG_PROVIDER;
+  
+  // If not set or not 'flagcdn', return empty to use whatever is in the DB
+  if (flagProvider !== 'flagcdn') {
+    return '';
+  }
+  
+  const countryCode = teamCodeToCountryCode[teamCode.toUpperCase()];
+  if (countryCode) {
+    return `https://flagcdn.com/w160/${countryCode}.png`;
+  }
+  // Fallback to crest from API or default
+  return '/favicon.ico';
+};
+
 const normalizeCompetitionCode = (value?: string) =>
   (value || "WC").toUpperCase();
 
@@ -98,7 +160,7 @@ function buildExternalTeamMap(
       const payload = {
         name: teamName,
         code: teamCode,
-        flag: et.crest || "/favicon.ico",
+        flag: getFlagUrl(teamCode),
         externalTeamId: et.id,
         ranking: rankingMap[teamCode.toUpperCase()] ?? null,
       };
@@ -138,8 +200,9 @@ export const useSyncSystem = (
     }
   });
 
-  const syncingCompetitionsRef = useRef<Set<string>>(new Set());
+  const petitionsRef = useRef<Set<string>>(new Set());
   const nextAllowedSyncAtRef = useRef(0);
+  const syncingCompetitionsRef = useRef<Set<string>>(new Set());
 
   const updateSyncStatus = useCallback(
     (
@@ -283,7 +346,7 @@ export const useSyncSystem = (
             const payload = {
               name: teamName,
               code: teamCode,
-              flag: (et as any).crest || "/favicon.ico",
+              flag: getFlagUrl(teamCode),
               externalTeamId: et.id,
               ranking: normalizedCode === 'WC' ? (rankingMap[teamCode.toUpperCase()] ?? 999) : null,
             };
@@ -374,7 +437,7 @@ export const useSyncSystem = (
             .reduce<any[]>((acc, t) => {
               const newRanking = rankingMap[t.code.toUpperCase()];
               if (newRanking !== undefined && t.ranking !== newRanking) {
-                acc.push({ id: t.id, name: t.name, code: t.code, flag: t.flag, ranking: newRanking });
+                acc.push({ id: t.id, name: t.name, code: t.code, flag: getFlagUrl(t.code), ranking: newRanking });
               }
               return acc;
             }, []);

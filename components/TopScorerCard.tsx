@@ -180,7 +180,7 @@ const TopScorerCard: React.FC<TopScorerCardProps> = ({
             {/* Header - Always Visible & Clickable */}
             <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className={`w-full bg-gradient-to-r from-indigo-900 to-slate-900 px-4 py-3 border-b border-indigo-500/20 flex justify-between items-center transition-colors hover:bg-slate-800 rounded-t-xl ${!isExpanded ? 'rounded-b-xl' : ''}`}
+                className={`w-full bg-gradient-to-r from-indigo-900 to-slate-900 px-4 py-3 flex justify-between items-center transition-colors hover:bg-slate-800 rounded-t-xl ${!isExpanded ? 'rounded-b-xl' : ''}`}
             >
                 <div className="flex items-center gap-2 text-white font-bold">
                     <Trophy size={20} className="text-yellow-400" />
