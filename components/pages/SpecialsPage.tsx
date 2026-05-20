@@ -49,6 +49,8 @@ const SpecialsPage: React.FC<SpecialsPageProps> = ({
         finalResult={tournamentResults}
         allowedChampionTeamIds={allowedChampionTeamIds}
         ruleset={ruleset}
+        currentUserId={currentUser.id}
+        currentGroupId={currentUser.activeGroupId}
       />
 
       {ruleset === "regulamento_2" && (
@@ -58,12 +60,16 @@ const SpecialsPage: React.FC<SpecialsPageProps> = ({
             prediction={currentUser.tournamentPredictions}
             lockDate={lockDate ? new Date(lockDate) : new Date(0)}
             onPredict={onPredictTournament}
+            currentUserId={currentUser.id}
+            currentGroupId={currentUser.activeGroupId}
           />
           <KnockoutClassificationsCard
             matches={matches}
             prediction={currentUser.tournamentPredictions}
             lockDate={lockDate ? new Date(lockDate) : new Date(0)}
             onPredict={onPredictTournament}
+            currentUserId={currentUser.id}
+            currentGroupId={currentUser.activeGroupId}
           />
         </>
       )}

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { MatchDB, TeamDB, ExtraPhasePredictionDB } from "../types";
 import { useDatabase } from "../contexts/DatabaseContext";
-import { Sparkles, Lock, Save, Check, ChevronDown, ChevronUp, AlertCircle, Trophy } from "lucide-react";
+import { Sparkles, Lock, Save, Check, ChevronDown, ChevronUp, AlertCircle, Trophy, Users } from "lucide-react";
 import { calculateExtraPhasePoints } from "../utils/scoring";
 
 interface ExtraPhasePredictionsCardProps {
@@ -256,6 +256,18 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
                     </div>
                   ) : (
                     <>
+                      {/* Other Users' Predictions for this phase - Always visible, data hidden until lock */}
+                      <OtherExtraPhasePredictions
+                        phaseId={phase.id}
+                        phaseLabel={phase.label}
+                        phaseMatches={phase.matches}
+                        groupId={groupId}
+                        userId={userId}
+                        db={db}
+                        teamMap={teamMap}
+                        isLocked={isLocked}
+                      />
+
                       <div className="text-xs text-slate-400 font-medium">
                         Selecione a partida que você acredita que terminará com a maior diferença de gols:
                       </div>
@@ -396,6 +408,88 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
           );
         })}
       </div>
+    </div>
+  );
+};
+
+// Sub-component: Other users' extra phase predictions accordion
+const OtherExtraPhasePredictions: React.FC<{
+  phaseId: string;
+  phaseLabel: string;
+  phaseMatches: MatchDB[];
+  groupId: string;
+  userId: string;
+  db: ReturnType<typeof useDatabase>;
+  teamMap: Record<string, TeamDB>;
+  isLocked: boolean;
+}> = ({ phaseId, phaseLabel, phaseMatches, groupId, userId, db, teamMap, isLocked }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const otherPreds = useMemo(() => {
+    return db.extraPhasePredictions.filter(
+      (p) => p.groupId === groupId && p.userId !== userId && p.phase === phaseId
+    );
+  }, [db.extraPhasePredictions, groupId, userId, phaseId]);
+
+  const getUserName = (uid: string) => {
+    const user = db.users.find((u) => u.id === uid);
+    return user?.name || "Anônimo";
+  };
+
+  const getMatchLabel = (matchId?: string) => {
+    if (!matchId) return "—";
+    const m = phaseMatches.find((x) => x.id === matchId);
+    if (!m) return "—";
+    const home = teamMap[m.homeTeamId];
+    const away = teamMap[m.awayTeamId];
+    return `${home?.code || home?.name || "TBD"} vs ${away?.code || away?.name || "TBD"}`;
+  };
+
+  return (
+    <div className="mt-3 border border-slate-700 rounded-xl overflow-hidden">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-900/60 hover:bg-slate-900/80 transition-colors"
+      >
+        <div className="flex items-center gap-2 text-slate-300">
+          <Users size={12} />
+          <span className="text-[10px] font-bold uppercase tracking-wide">
+            Palpites do Grupo ({otherPreds.length})
+          </span>
+        </div>
+        {isOpen ? <ChevronUp size={12} className="text-slate-500" /> : <ChevronDown size={12} className="text-slate-500" />}
+      </button>
+
+      {isOpen && (
+        otherPreds.length === 0 ? (
+          <div className="p-4 text-xs text-slate-500 text-center">
+            Nenhum outro participante fez palpites nesta fase ainda.
+          </div>
+        ) : (
+        <div className="overflow-x-auto animate-fadeIn">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-slate-900/40 text-slate-400 border-t border-slate-700">
+                <th className="px-3 py-1.5 text-left font-medium">Participante</th>
+                <th className="px-2 py-1.5 text-center font-medium">Jogo Escolhido</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-700/50">
+              {otherPreds.map((p) => (
+                <tr key={p.userId} className="hover:bg-slate-800/50 transition-colors">
+                  <td className="px-3 py-1.5 font-semibold text-slate-200 whitespace-nowrap">
+                    {getUserName(p.userId)}
+                  </td>
+                  <td className="px-2 py-1.5 text-center text-slate-300 whitespace-nowrap">
+                    {isLocked ? getMatchLabel(p.matchId) : "Oculto"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        )
+      )}
     </div>
   );
 };

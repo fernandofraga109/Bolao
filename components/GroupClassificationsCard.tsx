@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Match, Team, TournamentPredictions } from "../types";
-import { Check, Lock, Star, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, Lock, Star, ChevronDown, ChevronUp, Users } from "lucide-react";
 import { useDatabase } from "../contexts/DatabaseContext";
 
 interface GroupClassificationsCardProps {
@@ -9,6 +9,8 @@ interface GroupClassificationsCardProps {
   lockDate: Date;
   onPredict: (data: TournamentPredictions) => void;
   allowedChampionTeamIds?: string[];
+  currentUserId?: string;
+  currentGroupId?: string;
 }
 
 export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> = ({
@@ -16,6 +18,8 @@ export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> =
   prediction,
   lockDate,
   onPredict,
+  currentUserId,
+  currentGroupId,
 }) => {
   const [isLocked, setIsLocked] = useState(false);
   const db = useDatabase();
@@ -467,7 +471,114 @@ export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> =
               </button>
             </div>
           )}
+
+          {/* Other Users' Group Classifications - Always visible, data hidden until lock */}
+          {currentGroupId && (() => {
+            const otherPreds = db.tournamentPredictions.filter(
+              (tp) => tp.groupId === currentGroupId && tp.userId !== currentUserId && tp.groupClassifications
+            );
+
+            return (
+              <OtherGroupClassifications
+                otherPreds={otherPreds}
+                db={db}
+                groupTeams={groupTeams}
+                normalizeGroupName={normalizeGroupName}
+                isLocked={isLocked}
+              />
+            );
+          })()}
         </div>
+      )}
+    </div>
+  );
+};
+
+// Sub-component: Other users' group classifications accordion
+const OtherGroupClassifications: React.FC<{
+  otherPreds: any[];
+  db: ReturnType<typeof useDatabase>;
+  groupTeams: Record<string, Team[]>;
+  normalizeGroupName: (g: string) => string;
+  isLocked: boolean;
+}> = ({ otherPreds, db, groupTeams, normalizeGroupName, isLocked }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const getUserName = (userId: string) => {
+    const user = db.users.find((u) => u.id === userId);
+    return user?.name || "Anônimo";
+  };
+
+  const getTeamCode = (teamId: string) => {
+    const team = db.teams.find((t) => t.id === teamId);
+    return team?.code || "?";
+  };
+
+  const groupNames = Object.keys(groupTeams).sort();
+
+  return (
+    <div className="mt-4 border border-slate-700 rounded-xl overflow-hidden">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-slate-900/60 hover:bg-slate-900/80 transition-colors"
+      >
+        <div className="flex items-center gap-2 text-slate-300">
+          <Users size={14} />
+          <span className="text-xs font-bold uppercase tracking-wide">
+            Classificados do Grupo ({otherPreds.length})
+          </span>
+        </div>
+        {isOpen ? <ChevronUp size={14} className="text-slate-500" /> : <ChevronDown size={14} className="text-slate-500" />}
+      </button>
+
+      {isOpen && (
+        otherPreds.length === 0 ? (
+          <div className="p-4 text-xs text-slate-500 text-center">
+            Nenhum outro participante fez palpites neste grupo ainda.
+          </div>
+        ) : (
+        <div className="overflow-x-auto animate-fadeIn">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-slate-900/40 text-slate-400 border-t border-slate-700">
+                <th className="px-3 py-2 text-left font-medium">Participante</th>
+                {groupNames.map((g) => (
+                  <th key={g} className="px-2 py-2 text-center font-medium whitespace-nowrap">
+                    {normalizeGroupName(g)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-700/50">
+              {otherPreds.map((tp) => (
+                <tr key={tp.userId} className="hover:bg-slate-800/50 transition-colors">
+                  <td className="px-3 py-2 font-semibold text-slate-200 whitespace-nowrap">
+                    {getUserName(tp.userId)}
+                  </td>
+                  {groupNames.map((g) => {
+                    const picks = tp.groupClassifications?.[g] || [];
+                    return (
+                      <td key={g} className="px-2 py-2 text-center text-slate-300">
+                        <div className="flex flex-wrap gap-0.5 justify-center">
+                          {picks.length > 0
+                            ? isLocked
+                              ? picks.map((id: string) => (
+                                  <span key={id} className="text-[9px] bg-slate-800 px-1 py-0.5 rounded">
+                                    {getTeamCode(id)}
+                                  </span>
+                                ))
+                              : <span className="text-[9px] text-slate-500 italic">Oculto</span>
+                            : "—"}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        )
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Match, Team, TournamentPredictions } from "../types";
-import { Check, Lock, ChevronDown, ChevronUp, Search, Trophy, Sparkles, AlertCircle, Save } from "lucide-react";
+import { Check, Lock, ChevronDown, ChevronUp, Search, Trophy, Sparkles, AlertCircle, Save, Users } from "lucide-react";
 import { useDatabase } from "../contexts/DatabaseContext";
 
 interface KnockoutClassificationsCardProps {
@@ -8,6 +8,8 @@ interface KnockoutClassificationsCardProps {
   prediction: TournamentPredictions | undefined;
   lockDate: Date;
   onPredict: (data: TournamentPredictions) => void;
+  currentUserId?: string;
+  currentGroupId?: string;
 }
 
 export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardProps> = ({
@@ -15,6 +17,8 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
   prediction,
   lockDate,
   onPredict,
+  currentUserId,
+  currentGroupId,
 }) => {
   const db = useDatabase();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -22,6 +26,18 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
   const [searchQuery, setSearchQuery] = useState("");
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [, forceUpdate] = useState({});
+  const [isGloballyLocked, setIsGloballyLocked] = useState(false);
+
+  // Check global lock state based on lockDate
+  useEffect(() => {
+    const checkLock = () => {
+      const now = new Date();
+      setIsGloballyLocked(now >= lockDate);
+    };
+    checkLock();
+    const timer = setInterval(checkLock, 60000);
+    return () => clearInterval(timer);
+  }, [lockDate]);
 
   // Group matches by phase to determine lock times and finished states
   const phaseMatches = useMemo(() => {
@@ -408,10 +424,204 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
                     <p className="text-slate-400 text-xs font-semibold">Nenhuma seleção encontrada.</p>
                   </div>
                 )}
+
+                {/* Other Users' Knockout Predictions - visible after this phase locks - data hidden until lock */}
+                {currentGroupId && (() => {
+                  const otherPreds = db.tournamentPredictions.filter(
+                    (tp) => tp.groupId === currentGroupId && tp.userId !== currentUserId && tp.groupClassifications?.[phase]
+                  );
+
+                  return (
+                    <OtherKnockoutPredictions
+                      otherPreds={otherPreds}
+                      phase={phase}
+                      db={db}
+                      config={config}
+                      isLocked={isLocked}
+                    />
+                  );
+                })()}
               </div>
             );
           })()}
+
+          {/* Card-level: All users' knockout predictions for all phases - Always visible, data hidden until lock */}
+          {currentGroupId && (() => {
+            const allOtherPreds = db.tournamentPredictions.filter(
+              (tp) => tp.groupId === currentGroupId && tp.userId !== currentUserId && tp.groupClassifications
+            );
+
+            return (
+              <AllKnockoutPredictionsCard
+                otherPreds={allOtherPreds}
+                db={db}
+                phaseConfig={phaseConfig}
+                isLocked={isGloballyLocked}
+              />
+            );
+          })()}
         </div>
+      )}
+    </div>
+  );
+};
+
+// Card-level sub-component: All users' knockout predictions for all phases
+const AllKnockoutPredictionsCard: React.FC<{
+  otherPreds: any[];
+  db: ReturnType<typeof useDatabase>;
+  phaseConfig: Record<string, { max: number; label: string }>;
+  isLocked: boolean;
+}> = ({ otherPreds, db, phaseConfig, isLocked }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const getUserName = (uid: string) => {
+    const user = db.users.find((u) => u.id === uid);
+    return user?.name || "Anônimo";
+  };
+
+  const getTeamCode = (teamId: string) => {
+    const team = db.teams.find((t) => t.id === teamId);
+    return team?.code || "?";
+  };
+
+  const phases = Object.keys(phaseConfig);
+
+  return (
+    <div className="mt-4 border border-slate-700 rounded-xl overflow-hidden">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-slate-900/60 hover:bg-slate-900/80 transition-colors"
+      >
+        <div className="flex items-center gap-2 text-slate-300">
+          <Users size={14} />
+          <span className="text-xs font-bold uppercase tracking-wide">
+            Palpites do Grupo - Todas as Fases ({otherPreds.length})
+          </span>
+        </div>
+        {isOpen ? <ChevronUp size={14} className="text-slate-500" /> : <ChevronDown size={14} className="text-slate-500" />}
+      </button>
+
+      {isOpen && (
+        otherPreds.length === 0 ? (
+          <div className="p-4 text-xs text-slate-500 text-center">
+            Nenhum outro participante fez palpites neste grupo ainda.
+          </div>
+        ) : (
+        <div className="overflow-x-auto animate-fadeIn p-3">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-slate-900/40 text-slate-400 border-t border-slate-700">
+                <th className="px-3 py-2 text-left font-medium">Participante</th>
+                {phases.map((p) => (
+                  <th key={p} className="px-2 py-2 text-center font-medium whitespace-nowrap">
+                    {phaseConfig[p].label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-700/50">
+              {otherPreds.map((tp) => (
+                <tr key={tp.userId} className="hover:bg-slate-800/50 transition-colors">
+                  <td className="px-3 py-2 font-semibold text-slate-200 whitespace-nowrap">
+                    {getUserName(tp.userId)}
+                  </td>
+                  {phases.map((p) => {
+                    const picks = tp.groupClassifications?.[p] || [];
+                    return (
+                      <td key={p} className="px-2 py-2 text-center text-slate-300">
+                        <div className="flex flex-wrap gap-0.5 justify-center">
+                          {picks.length > 0
+                            ? isLocked
+                              ? picks.map((id: string) => (
+                                  <span key={id} className="text-[9px] bg-slate-800 text-slate-300 px-1 py-0.5 rounded border border-slate-700">
+                                    {getTeamCode(id)}
+                                  </span>
+                                ))
+                              : <span className="text-[9px] text-slate-500 italic">Oculto</span>
+                            : "—"}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        )
+      )}
+    </div>
+  );
+};
+
+// Sub-component: Other users' knockout predictions accordion
+const OtherKnockoutPredictions: React.FC<{
+  otherPreds: any[];
+  phase: string;
+  db: ReturnType<typeof useDatabase>;
+  config: { max: number; label: string };
+  isLocked: boolean;
+}> = ({ otherPreds, phase, db, config, isLocked }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const getUserName = (userId: string) => {
+    const user = db.users.find((u) => u.id === userId);
+    return user?.name || "Anônimo";
+  };
+
+  const getTeamCode = (teamId: string) => {
+    const team = db.teams.find((t) => t.id === teamId);
+    return team?.code || "?";
+  };
+
+  return (
+    <div className="mt-4 border border-slate-700 rounded-xl overflow-hidden">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-slate-900/60 hover:bg-slate-900/80 transition-colors"
+      >
+        <div className="flex items-center gap-2 text-slate-300">
+          <Users size={14} />
+          <span className="text-xs font-bold uppercase tracking-wide">
+            {config.label} - Palpites ({otherPreds.length})
+          </span>
+        </div>
+        {isOpen ? <ChevronUp size={14} className="text-slate-500" /> : <ChevronDown size={14} className="text-slate-500" />}
+      </button>
+
+      {isOpen && (
+        otherPreds.length === 0 ? (
+          <div className="p-4 text-xs text-slate-500 text-center">
+            Nenhum outro participante fez palpites nesta fase ainda.
+          </div>
+        ) : (
+        <div className="overflow-x-auto animate-fadeIn p-3">
+          <div className="space-y-2">
+            {otherPreds.map((tp) => {
+              const picks = tp.groupClassifications?.[phase] || [];
+              return (
+                <div key={tp.userId} className="bg-slate-900/40 rounded-lg p-2.5 border border-slate-800">
+                  <div className="text-[11px] font-bold text-slate-300 mb-1.5">
+                    {getUserName(tp.userId)}
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {picks.length > 0
+                      ? isLocked
+                        ? picks.map((id: string) => (
+                            <span key={id} className="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded border border-slate-700">
+                              {getTeamCode(id)}
+                            </span>
+                          ))
+                        : <span className="text-[10px] text-slate-500 italic">Oculto</span>
+                      : <span className="text-[10px] text-slate-500">Nenhum palpite</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        )
       )}
     </div>
   );
