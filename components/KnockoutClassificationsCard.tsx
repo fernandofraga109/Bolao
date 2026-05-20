@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Match, Team, TournamentPredictions } from "../types";
-import { Check, Lock, Star, ChevronDown, ChevronUp, Search, Trophy, Sparkles, AlertCircle } from "lucide-react";
+import { Check, Lock, ChevronDown, ChevronUp, Search, Trophy, Sparkles, AlertCircle, Save } from "lucide-react";
 import { useDatabase } from "../contexts/DatabaseContext";
 
 interface KnockoutClassificationsCardProps {
@@ -124,26 +124,27 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
 
   // Toggle selection for active phase
   const handleToggleTeam = (teamId: string) => {
-    if (!activePhase || isPhaseLocked(activePhase)) return;
+    const phase = activePhase;
+    if (!phase || isPhaseLocked(phase)) return;
 
-    const currentSelection = selectedTeams[activePhase];
-    const maxAllowed = activePhase === "16-avos" ? 32 : activePhase === "Oitavas" ? 16 : activePhase === "Quartas" ? 8 : 4;
+    const currentSelection = selectedTeams[phase];
+    const maxAllowed = phase === "16-avos" ? 32 : phase === "Oitavas" ? 16 : phase === "Quartas" ? 8 : 4;
 
     if (currentSelection.includes(teamId)) {
       setSelectedTeams((prev) => ({
         ...prev,
-        [activePhase]: prev[activePhase].filter((id) => id !== teamId),
+        [phase]: prev[phase].filter((id) => id !== teamId),
       }));
     } else {
       if (currentSelection.length >= maxAllowed) return; // Limit reached
       setSelectedTeams((prev) => ({
         ...prev,
-        [activePhase]: [...prev[activePhase], teamId],
+        [phase]: [...prev[phase], teamId],
       }));
     }
   };
 
-  const handleSave = async (phase: "Oitavas" | "Quartas" | "Semis") => {
+  const handleSave = async (phase: "16-avos" | "Oitavas" | "Quartas" | "Semis") => {
     if (isPhaseLocked(phase)) return;
 
     const updatedClassifications = {
@@ -261,176 +262,155 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
             })}
           </div>
 
-          {activePhase && (
-            <div className="space-y-4 animate-fadeIn">
-              {/* Info & Lock Box */}
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900/40 border border-slate-750 rounded-2xl p-4 gap-4">
-                <div className="flex items-start gap-3">
-                  {isPhaseLocked(activePhase) ? (
-                    <div className="bg-orange-500/10 p-2 rounded-xl border border-orange-500/20 text-orange-400 shrink-0 mt-0.5">
-                      <Lock size={16} />
+          {activePhase && (() => {
+            const phase = activePhase;
+            const isLocked = isPhaseLocked(phase);
+            const results = getPhaseResults(phase);
+            const count = selectedTeams[phase].length;
+            const config = phaseConfig[phase];
+
+            return (
+              <div className="space-y-4 animate-fadeIn">
+                {/* Info & Lock Box */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900/40 border border-slate-750 rounded-2xl p-4 gap-4">
+                  <div className="flex items-start gap-3">
+                    {isLocked ? (
+                      <div className="bg-orange-500/10 p-2 rounded-xl border border-orange-500/20 text-orange-400 shrink-0 mt-0.5">
+                        <Lock size={16} />
+                      </div>
+                    ) : (
+                      <div className="bg-brand-green/10 p-2 rounded-xl border border-brand-green/20 text-brand-green shrink-0 mt-0.5">
+                        <Sparkles size={16} className="animate-spin-slow" />
+                      </div>
+                    )}
+                    <div>
+                      <div className="font-bold text-slate-200 text-sm flex items-center gap-2">
+                        Palpites para {config.label}
+                        {isLocked && (
+                          <span className="text-[9px] uppercase tracking-widest bg-orange-950/40 text-orange-400 border border-orange-500/20 px-1.5 py-0.5 rounded">
+                            Bloqueado
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-slate-400 text-xs mt-0.5">
+                        {isLocked
+                          ? "O prazo para enviar ou alterar os palpites desta fase encerrou."
+                          : `Selecione exatamente ${config.max} seleções que avançam para esta fase.`}
+                      </p>
                     </div>
-                  ) : (
-                    <div className="bg-brand-green/10 p-2 rounded-xl border border-brand-green/20 text-brand-green shrink-0 mt-0.5">
-                      <Sparkles size={16} className="animate-spin-slow" />
+                  </div>
+
+                  {!isLocked && (
+                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                      {count > 0 && (
+                        <button
+                          onClick={() => setSelectedTeams(prev => ({ ...prev, [phase]: [] }))}
+                          className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-705 text-red-400 hover:text-red-300 border border-slate-700 transition-all flex items-center justify-center gap-1.5"
+                        >
+                          Limpar Escolhas
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleSave(phase)}
+                        disabled={
+                          (count !== 0 && count !== config.max) ||
+                          saveSuccess === phase
+                        }
+                        className={`px-5 py-2.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all text-white shadow-lg ${
+                          saveSuccess === phase
+                            ? "bg-brand-green text-slate-900"
+                            : "bg-indigo-600 hover:bg-indigo-500 shadow-indigo-950/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                        }`}
+                      >
+                        {saveSuccess === phase ? (
+                          <>
+                            <Check size={14} /> Salvo!
+                          </>
+                        ) : (
+                          <>
+                            <Save size={14} /> Salvar Fase
+                          </>
+                        )}
+                      </button>
                     </div>
                   )}
-                  <div>
-                    <div className="font-bold text-slate-200 text-sm flex items-center gap-2">
-                      Palpites para {phaseConfig[activePhase].label}
-                      {isPhaseLocked(activePhase) && (
-                        <span className="text-[9px] uppercase tracking-widest bg-orange-950/40 text-orange-400 border border-orange-500/20 px-1.5 py-0.5 rounded">
-                          Bloqueado
-                        </span>
-                      )}
+                </div>
+
+                {/* Team Selection Grid */}
+                <div className="bg-slate-900/40 border border-slate-750 rounded-3xl p-4 sm:p-6">
+                  {!isLocked && (
+                    <div className="relative mb-6">
+                      <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-500">
+                        <Search size={18} />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Buscar seleção..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full bg-slate-950/50 border border-slate-700 rounded-2xl py-3.5 pl-12 pr-4 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all outline-none"
+                      />
                     </div>
-                    <p className="text-slate-400 text-xs mt-0.5">
-                      {isPhaseLocked(activePhase)
-                        ? "O prazo para enviar ou alterar os palpites desta fase encerrou."
-                        : `Selecione exatamente ${phaseConfig[activePhase].max} seleções que avançam para esta fase.`}
-                    </p>
+                  )}
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+                    {filteredTeams.map((team) => {
+                      const isSelected = selectedTeams[phase].includes(team.id);
+                      const isCorrect = results.actualList.includes(team.id);
+                      const isFinished = results.isFinished;
+
+                      return (
+                        <button
+                          key={team.id}
+                          disabled={isLocked || (!isSelected && count >= config.max)}
+                          onClick={() => handleToggleTeam(team.id)}
+                          className={`group relative flex flex-col items-center p-3 sm:p-4 rounded-2xl border transition-all duration-200 ${
+                            isSelected
+                              ? isFinished
+                                ? isCorrect
+                                  ? "bg-brand-green/10 border-brand-green/50 ring-1 ring-brand-green/30"
+                                  : "bg-red-500/10 border-red-500/50 ring-1 ring-red-500/30"
+                                : "bg-indigo-600/10 border-indigo-500/50 ring-1 ring-indigo-500/30 shadow-lg shadow-indigo-500/10"
+                              : "bg-slate-950/30 border-slate-800 hover:border-slate-700 hover:bg-slate-900/50"
+                          } ${isLocked ? "cursor-default" : "cursor-pointer active:scale-95"}`}
+                        >
+                          <div className="relative mb-2">
+                            <div className="w-10 h-7 sm:w-12 sm:h-8 flex items-center justify-center bg-slate-800 rounded shadow-inner overflow-hidden border border-slate-700/50">
+                              <img
+                                src={team.flag}
+                                alt={team.name}
+                                className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                              />
+                            </div>
+                            {isSelected && (
+                              <div className="absolute -top-1.5 -right-1.5 bg-brand-green text-slate-900 rounded-full p-0.5 shadow-lg border border-slate-900">
+                                <Check size={10} strokeWidth={4} />
+                              </div>
+                            )}
+                          </div>
+                          <span className={`text-[10px] sm:text-xs font-bold uppercase tracking-tight text-center truncate w-full ${isSelected ? "text-white" : "text-slate-400 group-hover:text-slate-300"}`}>
+                            {team.name}
+                          </span>
+                          {isFinished && isSelected && (
+                            <div className={`mt-1.5 text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${isCorrect ? "bg-brand-green text-slate-900" : "bg-red-500 text-white"}`}>
+                              {isCorrect ? "+5 PTS" : "0 PTS"}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {!isPhaseLocked(activePhase) && (
-                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    {selectedTeams[activePhase].length > 0 && (
-                      <button
-                        onClick={() => setSelectedTeams(prev => ({ ...prev, [activePhase]: [] }))}
-                        className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-705 text-red-400 hover:text-red-300 border border-slate-700 transition-all flex items-center justify-center gap-1.5"
-                      >
-                        Limpar Escolhas
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleSave(activePhase)}
-                      disabled={
-                        (selectedTeams[activePhase].length !== 0 &&
-                          selectedTeams[activePhase].length !== phaseConfig[activePhase].max) ||
-                        saveSuccess === activePhase
-                      }
-                      className={`px-5 py-2.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all text-white shadow-lg ${
-                        saveSuccess === activePhase
-                          ? "bg-brand-green text-slate-900"
-                          : "bg-indigo-600 hover:bg-indigo-500 shadow-indigo-950/20 disabled:opacity-40 disabled:cursor-not-allowed"
-                      }`}
-                    >
-                      {saveSuccess === activePhase ? (
-                        <>
-                          <Check size={14} className="stroke-[3px]" /> Palpite Salvo!
-                        </>
-                      ) : selectedTeams[activePhase].length === 0 ? (
-                        <>
-                          Limpar e Salvar
-                        </>
-                      ) : (
-                        <>
-                          Salvar Palpite ({selectedTeams[activePhase].length}/{phaseConfig[activePhase].max})
-                        </>
-                      )}
-                    </button>
+                {filteredTeams.length === 0 && (
+                  <div className="py-10 text-center border border-dashed border-slate-700 rounded-2xl">
+                    <AlertCircle size={24} className="text-slate-500 mx-auto mb-2" />
+                    <p className="text-slate-400 text-xs font-semibold">Nenhuma seleção encontrada.</p>
                   </div>
                 )}
               </div>
-
-              {/* Selection Counter & Search Bar */}
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="flex-1 relative">
-                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                    <Search size={14} />
-                  </span>
-                  <input
-                    type="text"
-                    placeholder="Pesquisar seleção pelo nome ou sigla..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-slate-900/60 border border-slate-750 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Grid of Teams */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2.5 max-h-[360px] overflow-y-auto pr-1 custom-scrollbar">
-                {filteredTeams.map((team) => {
-                  const isSelected = selectedTeams[activePhase].includes(team.id);
-                  const maxReached = selectedTeams[activePhase].length >= phaseConfig[activePhase].max;
-                  const isDisabled = isPhaseLocked(activePhase) || (!isSelected && maxReached);
-
-                  const actualList = db.tournamentPredictions.find(
-                    (tp) => tp.userId === "actual" || tp.groupId === "actual"
-                  )?.groupClassifications?.[activePhase] || [];
-                  const isCorrect = actualList.includes(team.id);
-                  const isFinished = phaseMatches[activePhase].length > 0 && phaseMatches[activePhase].every(m => m.status === "FINISHED");
-
-                  return (
-                    <button
-                      key={team.id}
-                      disabled={isDisabled}
-                      onClick={() => handleToggleTeam(team.id)}
-                      className={`relative group flex items-center gap-3 p-3 rounded-2xl border text-left transition-all ${
-                        isSelected
-                          ? isFinished
-                            ? isCorrect
-                              ? "bg-brand-green/10 border-brand-green/40 text-brand-green"
-                              : "bg-red-500/10 border-red-500/35 text-red-400"
-                            : "bg-indigo-500/10 border-indigo-500/40 text-indigo-300"
-                          : "bg-slate-900/40 border-slate-750 text-slate-300 hover:bg-slate-750/30 hover:border-slate-650 disabled:opacity-40 disabled:hover:bg-slate-900/40 disabled:hover:border-slate-750"
-                      }`}
-                    >
-                      {/* Flag */}
-                      {team.flag ? (
-                        <img
-                          src={team.flag}
-                          alt={team.name}
-                          className="w-7 h-5 object-cover rounded shadow-md shrink-0 border border-white/5"
-                        />
-                      ) : (
-                        <div className="w-7 h-5 bg-slate-700 rounded shadow-md shrink-0 border border-white/5 flex items-center justify-center text-[8px] font-black uppercase text-slate-400">
-                          {team.code}
-                        </div>
-                      )}
-
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-extrabold text-xs tracking-tight truncate leading-tight group-hover:text-white transition-colors">
-                          {team.name}
-                        </span>
-                        <span className="text-[9px] uppercase tracking-wider text-slate-500 leading-none mt-0.5">
-                          {team.code}
-                        </span>
-                      </div>
-
-                      {/* Floating indicators */}
-                      {isSelected && (
-                        <div className={`absolute top-1.5 right-1.5 rounded-full p-0.5 text-slate-950 shadow border ${
-                          isFinished
-                            ? isCorrect
-                              ? "bg-brand-green border-brand-green/20"
-                              : "bg-red-400 border-red-400/20"
-                            : "bg-indigo-400 border-indigo-400/20"
-                        }`}>
-                          <Check size={8} className="stroke-[3px]" />
-                        </div>
-                      )}
-
-                      {/* Display correct result tags for finished matches */}
-                      {isFinished && isCorrect && isSelected && (
-                        <span className="absolute bottom-1 right-2 text-[8px] font-black text-brand-green uppercase tracking-wider">
-                          +5 PTS
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {filteredTeams.length === 0 && (
-                <div className="py-10 text-center border border-dashed border-slate-700 rounded-2xl">
-                  <AlertCircle size={24} className="text-slate-500 mx-auto mb-2" />
-                  <p className="text-slate-400 text-xs font-semibold">Nenhuma seleção encontrada.</p>
-                </div>
-              )}
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
     </div>
