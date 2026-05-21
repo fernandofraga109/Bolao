@@ -113,8 +113,6 @@ export const usePointsProcessor = (dbRef: any) => {
         homeScore: number; awayScore: number; points: number;
       }> = [];
 
-      const latePenaltiesByUser: Record<string, number> = {};
-
       // Build group matches context map for placar isolado checks
       const matchPredictionsMap = new Map<string, Array<{ userId: string; homeScore: number; awayScore: number }>>();
       (preds || []).forEach((p) => {
@@ -126,7 +124,6 @@ export const usePointsProcessor = (dbRef: any) => {
 
       (preds || []).forEach((p) => {
         if (!pointsByUser[p.userId]) pointsByUser[p.userId] = 0;
-        if (!latePenaltiesByUser[p.userId]) latePenaltiesByUser[p.userId] = 0;
 
         const match = finishedMatchesMap.get(p.matchId);
         if (match) {
@@ -144,17 +141,6 @@ export const usePointsProcessor = (dbRef: any) => {
               p.userId
             );
 
-            // Auto-calculate late penalty
-            if (p.timestamp && match.date) {
-              const predTime = new Date(p.timestamp).getTime();
-              const matchTime = new Date(match.date).getTime();
-              // Apply penalty if prediction was made/updated > 60 seconds after match kickoff
-              if (predTime > matchTime + 60000) {
-                if (pts > 0) {
-                  latePenaltiesByUser[p.userId] += 3;
-                }
-              }
-            }
           } else {
             pts = calculatePoints(
               p.homeScore,
@@ -176,17 +162,6 @@ export const usePointsProcessor = (dbRef: any) => {
           }
         }
       });
-
-      // Apply late penalties cap of -40 points
-      if (isRegulamento2) {
-        Object.keys(latePenaltiesByUser).forEach((userId) => {
-          const penalty = Math.min(latePenaltiesByUser[userId], 40);
-          if (penalty > 0) {
-            console.log(`⚠️ Aplicando penalidade de -${penalty} pontos de palpites atrasados para o usuário ${userId}`);
-            pointsByUser[userId] = Math.max(0, (pointsByUser[userId] || 0) - penalty);
-          }
-        });
-      }
 
       // 6. Calculate and add tournament predictions points
       if (tournamentResults) {

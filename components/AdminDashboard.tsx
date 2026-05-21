@@ -1002,7 +1002,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <p className="text-[11px] text-slate-400 leading-relaxed pl-2 border-l border-brand-green/30">
             {newGroupRuleset === "regulamento_1" 
               ? "Regras tradicionais: Exato (10 pts), Saldo (7 pts), Vencedor (5 pts), com Bônus Underdog."
-              : "Regras especiais: Exato (15-22 pts), Saldo (13-19 pts), Vencedor (10-16 pts), Empate sem bônus saldo, Placar Sozinho (+5 pts), Penalidade Atraso e palpites divididos."}
+              : "Regras especiais: Exato (15-22 pts), Saldo (13-19 pts), Vencedor (10-16 pts), Empate sem bônus saldo, Placar Sozinho (+5 pts) e palpites divididos."}
           </p>
         </div>
 

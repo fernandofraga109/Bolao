@@ -17,7 +17,7 @@ const RulesSection: React.FC<RulesSectionProps> = ({ minRankDiff = 10, ruleset =
         >
         <div className="flex items-center gap-2 text-sm font-semibold">
             <Info size={16} />
-            <span>Regras de Pontuação ({ruleset === "regulamento_2" ? "Regulamento 2" : "Regulamento 1"})</span>
+            <span>Regras de Pontuação dos Jogos</span>
         </div>
         {showRules ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
@@ -25,49 +25,101 @@ const RulesSection: React.FC<RulesSectionProps> = ({ minRankDiff = 10, ruleset =
         {showRules && (
         <div className="px-4 pb-4 bg-indigo-900/10 border-t border-indigo-500/20">
             {ruleset === "regulamento_2" ? (
-              <ul className="text-xs text-indigo-200/80 space-y-2 pt-2">
-                  <li className="flex items-start gap-2">
-                      <span className="bg-yellow-500 text-black font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[36px] text-center">15-22</span>
-                      <span><b>Placar Exato:</b> Acertou o resultado (15pts grupos, 17pts 3º lugar, 22pts final).</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                      <span className="bg-teal-600 text-white font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[36px] text-center">13-19</span>
-                      <span><b>Saldo de Gols:</b> Acertou vencedor e saldo (13pts grupos, 15pts 3º lugar, 19pts final).</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                      <span className="bg-blue-600 text-white font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[36px] text-center">10-16</span>
-                      <span><b>Vencedor:</b> Acertou vencedor ou empate (10pts grupos, 12pts 3º lugar, 16pts final).</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                      <span className="bg-yellow-400 text-black font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[36px] text-center">+5pts</span>
-                      <span><b>Placar Sozinho:</b> Bônus caso você seja o único do grupo a acertar o Placar Exato do jogo!</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                      <span className="bg-pink-600 text-white font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[36px] text-center">x2 pts</span>
-                      <span><b>Aposta Especial por Fase:</b> Seu palpite eleito de maior diferença de gols por fase (oitavas, quartas, semi, final) vale pontos em dobro!</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                      <span className="bg-red-600 text-white font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[36px] text-center">-3pts</span>
-                      <span><b>Penalidade por Atraso:</b> Apostas salvas após o início do jogo recebem punição de -3pts sobre os pontos ganhos.</span>
-                  </li>
+              <div className="text-xs text-indigo-200/80 space-y-4 pt-3">
+                  {/* Fase de Grupos */}
+                  <div>
+                    <h4 className="font-bold text-indigo-300 text-[11px] uppercase tracking-wide mb-1.5">Fase de Grupos</h4>
+                    <ul className="space-y-1.5 pl-1">
+                      <li className="flex items-start gap-2">
+                        <span className="bg-yellow-500 text-black font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[32px] text-center">15</span>
+                        <span><b>Placar Exato</b></span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-teal-600 text-white font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[32px] text-center">13</span>
+                        <span><b>Resultado + Diferença de gols</b></span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-blue-600 text-white font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[32px] text-center">10</span>
+                        <span><b>Resultado</b> (vencedor ou empate)</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-yellow-400 text-black font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[32px] text-center">+5</span>
+                        <span><b>Placar Sozinho</b> (único a acertar o placar)</span>
+                      </li>
+                    </ul>
+                    <p className="text-[10px] text-slate-500 mt-1 italic pl-1">Em caso de empate, não há bônus por diferença de gols.</p>
+                  </div>
 
-                  <li className="pt-2 font-bold text-indigo-300">Bônus Especiais de Torneio (100pts cada):</li>
-                  
-                  <li className="grid grid-cols-2 gap-x-2 gap-y-1">
-                      <div className="flex items-center gap-2">
-                           <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
-                           <span>Seleção Campeã</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                           <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                           <span>Seleção que Mais Faz Gols</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                           <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                           <span>Seleção que Mais Sofre Gols</span>
-                      </div>
-                  </li>
-              </ul>
+                  {/* Segunda Fase */}
+                  <div>
+                    <h4 className="font-bold text-indigo-300 text-[11px] uppercase tracking-wide mb-1.5">Segunda Fase (Oitavas, Quartas, Semi)</h4>
+                    <ul className="space-y-1.5 pl-1">
+                      <li className="flex items-start gap-2">
+                        <span className="bg-yellow-500 text-black font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[32px] text-center">15</span>
+                        <span><b>Placar Exato</b></span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-teal-600 text-white font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[32px] text-center">13</span>
+                        <span><b>Resultado + Diferença de gols</b></span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-blue-600 text-white font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[32px] text-center">10</span>
+                        <span><b>Resultado</b> (vencedor ou empate)</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-yellow-400 text-black font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[32px] text-center">+5</span>
+                        <span><b>Placar Sozinho</b> (único a acertar o placar)</span>
+                      </li>
+                    </ul>
+                    <p className="text-[10px] text-slate-500 mt-1 italic pl-1">Prorrogação é considerada no placar final.</p>
+                  </div>
+
+                  {/* Disputa de 3º Lugar */}
+                  <div>
+                    <h4 className="font-bold text-indigo-300 text-[11px] uppercase tracking-wide mb-1.5">Disputa de 3º Lugar</h4>
+                    <ul className="space-y-1.5 pl-1">
+                      <li className="flex items-start gap-2">
+                        <span className="bg-yellow-500 text-black font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[32px] text-center">17</span>
+                        <span><b>Placar Exato</b></span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-teal-600 text-white font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[32px] text-center">15</span>
+                        <span><b>Resultado + Diferença de gols</b></span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-blue-600 text-white font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[32px] text-center">12</span>
+                        <span><b>Resultado</b> (vencedor ou empate)</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-yellow-400 text-black font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[32px] text-center">+5</span>
+                        <span><b>Placar Sozinho</b></span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Final */}
+                  <div>
+                    <h4 className="font-bold text-indigo-300 text-[11px] uppercase tracking-wide mb-1.5">Final</h4>
+                    <ul className="space-y-1.5 pl-1">
+                      <li className="flex items-start gap-2">
+                        <span className="bg-yellow-500 text-black font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[32px] text-center">22</span>
+                        <span><b>Placar Exato</b></span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-teal-600 text-white font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[32px] text-center">19</span>
+                        <span><b>Resultado + Diferença de gols</b></span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-blue-600 text-white font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[32px] text-center">16</span>
+                        <span><b>Resultado</b> (vencedor ou empate)</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-yellow-400 text-black font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[32px] text-center">+5</span>
+                        <span><b>Placar Sozinho</b></span>
+                      </li>
+                    </ul>
+                  </div>
+              </div>
             ) : (
               <ul className="text-xs text-indigo-200/80 space-y-2 pt-2">
                   <li className="flex items-start gap-2">

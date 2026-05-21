@@ -425,6 +425,9 @@ const App: React.FC = () => {
                       <strong className="text-white text-sm">
                         {currentGroup.name}
                       </strong>
+                      <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                        {currentGroup.ruleset === "regulamento_2" ? "R2" : "R1"}
+                      </span>
                       <ChevronsUpDown
                         size={14}
                         className="text-brand-green opacity-70 group-hover:opacity-100 transition-opacity"

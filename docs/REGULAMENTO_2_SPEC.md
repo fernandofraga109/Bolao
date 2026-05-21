@@ -59,7 +59,6 @@ Este regulamento introduz regras de pontuação estáticas e **dinâmicas** (dep
 
 #### I) Regras Adicionais
 - O tempo de prorrogação é considerado no placar final para pontos.
-- **Atraso de palpite:** Penalização de -3 pontos por jogo esquecido caso o usuário acerte o jogo atrasado (máximo de -40 pontos). Aposta só é válida se palpites dos outros não tiverem sido divulgados e jogo não tiver começado.
 
 ---
 
@@ -73,7 +72,6 @@ Para garantir a integridade do **Regulamento 1**, a lógica de pontuação será
   - Seleção Maior Goleadora (1 jogo).
   - Seleção Maior Goleada (1 jogo).
   - Jogo Maior Diferença de Gols (por fase).
-- Controle de data do palpite para aplicação da penalidade de atraso (-3 pontos).
 
 ### 3.2. Motor de Pontuação Dinâmica (Importante)
 Atualmente, é comum que a pontuação seja calculada olhando apenas o `Palpite vs Resultado Real`. 
