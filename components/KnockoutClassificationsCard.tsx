@@ -22,7 +22,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
 }) => {
   const db = useDatabase();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [activePhase, setActivePhase] = useState<"16-avos" | "Oitavas" | "Quartas" | "Semis" | null>("16-avos");
+  const [activePhase, setActivePhase] = useState<"Oitavas" | "Quartas" | "Semis" | null>("Oitavas");
   const [searchQuery, setSearchQuery] = useState("");
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [, forceUpdate] = useState({});
@@ -41,7 +41,6 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
 
   // Group matches by phase to determine lock times and finished states
   const phaseMatches = useMemo(() => {
-    const dezesseisAvos: Match[] = [];
     const oitavas: Match[] = [];
     const quartas: Match[] = [];
     const semis: Match[] = [];
@@ -50,9 +49,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
       const stage = (m.stage || "").toUpperCase();
       const groupStr = (m.group || "").toUpperCase();
 
-      if (stage.includes("ROUND_OF_32") || stage.includes("LAST_32") || groupStr.includes("16-AVOS")) {
-        dezesseisAvos.push(m);
-      } else if (stage.includes("ROUND_OF_16") || stage.includes("LAST_16") || groupStr.includes("OITAVAS")) {
+      if (stage.includes("ROUND_OF_16") || stage.includes("LAST_16") || groupStr.includes("OITAVAS")) {
         oitavas.push(m);
       } else if (stage.includes("QUARTER") || groupStr.includes("QUARTAS")) {
         quartas.push(m);
@@ -61,11 +58,11 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
       }
     });
 
-    return { "16-avos": dezesseisAvos, Oitavas: oitavas, Quartas: quartas, Semis: semis };
+    return { Oitavas: oitavas, Quartas: quartas, Semis: semis };
   }, [matches]);
 
   // Determine lock state per phase
-  const isPhaseLocked = (phase: "16-avos" | "Oitavas" | "Quartas" | "Semis") => {
+  const isPhaseLocked = (phase: "Oitavas" | "Quartas" | "Semis") => {
     const now = new Date();
     // Global tournament lock
     if (now >= new Date(lockDate)) return true;
@@ -83,7 +80,6 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
 
   // Local state for selections
   const [selectedTeams, setSelectedTeams] = useState<Record<string, string[]>>({
-    "16-avos": [],
     Oitavas: [],
     Quartas: [],
     Semis: [],
@@ -93,7 +89,6 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
   useEffect(() => {
     if (prediction?.groupClassifications) {
       setSelectedTeams({
-        "16-avos": prediction.groupClassifications["16-avos"] || [],
         Oitavas: prediction.groupClassifications["Oitavas"] || [],
         Quartas: prediction.groupClassifications["Quartas"] || [],
         Semis: prediction.groupClassifications["Semis"] || [],
@@ -144,7 +139,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
     if (!phase || isPhaseLocked(phase)) return;
 
     const currentSelection = selectedTeams[phase];
-    const maxAllowed = phase === "16-avos" ? 32 : phase === "Oitavas" ? 16 : phase === "Quartas" ? 8 : 4;
+    const maxAllowed = phase === "Oitavas" ? 16 : phase === "Quartas" ? 8 : 4;
 
     if (currentSelection.includes(teamId)) {
       setSelectedTeams((prev) => ({
@@ -160,7 +155,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
     }
   };
 
-  const handleSave = async (phase: "16-avos" | "Oitavas" | "Quartas" | "Semis") => {
+  const handleSave = async (phase: "Oitavas" | "Quartas" | "Semis") => {
     if (isPhaseLocked(phase)) return;
 
     const updatedClassifications = {
@@ -178,7 +173,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
   };
 
   // Get point results if finished
-  const getPhaseResults = (phase: "16-avos" | "Oitavas" | "Quartas" | "Semis") => {
+  const getPhaseResults = (phase: "Oitavas" | "Quartas" | "Semis") => {
     const actualList = db.tournamentPredictions.find(
       (tp) => tp.userId === "actual" || tp.groupId === "actual"
     )?.groupClassifications?.[phase] || [];
@@ -203,7 +198,6 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
   };
 
   const phaseConfig = {
-    "16-avos": { max: 32, label: "16-avos de Final" },
     Oitavas: { max: 16, label: "Oitavas de Final" },
     Quartas: { max: 8, label: "Quartas de Final" },
     Semis: { max: 4, label: "Semifinais" },
@@ -239,10 +233,10 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
       </button>
 
       {isExpanded && (
-        <div className="px-6 pb-6 pt-2 border-t border-slate-750 space-y-6">
-          {/* Phase Selector Tabs */}
-          <div className="flex bg-slate-900/40 p-1 rounded-2xl border border-slate-800">
-            {(["16-avos", "Oitavas", "Quartas", "Semis"] as const).map((phase) => {
+        <div className="px-3 sm:px-6 pb-4 sm:pb-6 pt-2 border-t border-slate-750 space-y-4 sm:space-y-6">
+          {/* Phase Selector - Vertical accordion on mobile, horizontal tabs on desktop */}
+          <div className="flex flex-col sm:flex-row bg-slate-900/40 p-1 rounded-2xl border border-slate-800 gap-1">
+            {(["Oitavas", "Quartas", "Semis"] as const).map((phase) => {
               const config = phaseConfig[phase];
               const isLocked = isPhaseLocked(phase);
               const count = selectedTeams[phase].length;
@@ -252,8 +246,8 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
               return (
                 <button
                   key={phase}
-                  onClick={() => setActivePhase(phase)}
-                  className={`flex-1 py-3 px-3 rounded-xl text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 ${
+                  onClick={() => setActivePhase(isActive ? null : phase)}
+                  className={`flex-1 py-3 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-between sm:justify-center gap-1.5 ${
                     isActive
                       ? "bg-slate-800 text-brand-green shadow border border-slate-700"
                       : "text-slate-400 hover:text-slate-200"
@@ -272,6 +266,9 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
                     {isLocked && !results.isFinished && (
                       <Lock size={10} className="text-slate-500 shrink-0" />
                     )}
+                    <span className="sm:hidden">
+                      {isActive ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                    </span>
                   </div>
                 </button>
               );
@@ -353,7 +350,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
                 </div>
 
                 {/* Team Selection Grid */}
-                <div className="bg-slate-900/40 border border-slate-750 rounded-3xl p-4 sm:p-6">
+                <div className="bg-slate-900/40 border border-slate-750 rounded-2xl sm:rounded-3xl p-3 sm:p-6">
                   {!isLocked && (
                     <div className="relative mb-6">
                       <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-500">
@@ -369,7 +366,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-3">
                     {filteredTeams.map((team) => {
                       const isSelected = selectedTeams[phase].includes(team.id);
                       const isCorrect = results.actualList.includes(team.id);
