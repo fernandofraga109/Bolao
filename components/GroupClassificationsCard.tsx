@@ -236,75 +236,52 @@ export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> =
   if (groupsList.length === 0) return null;
 
   return (
-    <div className="w-full bg-[#111827] border border-[#1f2937] rounded-3xl shadow-2xl p-6 relative overflow-hidden transition-all duration-300 hover:border-[#374151]">
-      {/* Decorative Gradient Glow */}
-      <div className="absolute -top-24 -right-24 w-48 h-48 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full blur-3xl opacity-20 pointer-events-none"></div>
-
+    <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-700 relative overflow-hidden">
       {/* Card Header - Clickable to toggle accordion */}
-      <div
+      <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer select-none group"
+        className="w-full bg-gradient-to-r from-indigo-900/80 to-slate-900 px-4 py-3 flex justify-between items-center transition-colors hover:bg-slate-800 rounded-t-xl"
       >
-        <div className="flex items-center gap-4">
-          <div className="p-3.5 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 rounded-2xl group-hover:from-indigo-500/30 group-hover:to-purple-500/30 transition-all duration-200">
-            <Star className="w-7 h-7 text-indigo-400 group-hover:scale-110 transition-transform duration-200" />
-          </div>
-          <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-2xl font-bold text-white tracking-wide group-hover:text-indigo-300 transition-colors duration-200">
-                Classificados dos Grupos
-              </h2>
-              <span className={`px-3 py-1 text-xs font-bold rounded-full transition-all ${
+        <div className="flex items-center gap-3 text-white">
+          <Star size={20} className="text-indigo-400" />
+          <div className="text-left">
+            <div className="flex items-center gap-2">
+              <h3 className="tracking-wide text-sm font-bold uppercase">Classificados dos Grupos</h3>
+              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
                 allGroupsFilled
                   ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
                   : predictedGroupsCount > 0
                   ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
                   : "bg-gray-500/10 text-gray-400 border border-gray-500/20"
               }`}>
-                {predictedGroupsCount} / {groupsList.length} Grupos
+                {predictedGroupsCount}/{groupsList.length} Grupos
               </span>
             </div>
-            <p className="text-sm text-gray-400 mt-1">
+            <span className="text-[10px] text-slate-400 font-normal block">
               {isLocked ? 'Encerrado (Início da Copa)' : `Encerra em: ${lockDate.toLocaleDateString('pt-BR')} às ${lockDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
-            </p>
+            </span>
           </div>
         </div>
-
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {isLocked && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-red-950/30 border border-red-900/40 rounded-xl text-red-400 text-sm font-semibold">
-              <Lock className="w-4 h-4" />
-              FECHADO
+            <div className="flex items-center gap-1 text-xs font-bold text-orange-400 bg-orange-950/50 px-2 py-1 rounded border border-orange-500/30">
+              <Lock size={12} /> FECHADO
             </div>
           )}
           {!isLocked && allGroupsFilled && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-emerald-950/30 border border-emerald-900/40 rounded-xl text-emerald-400 text-sm font-semibold">
-              <Check className="w-4 h-4" />
-              Salvo
+            <div className="flex items-center gap-1 text-xs font-bold text-brand-green bg-brand-green/10 px-2 py-1 rounded border border-brand-green/30">
+              <Check size={12} /> Salvo
             </div>
           )}
-          <button
-            type="button"
-            className="p-3 bg-[#1f2937] border border-[#374151] rounded-2xl group-hover:border-indigo-500/50 group-hover:bg-slate-800 transition-all text-white flex items-center justify-center cursor-pointer active:scale-95"
-            onClick={(e) => {
-              e.stopPropagation(); // Prevent duplicate trigger from parent click
-              setIsExpanded(!isExpanded);
-            }}
-          >
-            {isExpanded ? (
-              <ChevronUp className="w-5 h-5 text-indigo-400" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-indigo-400" />
-            )}
-          </button>
+          {isExpanded ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
         </div>
-      </div>
+      </button>
 
       {/* Accordion Content */}
       {isExpanded && (
-        <div className="pt-6 border-t border-[#1f2937]">
+        <div className="p-4 border-t border-slate-700">
           {/* Grid of Groups */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             {groupsList.map(([groupName, teams]) => {
               const predictionForGroup = localClassifications[groupName] || {};
               const firstPlaceTeam = teams.find((t) => t.id === predictionForGroup.firstPlace);

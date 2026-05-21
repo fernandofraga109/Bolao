@@ -204,36 +204,30 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
   };
 
   return (
-    <div className="bg-slate-800/80 backdrop-blur-xl rounded-3xl overflow-hidden shadow-2xl border border-slate-750 mb-8 transition-all duration-300">
+    <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-700 relative overflow-hidden">
       {/* Header / Accordion Trigger */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-slate-750/30 transition-colors"
+        className="w-full bg-gradient-to-r from-indigo-900/80 to-slate-900 px-4 py-3 flex justify-between items-center transition-colors hover:bg-slate-800 rounded-t-xl"
       >
-        <div className="flex items-center gap-4">
-          <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-2.5 rounded-2xl shadow-lg shadow-indigo-500/10">
-            <Trophy size={20} className="text-white animate-pulse" />
-          </div>
-          <div>
-            <h3 className="font-black text-slate-100 text-sm md:text-base tracking-tight uppercase">
+        <div className="flex items-center gap-3 text-white">
+          <Trophy size={20} className="text-purple-400" />
+          <div className="text-left">
+            <h3 className="tracking-wide text-sm font-bold uppercase">
               Classificados 2º Fase
             </h3>
-            <p className="text-slate-400 text-xs mt-0.5">
+            <span className="text-[10px] text-slate-400 font-normal block">
               Bloqueio progressivo por fase (cada fase bloqueia quando começa)
-            </p>
+            </span>
           </div>
         </div>
-        <div className="bg-slate-900/60 p-2 rounded-xl border border-slate-700/50">
-          {isExpanded ? (
-            <ChevronUp size={16} className="text-slate-300" />
-          ) : (
-            <ChevronDown size={16} className="text-slate-300" />
-          )}
+        <div className="flex items-center gap-2">
+          {isExpanded ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
         </div>
       </button>
 
       {isExpanded && (
-        <div className="px-3 sm:px-6 pb-4 sm:pb-6 pt-2 border-t border-slate-750 space-y-4 sm:space-y-6">
+        <div className="px-3 sm:px-4 pb-4 pt-3 border-t border-slate-700 space-y-4">
           {/* Phase Selector - Vertical accordion on mobile, horizontal tabs on desktop */}
           <div className="flex flex-col sm:flex-row bg-slate-900/40 p-1 rounded-2xl border border-slate-800 gap-1">
             {(["Oitavas", "Quartas", "Semis"] as const).map((phase) => {

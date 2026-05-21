@@ -328,23 +328,23 @@ const TopScorerCard: React.FC<TopScorerCardProps> = ({
     }, [ruleset, isMostGoalsCorrect, isMostConcededCorrect, isChampionCorrect, isTsNameCorrect]);
 
     return (
-        <div className="bg-slate-800 rounded-xl shadow-lg mb-8 border border-slate-700 relative">
+        <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-700 relative overflow-hidden">
 
             {/* Header - Always Visible & Clickable */}
             <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className={`w-full bg-gradient-to-r from-indigo-900 to-slate-900 px-4 py-3 flex justify-between items-center transition-colors hover:bg-slate-800 rounded-t-xl ${!isExpanded ? 'rounded-b-xl' : ''}`}
+                className="w-full bg-gradient-to-r from-indigo-900/80 to-slate-900 px-4 py-3 flex justify-between items-center transition-colors hover:bg-slate-800 rounded-t-xl"
             >
-                <div className="flex items-center gap-2 text-white font-bold">
+                <div className="flex items-center gap-3 text-white">
                     <Trophy size={20} className="text-yellow-400" />
                     <div className="text-left">
-                        <h3 className="tracking-wide text-sm md:text-base">PALPITES ESPECIAIS</h3>
+                        <h3 className="tracking-wide text-sm font-bold uppercase">Palpites Especiais</h3>
                         <span className="text-[10px] text-slate-400 font-normal block">
                             {isLocked ? 'Encerrado (Início da Copa)' : `Encerra em: ${lockDate.toLocaleDateString('pt-BR')} às ${lockDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
                         </span>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                     {isLocked && (
                         <div className="flex items-center gap-1 text-xs font-bold text-orange-400 bg-orange-950/50 px-2 py-1 rounded border border-orange-500/30">
                             <Lock size={12} /> FECHADO

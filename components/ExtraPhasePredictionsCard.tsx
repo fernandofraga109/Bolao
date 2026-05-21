@@ -18,6 +18,7 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
   lockDate,
 }) => {
   const db = useDatabase();
+  const [isExpanded, setIsExpanded] = useState(false);
   const [expandedPhase, setExpandedPhase] = useState<string | null>("groups");
   const [loadingPhase, setLoadingPhase] = useState<string | null>(null);
   const [successPhase, setSuccessPhase] = useState<string | null>(null);
@@ -157,13 +158,16 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
   };
 
   return (
-    <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-700 relative overflow-hidden mb-8">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-teal-900 to-slate-900 px-4 py-4 border-b border-teal-500/20 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-white font-bold">
-          <Sparkles size={20} className="text-teal-400 animate-pulse" />
-          <div>
-            <h3 className="tracking-wide text-sm md:text-base text-teal-100 font-extrabold uppercase">
+    <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-700 relative overflow-hidden">
+      {/* Header - Accordion trigger */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full bg-gradient-to-r from-indigo-900/80 to-slate-900 px-4 py-3 flex justify-between items-center transition-colors hover:bg-slate-800 rounded-t-xl"
+      >
+        <div className="flex items-center gap-3 text-white">
+          <Sparkles size={20} className="text-teal-400" />
+          <div className="text-left">
+            <h3 className="tracking-wide text-sm font-bold uppercase">
               Maior Diferença de Gols por Fase
             </h3>
             <span className="text-[10px] text-slate-400 font-normal block">
@@ -171,13 +175,17 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
             </span>
           </div>
         </div>
-      </div>
+        <div className="flex items-center gap-2">
+          {isExpanded ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+        </div>
+      </button>
 
-      <div className="p-4 space-y-3">
+      {isExpanded && (
+      <div className="p-4 space-y-3 border-t border-slate-700">
         {phases.map((phase) => {
           const isLocked = isPhaseLocked(phase.id, phase.matches);
           const savedPred = predictionsByPhase[phase.id];
-          const isExpanded = expandedPhase === phase.id;
+          const isPhaseExpanded = expandedPhase === phase.id;
           const selectedMatchId = selectedMatchIds[phase.id];
 
           // Compute phase score if matches are played
@@ -209,7 +217,7 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
             >
               {/* Trigger Button */}
               <button
-                onClick={() => setExpandedPhase(isExpanded ? null : phase.id)}
+                onClick={() => setExpandedPhase(isPhaseExpanded ? null : phase.id)}
                 className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-slate-800/40 transition-colors rounded-lg"
               >
                 <div className="flex items-center gap-3">
@@ -242,12 +250,12 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {isExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+                  {isPhaseExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
                 </div>
               </button>
 
               {/* Collapsed/Expanded Panel */}
-              {isExpanded && (
+              {isPhaseExpanded && (
                 <div className="px-4 pb-4 pt-1 border-t border-slate-800 space-y-3 animate-fadeIn">
                   {phase.matches.length === 0 ? (
                     <div className="text-xs text-slate-500 py-2 flex items-center gap-1.5">
@@ -408,6 +416,7 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
           );
         })}
       </div>
+      )}
     </div>
   );
 };
