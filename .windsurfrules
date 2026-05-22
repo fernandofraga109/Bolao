@@ -1,0 +1,89 @@
+# Bolão Copa 2026 — Project Context
+
+## O que é
+
+React SPA (Vite + TypeScript + TailwindCSS) para bolões da Copa do Mundo 2026.
+Usuários entram em grupos, palpitam resultados de jogos, ganham pontos e competem num leaderboard.
+
+## Comandos
+
+```bash
+npm run dev        # Dev server (porta 3000)
+npm run build      # Build de produção
+npm run test       # Vitest (single run)
+npm run lint       # ESLint
+npm run format     # Prettier
+```
+
+## Stack & Integrações
+
+- **Frontend:** React 18, Vite, TailwindCSS, Lucide icons
+- **Backend:** Supabase (PostgreSQL + Auth + Realtime) — client em `services/supabase.ts`
+- **API de Jogos:** Football Data API v4, proxied via Vite (nunca chamar direto do frontend)
+- **IA:** Google Gemini para previsões — `services/geminiService.ts`
+- **Auth:** Supabase Auth + Google Sign-In (CDN)
+
+## Arquitetura
+
+Todo estado vive em `contexts/DatabaseContext.tsx`, que compõe hooks:
+- `useUserSystem` — auth, perfil, grupo
+- `useMatchSystem` — jogos, palpites, pontuação
+- `useGroupSystem` — criação/entrada em grupos
+- `useLeaderboard` — cálculo de ranking
+- `useSyncSystem` + `useBackgroundSync` — sync com Supabase e APIs externas
+- `usePointsProcessor` — cálculo de pontos
+- `usePasswordRecovery` — reset de senha
+
+`App.tsx` é o orquestrador raiz — consome DatabaseContext e renderiza as páginas.
+
+## Diretórios
+
+```
+hooks/             — lógica de negócio (um hook por domínio)
+contexts/          — DatabaseContext.tsx é a raiz de estado
+components/
+  pages/           — views completas (uma por rota)
+  ui/              — primitivos UI reutilizáveis
+  (raiz)           — layout compartilhado (Header, BottomNav, etc.)
+services/          — clientes externos (supabase, gemini, liveScore)
+api/               — wrappers de fetch (Football Data, Gemini, auth)
+database/
+  migrations/      — migrações Supabase numeradas (aplicar em ordem)
+  rls/             — políticas RLS atuais
+  seed/            — SQL de seed
+data/              — dados estáticos (times, jogos, estádios, competições)
+utils/             — funções puras (scoring)
+types.ts           — todas as interfaces TypeScript compartilhadas
+constants.ts       — constantes globais e estado inicial
+```
+
+## Convenções de Código
+
+- Estado vive nos hooks; componentes só renderizam e despacham ações
+- Nunca chamar Supabase direto de componentes — sempre via `DatabaseContext`
+- Tipos compartilhados em `types.ts` — sem interfaces inline em componentes
+- Preferir atualizar hook existente a criar novo para lógica relacionada
+
+## Convenção de Commits
+
+```
+type(scope): descrição curta
+Types: feat, fix, refactor, chore, docs
+Scopes: auth, sync, matches, leaderboard, admin, ui, db, hooks
+```
+
+## Constraints Importantes
+
+- **Sync:** `useSyncSystem` usa setInterval e só roda com tab do admin aberta (debt reconhecido)
+- **Schema:** Supabase schema configurável via `VITE_SUPABASE_SCHEMA`. Usar `dev` para desenvolvimento
+- **CORS:** Football Data API deve ser chamada pelo proxy Vite, nunca direto
+- **Teams:** `teams.code` (TLA) não é globalmente único — sempre upsert por `externalTeamId`
+- **FK:** `matches.competitionCode` FK é DEFERRABLE
+
+## Variáveis de Ambiente
+
+Ver `.env.example` para variáveis obrigatórias (Supabase URL/key, Football Data API key, Gemini API key).
+
+## Idioma
+
+O app é em português brasileiro. Manter textos do UI em pt-BR.

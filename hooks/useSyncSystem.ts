@@ -203,6 +203,16 @@ export const useSyncSystem = (
   const petitionsRef = useRef<Set<string>>(new Set());
   const nextAllowedSyncAtRef = useRef(0);
   const syncingCompetitionsRef = useRef<Set<string>>(new Set());
+  const adminOverridesRef = useRef<Map<string, number>>(new Map());
+
+  const registerAdminOverride = useCallback((matchId: string) => {
+    adminOverridesRef.current.set(matchId, Date.now());
+    // Garbage collect expired entries (> 5 min)
+    const now = Date.now();
+    for (const [id, ts] of adminOverridesRef.current) {
+      if (now - ts > 5 * 60 * 1000) adminOverridesRef.current.delete(id);
+    }
+  }, []);
 
   const updateSyncStatus = useCallback(
     (
@@ -494,6 +504,13 @@ export const useSyncSystem = (
 
 
             if (hasChanged) {
+              // Proteção: se o admin editou este jogo há menos de 5 min, não sobrescrever
+              const overrideTs = adminOverridesRef.current.get(existing.id);
+              if (overrideTs && Date.now() - overrideTs < 5 * 60 * 1000) {
+                console.log(`[SYNC] Jogo ${existing.id} protegido por override do admin (${Math.round((Date.now() - overrideTs) / 1000)}s atrás). Pulando.`);
+                continue;
+              }
+
               // Removemos campos virtuais (objetos hidratados) antes de enviar para o banco
               const { homeTeam, awayTeam, result, ...pureMatch } = existing;
 
@@ -821,5 +838,6 @@ export const useSyncSystem = (
     syncStandingsWithExternalApi,
     syncMatchesAndStandings,
     updateSyncStatus,
+    registerAdminOverride,
   };
 };

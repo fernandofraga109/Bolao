@@ -72,7 +72,8 @@ export const useMatchSystem = (
     syncWithExternalApi,
     syncStandingsWithExternalApi,
     syncMatchesAndStandings,
-    updateSyncStatus
+    updateSyncStatus,
+    registerAdminOverride,
   } = useSyncSystem(
     activeCompetitionCode,
     canWriteData,
@@ -287,8 +288,8 @@ export const useMatchSystem = (
     toggleAutoSync,
     adminControls: {
       startMatch: (id: string) => db.updateMatch(id, { status: MatchStatus.LIVE, resultHome: 0, resultAway: 0 }),
-      updateLiveScore: (id: string, h: number, a: number) => db.updateMatch(id, { status: MatchStatus.LIVE, resultHome: h, resultAway: a }),
-      finishMatch: (id: string, h: number, a: number) => db.updateMatch(id, { status: MatchStatus.FINISHED, resultHome: h, resultAway: a }),
+      updateLiveScore: (id: string, h: number, a: number) => { registerAdminOverride(id); return db.updateMatch(id, { status: MatchStatus.LIVE, resultHome: h, resultAway: a }); },
+      finishMatch: (id: string, h: number, a: number) => { registerAdminOverride(id); return db.updateMatch(id, { status: MatchStatus.FINISHED, resultHome: h, resultAway: a }); },
     },
   };
 };
