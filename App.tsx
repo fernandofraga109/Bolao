@@ -36,6 +36,7 @@ import {
   ChevronsUpDown,
   PlusCircle,
 } from "lucide-react";
+import RegulamentoModal from "./components/RegulamentoModal";
 
 
 const App: React.FC = () => {
@@ -155,6 +156,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>("matches");
   const [groupError, setGroupError] = useState<string | null>(null);
   const [isGroupSwitcherOpen, setIsGroupSwitcherOpen] = useState(false);
+  const [isRegulamentoOpen, setIsRegulamentoOpen] = useState(false);
   const [showWhatsNew, setShowWhatsNew] = useState(false);
 
   useEffect(() => {
@@ -425,9 +427,19 @@ const App: React.FC = () => {
                       <strong className="text-white text-sm">
                         {currentGroup.name}
                       </strong>
-                      <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                        {currentGroup.ruleset === "regulamento_2" ? "R2" : "R1"}
-                      </span>
+                      {currentGroup.ruleset === "regulamento_2" ? (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setIsRegulamentoOpen(true); }}
+                          className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/40 hover:text-indigo-200 transition-colors cursor-pointer"
+                          title="Ver Regulamento"
+                        >
+                          R2
+                        </button>
+                      ) : (
+                        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                          R1
+                        </span>
+                      )}
                       <ChevronsUpDown
                         size={14}
                         className="text-brand-green opacity-70 group-hover:opacity-100 transition-opacity"
@@ -573,6 +585,9 @@ const App: React.FC = () => {
 
       {/* What's New Modal */}
       {showWhatsNew && <WhatsNewModal onClose={handleWhatsNewClose} />}
+
+      {/* Regulamento Modal */}
+      {isRegulamentoOpen && <RegulamentoModal onClose={() => setIsRegulamentoOpen(false)} />}
 
       {/* Sync Toast Notifications */}
       <SyncToastContainer toasts={toasts} onDismiss={dismiss} />
