@@ -103,6 +103,11 @@ export const useUserSystem = () => {
       const effectiveGroupId =
         user.id === currentUserId ? resolvedActiveGroupId : viewerActiveGroupId;
 
+      // Debug: warn when effectiveGroupId is undefined (predictions may not be filtered correctly)
+      if (!effectiveGroupId && myGroups.length > 0) {
+        console.warn(`[useUserSystem] User ${user.id} (${user.name}) has no effectiveGroupId but belongs to ${myGroups.length} group(s). Predictions may be filtered incorrectly.`);
+      }
+
       const myPredictionsMap: Record<string, { home: number; away: number; points?: number }> =
         {};
       db.predictions
@@ -111,12 +116,16 @@ export const useUserSystem = () => {
           const isExactGroupPrediction =
             !!effectiveGroupId && p.groupId === effectiveGroupId;
           const isLegacyPrediction = !p.groupId;
+          // When effectiveGroupId is undefined, accept predictions from any group
+          const isAnyGroupPrediction = !effectiveGroupId && !!p.groupId;
 
-          if (!isExactGroupPrediction && !isLegacyPrediction) return;
+          if (!isExactGroupPrediction && !isLegacyPrediction && !isAnyGroupPrediction) return;
 
           // Group-specific prediction always wins over legacy/global entries.
+          // When no effectiveGroupId, prefer group-specific predictions over legacy.
           const alreadyHasPrediction = !!myPredictionsMap[p.matchId];
-          if (alreadyHasPrediction && !isExactGroupPrediction) return;
+          // Skip if: already has prediction but this one is not exact match (legacy wins only if no group prediction exists)
+          if (alreadyHasPrediction && !isExactGroupPrediction && !isAnyGroupPrediction) return;
 
           myPredictionsMap[p.matchId] = {
             home: p.homeScore,

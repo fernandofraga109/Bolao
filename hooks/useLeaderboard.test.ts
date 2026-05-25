@@ -36,6 +36,7 @@ const makeGroup = (id: string) => ({
   adminId: "admin",
   createdAt: "2026-01-01",
   competitionCode: "WC",
+  ruleset: "regulamento_1" as const,
 });
 
 describe("useLeaderboard", () => {

@@ -1,6 +1,6 @@
 import React from "react";
 import { Friend } from "../types";
-import { Trophy, Medal, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Trophy, Medal, TrendingUp, TrendingDown, Minus, Search } from "lucide-react";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
 
 interface LeaderboardProps {
@@ -10,9 +10,10 @@ interface LeaderboardProps {
     competitionCode?: string;
     users: Friend[];
   }[];
+  onUserClick?: (user: Friend) => void;
 }
 
-const Leaderboard: React.FC<LeaderboardProps> = ({ sections }) => {
+const Leaderboard: React.FC<LeaderboardProps> = ({ sections, onUserClick }) => {
   const sectionsWithSortedUsers = sections.map((section) => {
     const sorted = [...section.users].sort((a, b) => b.totalPoints - a.totalPoints);
     let currentRank = 0;
@@ -131,7 +132,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections }) => {
                     return (
                       <div
                         key={user.id}
-                        className={`group relative flex items-center justify-between p-5 hover:bg-slate-700/20 transition-all ${getRankRowStyle(user.rank, user.id === "me")} ${getRankAccent(user.rank)}`}
+                        className={`group relative flex items-center justify-between p-5 transition-all ${getRankRowStyle(user.rank, user.id === "me")} ${getRankAccent(user.rank)} ${onUserClick ? "cursor-pointer hover:bg-slate-700/30" : "hover:bg-slate-700/20"}`}
+                        onClick={() => onUserClick?.(user)}
                       >
                         <div className="flex items-center gap-5 z-10">
                           <div className="flex flex-col items-center justify-center w-8">
@@ -180,7 +182,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections }) => {
                           </div>
                         </div>
 
-                        <div className="text-right z-10">
+                        <div className="text-right z-10 flex items-center gap-2">
                           <div className="flex items-baseline justify-end gap-1">
                             <span className={`text-2xl font-black leading-none ${user.rank === 1 ? "text-brand-gold" : "text-white"}`}>
                               {user.totalPoints}
@@ -189,6 +191,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections }) => {
                               pts
                             </span>
                           </div>
+                          {onUserClick && (
+                            <Search size={14} className="text-slate-600 group-hover:text-brand-green transition-colors" />
+                          )}
                         </div>
                         
                         {/* Background subtle highlight for current user */}

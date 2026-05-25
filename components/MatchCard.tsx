@@ -229,9 +229,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     return "bg-slate-700 text-slate-400";
   };
 
-  const pts = 0; // Replace with actual logic
-  const pred = { home: 0, away: 0 }; // Replace with actual logic
-
   return (
     <div className={`group bg-slate-800 rounded-3xl shadow-xl border border-slate-700/50 overflow-hidden relative transition-all duration-300 hover:shadow-2xl hover:border-slate-600 ${isFinished ? "opacity-50" : ""}`}>
       {/* Header Info */}
@@ -505,7 +502,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           <div className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
             {friends
               .filter((f) => f.predictions[match.id] && f.id !== currentUserId)
-              .map((f) => (
+              .map((f) => {
+                const pred = f.predictions[match.id];
+                const friendScoring = getScoringDetails(pred.home, pred.away);
+                const pts = friendScoring.points + friendScoring.bonus;
+                return (
                 <div
                   key={f.id}
                   className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/40 border border-slate-700/30"
@@ -536,7 +537,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     </span>
                   </div>
                 </div>
-              ))}
+                );
+              })}
           </div>
         </div>
       )}

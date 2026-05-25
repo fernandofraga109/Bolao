@@ -549,6 +549,12 @@ const App: React.FC = () => {
             sections={leaderboardSections.filter(
               (s) => s.groupId === resolvedActiveGroupId
             )}
+            allUsers={users}
+            matches={matches}
+            groups={groups}
+            tournamentResults={tournamentResults}
+            currentUserId={currentUser.id}
+            rawPredictions={db.predictions}
           />
         )}
 

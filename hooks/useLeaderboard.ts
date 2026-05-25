@@ -28,10 +28,18 @@ export const useLeaderboard = (
 ) => {
   // --- Calculations (Leaderboard) ---
   const usersWithCalculatedPoints = useMemo(() => {
+    // Use viewer's active group to scope the leaderboard
     const activeGroupId =
       currentUser?.activeGroupId || (currentUser?.groupIds && currentUser?.groupIds[0]);
     const activeGroup = groups.find((g) => g.id === activeGroupId);
     const activeRuleset = activeGroup?.ruleset || "regulamento_1";
+    const activeCompCode = (activeGroup?.competitionCode || "WC").toUpperCase();
+    const activeMinRankDiff = activeGroup?.underdog_min_rank_diff ?? 0;
+
+    // Only matches belonging to this group's competition
+    const groupMatches = matches.filter(
+      (m) => (m.competitionCode || "WC").toUpperCase() === activeCompCode
+    );
 
     const allGroupPredictions = users
       .filter((u) => u.groupIds.includes(activeGroupId || ""))
@@ -45,7 +53,7 @@ export const useLeaderboard = (
       .filter((user) => user.role !== "ADMIN")
       .map((user) => {
         let total = 0;
-        matches.forEach((match) => {
+        groupMatches.forEach((match) => {
           const pred = user.predictions[match.id];
           if (
             (match.status === MatchStatus.FINISHED || match.status === MatchStatus.LIVE) &&
@@ -57,11 +65,6 @@ export const useLeaderboard = (
               total += pred.points;
             } else {
               // Fallback: On-the-fly calculation if not yet synced to DB
-              const activeGroupId =
-                currentUser?.activeGroupId || (currentUser?.groupIds && currentUser?.groupIds[0]);
-              const activeGroup = groups.find((g) => g.id === activeGroupId);
-              const activeRuleset = activeGroup?.ruleset || "regulamento_1";
-
               if (activeRuleset === "regulamento_2") {
                 const matchPredictions = users
                   .filter((u) => u.groupIds.includes(activeGroupId || "") && u.predictions && u.predictions[match.id])
@@ -88,6 +91,7 @@ export const useLeaderboard = (
                   match.result.away,
                   match.homeTeam.ranking,
                   match.awayTeam.ranking,
+                  activeMinRankDiff,
                 );
               }
             }
@@ -112,7 +116,7 @@ export const useLeaderboard = (
 
         return { ...user, totalPoints: total };
       });
-  }, [matches, users, tournamentResults, currentUser, groups]);
+  }, [matches, users, tournamentResults, currentUser, groups, db.userGroups]);
 
   const leaderboardData = useMemo(() => {
     if (!currentUser) return [];
