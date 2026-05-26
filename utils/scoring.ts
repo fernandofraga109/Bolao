@@ -324,12 +324,19 @@ export interface PhaseMatchContext {
 
 /**
  * REGULAMENTO 2: Phase extra prediction points calculator (match with biggest goal diff per phase)
+ * adminOverrideMatchId: if admin manually set the correct match, use it directly (precedence over computed)
  */
 export const calculateExtraPhasePoints = (
   userPrediction: { phase: string; matchId?: string } | undefined,
-  phaseMatches: PhaseMatchContext[]
+  phaseMatches: PhaseMatchContext[],
+  adminOverrideMatchId?: string
 ): number => {
   if (!userPrediction || !userPrediction.matchId) return 0;
+
+  // Admin override: if the admin set the correct match for this phase, use it directly
+  if (adminOverrideMatchId) {
+    return userPrediction.matchId === adminOverrideMatchId ? 20 : 0;
+  }
 
   const finishedMatches = phaseMatches.filter(
     (m) => m.status === 'FINISHED' && m.resultHome != null && m.resultAway != null

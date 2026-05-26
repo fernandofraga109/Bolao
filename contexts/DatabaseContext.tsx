@@ -127,6 +127,9 @@ interface DatabaseContextType {
     bestGoalkeeperName?: string | null;
     mostGoalsTeamId?: string | null;
     mostConcededTeamId?: string | null;
+    groupClassifications?: Record<string, string[]> | null;
+    knockoutClassifications?: Record<string, string[]> | null;
+    biggestGoalDiffMatches?: Record<string, string> | null;
   }) => Promise<void>;
   upsertTeam: (team: Team) => Promise<TeamDB>;
   upsertMatch: (match: MatchDB) => Promise<void>;
@@ -210,6 +213,9 @@ const mapCompetitionRow = (row: any): CompetitionDB => ({
   bestGoalkeeperName: row.bestGoalkeeperName || undefined,
   mostGoalsTeamId: row.mostGoalsTeamId || undefined,
   mostConcededTeamId: row.mostConcededTeamId || undefined,
+  groupClassifications: row.groupClassifications || undefined,
+  knockoutClassifications: row.knockoutClassifications || undefined,
+  biggestGoalDiffMatches: row.biggestGoalDiffMatches || undefined,
 });
 
 const mergeCompetitionIntoList = (
@@ -1168,6 +1174,9 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       bestGoalkeeperName?: string | null;
       mostGoalsTeamId?: string | null;
       mostConcededTeamId?: string | null;
+      groupClassifications?: Record<string, string[]> | null;
+      knockoutClassifications?: Record<string, string[]> | null;
+      biggestGoalDiffMatches?: Record<string, string> | null;
     }
   ) => {
     setCompetitions((prev) =>
@@ -1182,6 +1191,9 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
               bestGoalkeeperName: awards.bestGoalkeeperName,
               mostGoalsTeamId: awards.mostGoalsTeamId,
               mostConcededTeamId: awards.mostConcededTeamId,
+              groupClassifications: awards.groupClassifications ?? undefined,
+              knockoutClassifications: awards.knockoutClassifications ?? undefined,
+              biggestGoalDiffMatches: awards.biggestGoalDiffMatches ?? undefined,
             }
           : c
       ),
@@ -1195,6 +1207,9 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       if (awards.bestGoalkeeperName !== undefined) updateData.bestGoalkeeperName = awards.bestGoalkeeperName;
       if (awards.mostGoalsTeamId !== undefined) updateData.mostGoalsTeamId = awards.mostGoalsTeamId;
       if (awards.mostConcededTeamId !== undefined) updateData.mostConcededTeamId = awards.mostConcededTeamId;
+      if (awards.groupClassifications !== undefined) updateData.groupClassifications = awards.groupClassifications;
+      if (awards.knockoutClassifications !== undefined) updateData.knockoutClassifications = awards.knockoutClassifications;
+      if (awards.biggestGoalDiffMatches !== undefined) updateData.biggestGoalDiffMatches = awards.biggestGoalDiffMatches;
       
       const { error } = await supabase
         .from("competitions")

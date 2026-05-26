@@ -44,6 +44,7 @@ import {
   getCompetitionByCode,
 } from "../data/competitions";
 import type { CompetitionDB } from "../types";
+import AdminSpecialsOverrides from "./AdminSpecialsOverrides";
 
 interface AdminDashboardProps {
   users: User[];
@@ -1029,6 +1030,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           )}
         </div>
       </div>
+
+      {/* SPECIALS OVERRIDES PANEL (Classificados, Maior Diferença de Gols) */}
+      <AdminSpecialsOverrides selectedCompetitionCode={selectedCompetitionCode} />
 
       {/* ADVANCED SETTINGS BAR */}
       <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

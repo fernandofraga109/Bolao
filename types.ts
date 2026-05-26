@@ -26,6 +26,9 @@ export interface CompetitionDB {
   bestGoalkeeperName?: string;
   mostGoalsTeamId?: string;
   mostConcededTeamId?: string;
+  groupClassifications?: Record<string, string[]>;
+  knockoutClassifications?: Record<string, string[]>;
+  biggestGoalDiffMatches?: Record<string, string>;
 }
 
 export interface StadiumDB {

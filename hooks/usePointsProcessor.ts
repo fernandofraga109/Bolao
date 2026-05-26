@@ -230,6 +230,9 @@ export const usePointsProcessor = (dbRef: any) => {
           group: m.group,
         }));
 
+        // Admin overrides for biggest goal diff per phase
+        const biggestGoalDiffOverrides: Record<string, string> = compData?.biggestGoalDiffMatches || {};
+
         extraPhasePreds.forEach((ep) => {
           if (!pointsByUser[ep.userId]) pointsByUser[ep.userId] = 0;
 
@@ -240,9 +243,12 @@ export const usePointsProcessor = (dbRef: any) => {
             return phaseMapped === epPhase;
           });
 
+          const adminOverrideMatchId = biggestGoalDiffOverrides[epPhase] || undefined;
+
           const pts = calculateExtraPhasePoints(
             { phase: ep.phase, matchId: ep.matchId || undefined },
-            phaseMatchesFiltered
+            phaseMatchesFiltered,
+            adminOverrideMatchId
           );
 
           if (pts > 0) {

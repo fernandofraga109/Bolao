@@ -125,74 +125,97 @@ export const useMatchSystem = (
     );
     if (!comp) return null;
 
-    // Dynamically compute actual groupClassifications (qualifiers) from teamStandings
-    const groupClassifications: Record<string, string[]> = {};
-    db.teamStandings.forEach((standing) => {
-      if (
-        normalizeCompetitionCode(standing.competitionCode) ===
-          normalizeCompetitionCode(activeCompetitionCode) &&
-        standing.group &&
-        standing.group.startsWith("Grupo") &&
-        standing.position != null &&
-        (standing.position === 1 || standing.position === 2)
-      ) {
-        if (!groupClassifications[standing.group]) {
-          groupClassifications[standing.group] = [];
+    // --- GROUP CLASSIFICATIONS ---
+    // Admin override takes precedence over computed data
+    let groupClassifications: Record<string, string[]> = {};
+
+    if (comp.groupClassifications && Object.keys(comp.groupClassifications).length > 0) {
+      // Use admin-set group classifications
+      groupClassifications = { ...comp.groupClassifications };
+    } else {
+      // Dynamically compute actual groupClassifications (qualifiers) from teamStandings
+      db.teamStandings.forEach((standing) => {
+        if (
+          normalizeCompetitionCode(standing.competitionCode) ===
+            normalizeCompetitionCode(activeCompetitionCode) &&
+          standing.group &&
+          standing.group.startsWith("Grupo") &&
+          standing.position != null &&
+          (standing.position === 1 || standing.position === 2)
+        ) {
+          if (!groupClassifications[standing.group]) {
+            groupClassifications[standing.group] = [];
+          }
+          groupClassifications[standing.group][standing.position - 1] = standing.teamId;
         }
-        groupClassifications[standing.group][standing.position - 1] = standing.teamId;
+      });
+    }
+
+    // --- KNOCKOUT CLASSIFICATIONS ---
+    // Admin override takes precedence over computed data
+    if (comp.knockoutClassifications && Object.keys(comp.knockoutClassifications).length > 0) {
+      // Use admin-set knockout classifications
+      if (comp.knockoutClassifications["Oitavas"]) {
+        groupClassifications["Oitavas"] = comp.knockoutClassifications["Oitavas"];
       }
-    });
+      if (comp.knockoutClassifications["Quartas"]) {
+        groupClassifications["Quartas"] = comp.knockoutClassifications["Quartas"];
+      }
+      if (comp.knockoutClassifications["Semis"]) {
+        groupClassifications["Semis"] = comp.knockoutClassifications["Semis"];
+      }
+    } else {
+      // Populate knockout stage actual qualifiers based on matches that are scheduled/played with real teams
+      const oitavasTeams = new Set<string>();
+      const quartasTeams = new Set<string>();
+      const semisTeams = new Set<string>();
 
-    // Populate knockout stage actual qualifiers based on matches that are scheduled/played with real teams
-    const oitavasTeams = new Set<string>();
-    const quartasTeams = new Set<string>();
-    const semisTeams = new Set<string>();
+      const isPlaceholder = (id: string) => {
+        if (!id) return true;
+        const lower = id.toLowerCase();
+        return (
+          lower === "placeholder" ||
+          lower === "tbd" ||
+          lower.startsWith("placeholder") ||
+          lower.includes("_") ||
+          /^[1-2][a-l]$/i.test(lower)
+        );
+      };
 
-    const isPlaceholder = (id: string) => {
-      if (!id) return true;
-      const lower = id.toLowerCase();
-      return (
-        lower === "placeholder" ||
-        lower === "tbd" ||
-        lower.startsWith("placeholder") ||
-        lower.includes("_") ||
-        /^[1-2][a-l]$/i.test(lower)
-      );
-    };
+      db.matches.forEach((m) => {
+        if (
+          normalizeCompetitionCode(m.competitionCode) ===
+          normalizeCompetitionCode(activeCompetitionCode)
+        ) {
+          const stage = (m.stage || "").toUpperCase();
+          const groupStr = (m.group || "").toUpperCase();
 
-    db.matches.forEach((m) => {
-      if (
-        normalizeCompetitionCode(m.competitionCode) ===
-        normalizeCompetitionCode(activeCompetitionCode)
-      ) {
-        const stage = (m.stage || "").toUpperCase();
-        const groupStr = (m.group || "").toUpperCase();
+          const isOitavas = stage.includes("ROUND_OF_16") || groupStr.includes("OITAVAS");
+          const isQuartas = stage.includes("QUARTER") || groupStr.includes("QUARTAS");
+          const isSemis = stage.includes("SEMI") || groupStr.includes("SEMI");
 
-        const isOitavas = stage.includes("ROUND_OF_16") || groupStr.includes("OITAVAS");
-        const isQuartas = stage.includes("QUARTER") || groupStr.includes("QUARTAS");
-        const isSemis = stage.includes("SEMI") || groupStr.includes("SEMI");
-
-        if (isOitavas) {
-          if (m.homeTeamId && !isPlaceholder(m.homeTeamId)) oitavasTeams.add(m.homeTeamId);
-          if (m.awayTeamId && !isPlaceholder(m.awayTeamId)) oitavasTeams.add(m.awayTeamId);
-        } else if (isQuartas) {
-          if (m.homeTeamId && !isPlaceholder(m.homeTeamId)) quartasTeams.add(m.homeTeamId);
-          if (m.awayTeamId && !isPlaceholder(m.awayTeamId)) quartasTeams.add(m.awayTeamId);
-        } else if (isSemis) {
-          if (m.homeTeamId && !isPlaceholder(m.homeTeamId)) semisTeams.add(m.homeTeamId);
-          if (m.awayTeamId && !isPlaceholder(m.awayTeamId)) semisTeams.add(m.awayTeamId);
+          if (isOitavas) {
+            if (m.homeTeamId && !isPlaceholder(m.homeTeamId)) oitavasTeams.add(m.homeTeamId);
+            if (m.awayTeamId && !isPlaceholder(m.awayTeamId)) oitavasTeams.add(m.awayTeamId);
+          } else if (isQuartas) {
+            if (m.homeTeamId && !isPlaceholder(m.homeTeamId)) quartasTeams.add(m.homeTeamId);
+            if (m.awayTeamId && !isPlaceholder(m.awayTeamId)) quartasTeams.add(m.awayTeamId);
+          } else if (isSemis) {
+            if (m.homeTeamId && !isPlaceholder(m.homeTeamId)) semisTeams.add(m.homeTeamId);
+            if (m.awayTeamId && !isPlaceholder(m.awayTeamId)) semisTeams.add(m.awayTeamId);
+          }
         }
-      }
-    });
+      });
 
-    if (oitavasTeams.size > 0) {
-      groupClassifications["Oitavas"] = Array.from(oitavasTeams);
-    }
-    if (quartasTeams.size > 0) {
-      groupClassifications["Quartas"] = Array.from(quartasTeams);
-    }
-    if (semisTeams.size > 0) {
-      groupClassifications["Semis"] = Array.from(semisTeams);
+      if (oitavasTeams.size > 0) {
+        groupClassifications["Oitavas"] = Array.from(oitavasTeams);
+      }
+      if (quartasTeams.size > 0) {
+        groupClassifications["Quartas"] = Array.from(quartasTeams);
+      }
+      if (semisTeams.size > 0) {
+        groupClassifications["Semis"] = Array.from(semisTeams);
+      }
     }
 
     return {
@@ -207,7 +230,7 @@ export const useMatchSystem = (
       mostConcededTeamId: comp.mostConcededTeamId || "",
       groupClassifications,
     };
-  }, [db.competitions, db.teamStandings, activeCompetitionCode]);
+  }, [db.competitions, db.teamStandings, db.matches, activeCompetitionCode]);
 
   // Lê config do admin: se auto-sync está ativo e qual é o intervalo
   const isAutoSyncEnabled = db.systemConfig.is_auto_sync_enabled;

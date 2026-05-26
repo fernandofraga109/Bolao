@@ -195,6 +195,12 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
           const hasFinishedMatches = finishedPhaseMatches.length > 0;
           const isPhaseFullyFinished = phase.matches.length > 0 && phase.matches.every(m => m.status === "FINISHED");
 
+          // Admin override for biggest goal diff (from competition)
+          const group = db.groups.find((g) => g.id === groupId);
+          const compCode = group?.competitionCode || "WC";
+          const comp = db.competitions.find((c) => c.code.toUpperCase() === compCode.toUpperCase());
+          const adminOverrideMatchId = comp?.biggestGoalDiffMatches?.[phase.id] || undefined;
+
           let earnedPoints = 0;
           if (savedPred && hasFinishedMatches) {
             earnedPoints = calculateExtraPhasePoints(
@@ -204,7 +210,8 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
                 status: m.status,
                 resultHome: m.resultHome ?? null,
                 resultAway: m.resultAway ?? null,
-              }))
+              })),
+              adminOverrideMatchId
             );
           }
 
