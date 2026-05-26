@@ -16,7 +16,15 @@ Execute este workflow quando você tiver mudanças pendentes que deseja commitar
    - Execute `git status -s` para ver quais arquivos foram modificados
    - Execute `git diff --stat` para ver o resumo das mudanças
 
-2. **Adicionar e commitar mudanças**
+2. **Atualizar modelo de releases (opcional)**
+   - Se as mudanças forem relevantes para o usuário final, atualize `data/releases.ts`:
+     - Incremente `CURRENT_VERSION` (ex: 1.6.0 → 1.7.0)
+     - Adicione um novo objeto ao array `RELEASES` com:
+       - `version`: a nova versão
+       - `date`: data atual no formato YYYY-MM-DD
+       - `changes`: array de strings descrevendo as mudanças principais
+
+3. **Adicionar e commitar mudanças**
    - Execute `git add -A` para adicionar todas as mudanças
    - Execute `git commit -m "mensagem do commit"` com uma mensagem descritiva seguindo a convenção:
      - `feat(scope): descrição` para novas funcionalidades
@@ -25,21 +33,21 @@ Execute este workflow quando você tiver mudanças pendentes que deseja commitar
      - `chore(scope): descrição` para tarefas de manutenção
      - `docs(scope): descrição` para documentação
 
-3. **Push no seu repositório (origin)**
+4. **Push no seu repositório (origin)**
    - Execute `git push origin main`
 
-4. **Adicionar remote do Miguel**
+5. **Adicionar remote do Miguel**
    - Execute `git remote add miguel https://github.com/Miguel-de-Castro/bolao-copa-do-mundo-2026.git`
 
-5. **Push no repositório do Miguel**
+6. **Push no repositório do Miguel**
    - Execute `git push miguel main:feature/fernando-DDMMYYYY-descricao-curta`
    - Substitua DDMMYYYY pela data atual (ex: 26052026)
    - Substitua descricao-curta por um breve descritor da mudança (ex: scorers-sync, live-score-sync)
 
-6. **Remover remote do Miguel**
+7. **Remover remote do Miguel**
    - Execute `git remote remove miguel`
 
-7. **Confirmar estado final**
+8. **Confirmar estado final**
    - Execute `git remote -v` para confirmar que origin aponta para seu repo
    - Execute `git status` para confirmar working tree limpa
 
