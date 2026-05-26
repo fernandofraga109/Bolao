@@ -22,6 +22,7 @@ import {
   Pencil,
   Trophy,
   Lock,
+  LockKeyhole,
   Clock,
   Zap,
   EyeOff,
@@ -50,6 +51,7 @@ interface MatchCardProps {
     home: number,
     away: number,
   ) => void;
+  onAdminToggleSyncLock?: (matchId: string, locked: boolean) => void;
   minRankDiff?: number;
   ruleset?: "regulamento_1" | "regulamento_2";
 }
@@ -62,6 +64,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   onPredict,
   isAdmin = false,
   onAdminSaveMatch,
+  onAdminToggleSyncLock,
   minRankDiff,
   ruleset = "regulamento_1",
 }) => {
@@ -408,50 +411,29 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between mt-4">
-          <div className="flex gap-2">
-            {!isPredictionDisabled && (
-              <button
-                onClick={handleAIPredict}
-                disabled={isPredictingAI}
-                className="w-10 h-10 flex items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition-all"
-              >
-                {isPredictingAI ? <Loader2 size={20} className="animate-spin" /> : <Bot size={20} />}
-              </button>
-            )}
-            <button
-              onClick={() => setShowFriends(!showFriends)}
-              className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all ${showFriends ? "bg-slate-700 border-slate-600 text-white" : "bg-slate-800 border-slate-700 text-slate-500 hover:text-white"}`}
-            >
-              <Users size={20} />
-            </button>
-          </div>
-
-          <div className="flex-1 flex items-center justify-between pl-4 gap-3">
-            {isAdmin && (
-              <div className="flex items-center gap-2">
-                <label className="text-[10px] uppercase tracking-widest text-slate-400">Status</label>
-                <select
-                  value={adminStatus}
-                  onChange={(e) => setAdminStatus(e.target.value as "started" | "live" | "ended")}
-                  className="bg-slate-900 text-white text-xs font-bold px-3 py-2 rounded-2xl border border-slate-700 focus:outline-none"
+        <div className={`flex mt-4 ${isAdmin ? "flex-col gap-3" : "items-center justify-between"}`}>
+          {/* Row 1: icon buttons + (non-admin) action */}
+          <div className="flex items-center justify-between">
+            <div className="flex gap-2">
+              {!isPredictionDisabled && (
+                <button
+                  onClick={handleAIPredict}
+                  disabled={isPredictingAI}
+                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition-all"
                 >
-                  <option value="started">SCHEDULED</option>
-                  <option value="live">LIVE</option>
-                  <option value="ended">FINISHED</option>
-                </select>
-              </div>
-            )}
-            <div className="flex-1 flex justify-end">
-              {isAdmin ? (
-                 <button
-                   onClick={handleAdminSave}
-                   className="bg-brand-blue text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-brand-blue/20 hover:scale-105 active:scale-95 transition-all"
-                 >
-                   Salvar Edição
-                 </button>
-              ) : (
-              <>
+                  {isPredictingAI ? <Loader2 size={20} className="animate-spin" /> : <Bot size={20} />}
+                </button>
+              )}
+              <button
+                onClick={() => setShowFriends(!showFriends)}
+                className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all ${showFriends ? "bg-slate-700 border-slate-600 text-white" : "bg-slate-800 border-slate-700 text-slate-500 hover:text-white"}`}
+              >
+                <Users size={20} />
+              </button>
+            </div>
+
+            {!isAdmin && (
+              <div className="flex-1 flex justify-end pl-4">
                 {(isFinished || isLive) && match.result ? (
                    <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl shadow-lg border border-white/5 ${getPointsStyle(userScoring.points)}`}>
                       <Trophy size={16} className={userScoring.points >= POINTS_EXACT ? "fill-brand-dark/30" : ""} />
@@ -486,13 +468,49 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     {isSavingPrediction ? "Salvando" : (hasSavedPrediction ? "Editar" : "Palpitar")}
                   </button>
                 )}
-              </>
+              </div>
             )}
           </div>
+
+          {/* Row 2 (admin only): status selector + save button */}
+          {isAdmin && (
+            <div className="flex flex-col gap-2 w-full">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <label className="text-[10px] uppercase tracking-widest text-slate-400 shrink-0">Status</label>
+                  <select
+                    value={adminStatus}
+                    onChange={(e) => setAdminStatus(e.target.value as "started" | "live" | "ended")}
+                    className="bg-slate-900 text-white text-xs font-bold px-3 py-2 rounded-2xl border border-slate-700 focus:outline-none min-w-0 flex-1"
+                  >
+                    <option value="started">SCHEDULED</option>
+                    <option value="live">LIVE</option>
+                    <option value="ended">FINISHED</option>
+                  </select>
+                </div>
+                <button
+                  onClick={handleAdminSave}
+                  className="shrink-0 bg-brand-blue text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-brand-blue/20 hover:scale-105 active:scale-95 transition-all"
+                >
+                  Salvar Edição
+                </button>
+              </div>
+              <button
+                onClick={() => onAdminToggleSyncLock?.(match.id, !match.syncLocked)}
+                className={`flex items-center justify-center gap-2 w-full py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
+                  match.syncLocked
+                    ? "bg-amber-500/15 border-amber-500/40 text-amber-400 hover:bg-amber-500/25"
+                    : "bg-slate-900/50 border-slate-700/50 text-slate-500 hover:bg-slate-800 hover:text-slate-300"
+                }`}
+              >
+                <LockKeyhole size={12} />
+                {match.syncLocked ? "Sync Bloqueado (Clique para Desbloquear)" : "Bloquear Sync deste Jogo"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
-    </div>
-      
+
       {/* Friends predictions section would go here, simplified or kept from original */}
       {showFriends && (
         <div className="px-6 pb-6 border-t border-slate-700/50 bg-slate-900/20 pt-4 animate-slideDown">

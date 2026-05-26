@@ -75,7 +75,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, onUserClick }) => {
 
   return (
     <div className="w-full max-w-2xl mx-auto pb-8">
-      <div className="bg-gradient-to-br from-brand-dark via-brand-dark to-brand-blue/20 p-8 rounded-3xl mb-8 shadow-2xl border border-slate-800 relative overflow-hidden">
+      <div className="bg-gradient-to-br from-brand-dark via-brand-dark to-brand-blue/20 p-5 sm:p-8 rounded-3xl mb-8 shadow-2xl border border-slate-800 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-brand-green/5 blur-3xl rounded-full -mr-20 -mt-20"></div>
         <div className="relative">
           <h2 className="text-3xl font-black text-white mb-2 tracking-tight">CLASSIFICAÇÃO</h2>
@@ -105,7 +105,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, onUserClick }) => {
                 key={section.groupId}
                 className="bg-slate-800/40 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl border border-slate-700/50"
               >
-                <div className="px-6 py-4 bg-slate-900/40 border-b border-slate-700/50 flex items-center justify-between">
+                <div className="px-4 py-3 bg-slate-900/40 border-b border-slate-700/50 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-3">
                     <div className="bg-brand-blue/20 p-2 rounded-lg">
                        <Trophy size={16} className="text-brand-blue" />
@@ -119,8 +119,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, onUserClick }) => {
                       )}
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-900 px-2.5 py-1 rounded-full border border-slate-700/50">
-                    {section.users.length} participantes
+                  <span className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-900 px-2 py-1 rounded-full border border-slate-700/50 text-center">
+                    {section.users.length}<br className="sm:hidden" /><span className="hidden sm:inline"> </span>PART.
                   </span>
                 </div>
 
@@ -132,11 +132,11 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, onUserClick }) => {
                     return (
                       <div
                         key={user.id}
-                        className={`group relative flex items-center justify-between p-5 transition-all ${getRankRowStyle(user.rank, user.id === "me")} ${getRankAccent(user.rank)} ${onUserClick ? "cursor-pointer hover:bg-slate-700/30" : "hover:bg-slate-700/20"}`}
+                        className={`group relative flex items-center justify-between px-3 py-3 sm:p-5 gap-2 transition-all ${getRankRowStyle(user.rank, user.id === "me")} ${getRankAccent(user.rank)} ${onUserClick ? "cursor-pointer hover:bg-slate-700/30" : "hover:bg-slate-700/20"}`}
                         onClick={() => onUserClick?.(user)}
                       >
-                        <div className="flex items-center gap-5 z-10">
-                          <div className="flex flex-col items-center justify-center w-8">
+                        <div className="flex items-center gap-2 sm:gap-5 z-10 min-w-0">
+                          <div className="flex flex-col items-center justify-center w-6 sm:w-8 shrink-0">
                             {getRankIcon(user.rank)}
                             <div className={`mt-1 flex items-center gap-0.5 text-[9px] font-bold ${variation.color}`}>
                                {variation.icon}
@@ -144,11 +144,11 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, onUserClick }) => {
                             </div>
                           </div>
                           
-                          <div className="relative">
+                          <div className="relative shrink-0">
                             <AvatarWithFallback
                               src={user.avatar}
                               alt={user.name}
-                              className={`w-12 h-12 rounded-full border-2 transition-transform group-hover:scale-105 ${user.id === "me" ? "border-brand-green shadow-lg shadow-brand-green/20" : "border-slate-700 shadow-lg"}`}
+                              className={`w-9 h-9 sm:w-12 sm:h-12 rounded-full border-2 transition-transform group-hover:scale-105 ${user.id === "me" ? "border-brand-green shadow-lg shadow-brand-green/20" : "border-slate-700 shadow-lg"}`}
                               fallbackClassName={`${user.id === "me" ? "bg-slate-700 text-brand-green" : "bg-slate-700 text-slate-300"}`}
                               iconSize={20}
                             />
@@ -159,9 +159,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, onUserClick }) => {
                             )}
                           </div>
                           
-                          <div className="flex flex-col">
+                          <div className="flex flex-col min-w-0">
                             <h3
-                              className={`font-bold tracking-tight ${user.id === "me" ? "text-brand-green" : "text-slate-100"}`}
+                              className={`font-bold tracking-tight truncate ${user.id === "me" ? "text-brand-green" : "text-slate-100"}`}
                             >
                               {user.name}
                             </h3>
@@ -169,8 +169,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, onUserClick }) => {
                                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
                                   {user.predictionsCount ?? Object.keys(user.predictions).length} palpites
                                 </span>
-                                <div className="flex items-center gap-2">
-                                  <div className="w-24 h-1 bg-slate-700/50 rounded-full overflow-hidden mt-0.5">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <div className="w-14 sm:w-24 h-1 bg-slate-700/50 rounded-full overflow-hidden mt-0.5 shrink-0">
                                      <div 
                                        className={`h-full rounded-full transition-all duration-1000 ${user.id === "me" ? "bg-brand-green" : "bg-brand-blue"}`}
                                        style={{ width: `${progress}%` }}
@@ -182,9 +182,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, onUserClick }) => {
                           </div>
                         </div>
 
-                        <div className="text-right z-10 flex items-center gap-2">
+                        <div className="text-right z-10 flex items-center gap-1.5 shrink-0">
                           <div className="flex items-baseline justify-end gap-1">
-                            <span className={`text-2xl font-black leading-none ${user.rank === 1 ? "text-brand-gold" : "text-white"}`}>
+                            <span className={`text-xl sm:text-2xl font-black leading-none ${user.rank === 1 ? "text-brand-gold" : "text-white"}`}>
                               {user.totalPoints}
                             </span>
                             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">

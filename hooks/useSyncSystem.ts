@@ -8,6 +8,8 @@ import {
   findInternalMatch,
   getCurrentSeason,
   mapExternalStatusToInternal,
+  shouldUpdateByLastUpdated,
+  isStaleApiData,
   type ExternalTeam,
 } from "../services/liveScoreService";
 import { supabase, isSupabaseEnabled } from "../services/supabase";
@@ -482,6 +484,20 @@ export const useSyncSystem = (
         }
 
         for (const em of externalMatches) {
+          // Proteção contra dados obsoletos da API (cache desatualizado):
+          // Se a API diz IN_PLAY mas lastUpdated é muito antigo E o endpoint ao vivo
+          // não confirma o jogo, ignoramos — os dados provavelmente estão incorretos.
+          if (isStaleApiData(em.status, em.lastUpdated, 30)) {
+            const confirmedLive = em.id in liveMinuteMap;
+            if (!confirmedLive) {
+              console.warn(
+                `[SYNC] Jogo ${em.id} (${em.homeTeam?.tla} x ${em.awayTeam?.tla}) ignorado: ` +
+                `API diz ${em.status} mas lastUpdated=${em.lastUpdated} é muito antigo e não confirmado pelo endpoint ao vivo.`
+              );
+              continue;
+            }
+          }
+
           const status = mapExternalStatusToInternal(em.status);
           
           const homeScore = em.score?.fullTime?.home;
@@ -492,16 +508,41 @@ export const useSyncSystem = (
           const existing = findInternalMatch(em, hydratedInternalMatches);
 
           if (existing) {
+            // Jogo bloqueado pelo admin — pular completamente
+            if (existing.syncLocked) {
+              console.log(`[SYNC] Jogo ${em.id} (${em.homeTeam?.tla} x ${em.awayTeam?.tla}) bloqueado pelo admin. Pulando.`);
+              continue;
+            }
+
             // Resolve minute from the dedicated live endpoint (em.minute is null in the bulk endpoint)
             const liveMinute = liveMinuteMap[em.id] ?? em.minute ?? null;
+
+            // DEBUG: Log detalhado para jogos ao vivo ou com problemas
+            const isTargetMatch = em.id === 554901 || existing.status === MatchStatus.LIVE;
+            if (isTargetMatch) {
+              console.log(`[SYNC DEBUG] Jogo ${em.id} (${em.homeTeam?.tla} x ${em.awayTeam?.tla}):`, {
+                existingStatus: existing.status,
+                newStatus: status,
+                existingResult: existing.result,
+                newResult: { home: homeScore, away: awayScore },
+                existingLastSyncAt: existing.lastSyncAt,
+                apiLastUpdated: em.lastUpdated,
+                existingMinute: existing.minute,
+                liveMinute: liveMinute,
+              });
+            }
 
             const hasChanged =
               existing.status !== status ||
               (homeScore != null && existing.result?.home !== homeScore) ||
               (awayScore != null && existing.result?.away !== awayScore) ||
-              existing.minute !== liveMinute;
+              existing.minute !== liveMinute ||
+              // Verifica lastUpdated da API para detectar outras mudanças (horário, adiamento, etc)
+              shouldUpdateByLastUpdated(em.lastUpdated, existing.lastSyncAt, 30);
 
-
+            if (isTargetMatch) {
+              console.log(`[SYNC DEBUG] Jogo ${em.id} hasChanged:`, hasChanged);
+            }
 
             if (hasChanged) {
               // Proteção: se o admin editou este jogo há menos de 5 min, não sobrescrever
@@ -522,6 +563,7 @@ export const useSyncSystem = (
                 resultAway: awayScore ?? null,
                 date: em.utcDate,
                 minute: liveMinute,
+                lastSyncAt: new Date().toISOString(),
               });
 
 
@@ -560,6 +602,7 @@ export const useSyncSystem = (
                 stage: em.stage,
                 matchday: em.matchday,
                 minute: em.minute ?? null,
+                lastSyncAt: new Date().toISOString(),
               });
             } else {
               // Times com id/tla nulos = jogos de fase eliminatória ainda não definidos (TBD).

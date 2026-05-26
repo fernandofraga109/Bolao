@@ -18,6 +18,7 @@ interface MatchGroupProps {
   onPredict: (id: string, h: number, a: number) => Promise<void>;
   isAdmin: boolean;
   onAdminSaveMatch: (id: string, status: "started" | "live" | "ended", h: number, a: number) => void;
+  onAdminToggleSyncLock?: (matchId: string, locked: boolean) => void;
   isToday?: boolean;
   minRankDiff?: number;
   ruleset?: "regulamento_1" | "regulamento_2";
@@ -34,6 +35,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
   onPredict,
   isAdmin,
   onAdminSaveMatch,
+  onAdminToggleSyncLock,
   isToday,
   minRankDiff,
   ruleset,
@@ -91,6 +93,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
               onPredict={onPredict}
               isAdmin={isAdmin}
               onAdminSaveMatch={onAdminSaveMatch}
+              onAdminToggleSyncLock={onAdminToggleSyncLock}
               minRankDiff={minRankDiff}
               ruleset={ruleset}
             />
@@ -115,6 +118,7 @@ interface MatchesPageProps {
   onManualSync: () => void;
   onPredict: (id: string, h: number, a: number) => Promise<void>;
   onAdminSaveMatch: (id: string, status: "started" | "live" | "ended", h: number, a: number) => void;
+  onAdminToggleSyncLock?: (matchId: string, locked: boolean) => void;
   onPredictTournament: (predictions: TournamentPredictions) => void;
   onOpenGroupSwitcher?: () => void;
   minRankDiff?: number;
@@ -134,6 +138,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
   onManualSync,
   onPredict,
   onAdminSaveMatch,
+  onAdminToggleSyncLock,
   onPredictTournament,
   onOpenGroupSwitcher,
   minRankDiff,
@@ -298,6 +303,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
                     onPredict={onPredict}
                     isAdmin={isAdmin}
                     onAdminSaveMatch={onAdminSaveMatch}
+                    onAdminToggleSyncLock={onAdminToggleSyncLock}
                     minRankDiff={minRankDiff}
                     ruleset={ruleset}
                   />
@@ -344,6 +350,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
         onPredict={onPredict}
         isAdmin={isAdmin}
         onAdminSaveMatch={onAdminSaveMatch}
+        onAdminToggleSyncLock={onAdminToggleSyncLock}
         minRankDiff={minRankDiff}
         ruleset={ruleset}
       />
@@ -364,6 +371,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
             onPredict={onPredict}
             isAdmin={isAdmin}
             onAdminSaveMatch={onAdminSaveMatch}
+            onAdminToggleSyncLock={onAdminToggleSyncLock}
             minRankDiff={minRankDiff}
             ruleset={ruleset}
           />

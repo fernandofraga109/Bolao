@@ -1,0 +1,15 @@
+{
+  "filters": {
+    "dateFrom": "2026-05-26",
+    "dateTo": "2026-05-27",
+    "permission": "TIER_ONE",
+    "status": [
+      "IN_PLAY",
+      "PAUSED"
+    ]
+  },
+  "resultSet": {
+    "count": 0
+  },
+  "matches": []
+}

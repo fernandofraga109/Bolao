@@ -235,9 +235,9 @@ export const useMatchSystem = (
   }, [canWriteData, db, isAutoSyncEnabled]);
 
   const lockDate = useMemo(() => {
-    if (matches.length === 0) return new Date();
+    if (matches.length === 0) return null;
     const dates = matches.map((m) => new Date(m.date).getTime());
-    return new Date(Math.min(...dates));
+    return new Date(Math.min(...dates)).toISOString();
   }, [matches]);
 
   const computedSyncStatus = useMemo(() => {

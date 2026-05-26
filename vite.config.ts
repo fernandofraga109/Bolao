@@ -28,6 +28,10 @@ export default defineConfig(({ mode }) => {
             proxyReq.setHeader("X-Auth-Token", footballDataToken);
           }
           proxyReq.setHeader("Content-Type", "application/json");
+          // Desabilitar cache para sempre pegar dados frescos da API
+          proxyReq.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+          proxyReq.setHeader("Pragma", "no-cache");
+          proxyReq.setHeader("Expires", "0");
         });
       },
     },

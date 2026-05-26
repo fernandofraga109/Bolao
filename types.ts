@@ -81,6 +81,8 @@ export interface MatchDB {
   stage?: string;
   matchday?: number;
   minute?: number | null;
+  lastSyncAt?: string;
+  syncLocked?: boolean;
 }
 
 export interface PredictionDB {
@@ -226,6 +228,8 @@ export interface Match {
   stage?: string;
   matchday?: number;
   minute?: number | null;
+  lastSyncAt?: string;
+  syncLocked?: boolean;
 }
 
 export type Group = GroupDB;

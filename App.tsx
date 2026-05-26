@@ -220,6 +220,15 @@ const App: React.FC = () => {
     }
   };
 
+  const handleAdminToggleSyncLock = async (matchId: string, locked: boolean) => {
+    try {
+      await db.updateMatch(matchId, { syncLocked: locked });
+      console.log(`[ADMIN] Jogo ${matchId} sync ${locked ? "bloqueado" : "desbloqueado"}`);
+    } catch (error) {
+      alert(`Erro ao alterar lock: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    }
+  };
+
   const {
     usersWithCalculatedPoints,
     leaderboardData,
@@ -513,6 +522,7 @@ const App: React.FC = () => {
             onManualSync={() => void handleManualMatchesSync()}
             onPredict={predictMatch}
             onAdminSaveMatch={handleAdminSaveMatch}
+            onAdminToggleSyncLock={handleAdminToggleSyncLock}
             onPredictTournament={predictTournament}
             onOpenGroupSwitcher={() => setIsGroupSwitcherOpen(true)}
             minRankDiff={currentGroup?.underdog_min_rank_diff ?? db.systemConfig.underdog_min_rank_diff ?? 10}

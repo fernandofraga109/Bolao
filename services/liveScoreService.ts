@@ -63,6 +63,7 @@ export interface ExternalMatch {
   group?: string | null;
   stage?: string;
   minute?: number | null;
+  lastUpdated?: string;
   homeTeam: {
     id: number;
     name: string;
@@ -381,6 +382,53 @@ export const mapExternalStatusToInternal = (status: string): MatchStatus => {
   if (["IN_PLAY", "PAUSED"].includes(status)) return MatchStatus.LIVE;
   if (["FINISHED", "AWARDED"].includes(status)) return MatchStatus.FINISHED;
   return MatchStatus.SCHEDULED;
+};
+
+/**
+ * Verifica se um jogo deve ser atualizado comparando o lastUpdated da API
+ * com o timestamp do último sync conhecido.
+ *
+ * Retorna true se:
+ * - Não temos registro do último sync (syncTimestamp é null/undefined)
+ * - O lastUpdated da API é mais recente que o último sync
+ */
+export const shouldUpdateByLastUpdated = (
+  externalLastUpdated: string | undefined,
+  syncTimestamp: string | undefined | null,
+  bufferSeconds = 0,
+): boolean => {
+  if (!externalLastUpdated) return false;
+  if (!syncTimestamp) return true; // Nunca sincronizado, deve atualizar
+
+  const externalTime = new Date(externalLastUpdated).getTime();
+  const syncTime = new Date(syncTimestamp).getTime();
+
+  // API tem dados mais recentes (com buffer opcional para evitar race conditions)
+  return externalTime > syncTime + bufferSeconds * 1000;
+};
+
+/**
+ * Detecta se os dados da API estão obsoletos/corrompidos por cache.
+ *
+ * Problema: A API às vezes retorna jogos como IN_PLAY mesmo já tendo acabado,
+ * quando o lastUpdated é muito antigo (cache desatualizado).
+ *
+ * Retorna true se devemos IGNORAR a atualização da API (dados suspeitos)
+ */
+export const isStaleApiData = (
+  externalStatus: string,
+  externalLastUpdated: string | undefined,
+  maxAgeMinutes = 30,
+): boolean => {
+  if (!externalLastUpdated) return true; // Sem timestamp = suspeito
+  if (externalStatus !== "IN_PLAY" && externalStatus !== "PAUSED") return false; // Só afeta jogos ao vivo
+
+  const lastUpdateTime = new Date(externalLastUpdated).getTime();
+  const now = Date.now();
+  const ageMinutes = (now - lastUpdateTime) / (1000 * 60);
+
+  // Se lastUpdated tem mais de X minutos e status é IN_PLAY, dados estão obsoletos
+  return ageMinutes > maxAgeMinutes;
 };
 
 export const findInternalMatch = (
