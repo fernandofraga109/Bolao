@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.5.1";
+export const CURRENT_VERSION = "1.6.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,19 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.6.0",
+    date: "2026-05-26",
+    changes: [
+      "Dados de artilheiro agora são buscados automaticamente da Football Data API",
+      "Campeão da competição é detectado automaticamente via API quando disponível",
+      "Time com mais gols em um jogo único calculado automaticamente",
+      "Time com mais gols sofridos em um jogo único calculado automaticamente",
+      "Regulamento atualizado com novas regras de blocos de fases",
+      "Correções de layout em cards e modais",
+      "Auditoria de pontos disponível clicando em cada usuário no menu RANK",
+    ],
+  },
   {
     version: "1.5.1",
     date: "2026-05-16",

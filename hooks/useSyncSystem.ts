@@ -5,6 +5,7 @@ import {
   fetchExternalMatches,
   fetchCompetitionTeams,
   fetchLiveMatchMinutes,
+  fetchCompetitionScorers,
   findInternalMatch,
   getCurrentSeason,
   mapExternalStatusToInternal,
@@ -295,10 +296,11 @@ export const useSyncSystem = (
 
         // ── FASE 1: Fetch Paralelo ──────────────────────────────────────────
         console.log(`[SYNC] Iniciando fetch paralelo para ${normalizedCode}...`);
-        const [externalTeams, externalMatches, standingsData] = await Promise.all([
+        const [externalTeams, externalMatches, standingsData, scorersData] = await Promise.all([
           fetchCompetitionTeams(normalizedCode, season),
           fetchExternalMatches(normalizedCode, season),
           fetchExternalStandings(normalizedCode, season),
+          fetchCompetitionScorers(normalizedCode, season),
         ]);
 
         if (!externalMatches || externalMatches.length === 0) {
@@ -312,15 +314,37 @@ export const useSyncSystem = (
         const competitionMeta =
           (externalMatches[0] as any)?.competition ??
           (standingsData as any)?.competition;
+        
+        // Extrair artilheiro dos dados da API
+        const topScorerName = scorersData?.scorers?.[0]?.player?.name;
+        const topScorerGoals = scorersData?.scorers?.[0]?.goals;
+        
+        // Extrair campeão dos dados da API (season.winner)
+        const seasonWinnerExternalId = (externalMatches[0] as any)?.season?.winner;
+        
+        if (topScorerName) {
+          console.log(`[SYNC] Artilheiro encontrado: ${topScorerName} (${topScorerGoals} gols)`);
+        }
+        
+        if (seasonWinnerExternalId) {
+          console.log(`[SYNC] Campeão encontrado na API (externalTeamId): ${seasonWinnerExternalId}`);
+        }
+        
         if (competitionMeta?.code && isSupabaseEnabled() && supabase) {
+          const competitionPayload: any = {
+            code: competitionMeta.code,
+            name: competitionMeta.name,
+            emblem: competitionMeta.emblem ?? null,
+            type: competitionMeta.type ?? null,
+            last_sync: new Date().toISOString(),
+            topScorerName: topScorerName ?? null,
+            topScorerGoals: topScorerGoals ?? null,
+          };
+          
+          // O championTeamId será atualizado depois de construirmos o mapa de times
+          // Por agora, salvamos sem ele
           await supabase.from("competitions").upsert(
-            {
-              code: competitionMeta.code,
-              name: competitionMeta.name,
-              emblem: competitionMeta.emblem ?? null,
-              type: competitionMeta.type ?? null,
-              last_sync: new Date().toISOString(),
-            },
+            competitionPayload,
             { onConflict: "code" },
           );
         }
@@ -420,6 +444,20 @@ export const useSyncSystem = (
               if (t.externalTeamId) teamByExtId.set(t.externalTeamId, t);
               if (t.code) teamByCode.set(t.code.toUpperCase(), t);
             }
+            
+            // Agora que temos o mapa atualizado com UUIDs, podemos converter o campeão
+            if (seasonWinnerExternalId && competitionMeta?.code && isSupabaseEnabled() && supabase) {
+              const championTeam = teamByExtId.get(seasonWinnerExternalId);
+              if (championTeam && championTeam.id) {
+                console.log(`[SYNC] Atualizando campeão ${championTeam.name} (UUID: ${championTeam.id})`);
+                await supabase
+                  .from("competitions")
+                  .update({ championTeamId: championTeam.id })
+                  .eq("code", competitionMeta.code);
+              } else {
+                console.warn(`[SYNC] Campeão externalTeamId ${seasonWinnerExternalId} não encontrado no mapa de times`);
+              }
+            }
           }
         }
 
@@ -460,6 +498,72 @@ export const useSyncSystem = (
               .from("teams")
               .upsert(rankingPatches, { onConflict: "id" });
             if (rankErr) console.warn("[SYNC] Erro ao atualizar rankings:", rankErr.message);
+          }
+        }
+
+        // ── FASE 2.5: Calcular time com mais gols/sofridos em UM jogo ──
+        // Varre todos os jogos finalizados da competição para encontrar recordes
+        const finishedMatches = externalMatches.filter(
+          (em) => em.status === "FINISHED" && em.score?.fullTime?.home != null && em.score?.fullTime?.away != null
+        );
+
+        let mostGoalsTeamExternalId: number | null = null;
+        let mostGoalsScore = -1;
+        let mostConcededTeamExternalId: number | null = null;
+        let mostConcededScore = -1;
+
+        for (const match of finishedMatches) {
+          const homeGoals = match.score.fullTime.home;
+          const awayGoals = match.score.fullTime.away;
+          const homeTeamId = match.homeTeam?.id;
+          const awayTeamId = match.awayTeam?.id;
+
+          // Time com mais gols em um jogo
+          if (homeTeamId && homeGoals > mostGoalsScore) {
+            mostGoalsScore = homeGoals;
+            mostGoalsTeamExternalId = homeTeamId;
+          }
+          if (awayTeamId && awayGoals > mostGoalsScore) {
+            mostGoalsScore = awayGoals;
+            mostGoalsTeamExternalId = awayTeamId;
+          }
+
+          // Time com mais gols sofridos em um jogo
+          if (homeTeamId && awayGoals > mostConcededScore) {
+            mostConcededScore = awayGoals;
+            mostConcededTeamExternalId = homeTeamId;
+          }
+          if (awayTeamId && homeGoals > mostConcededScore) {
+            mostConcededScore = homeGoals;
+            mostConcededTeamExternalId = awayTeamId;
+          }
+        }
+
+        // Converter externalTeamIds para UUIDs e atualizar competitions
+        if (competitionMeta?.code && isSupabaseEnabled() && supabase) {
+          const updates: any = {};
+
+          if (mostGoalsTeamExternalId && mostGoalsScore > 0) {
+            const mostGoalsTeam = teamByExtId.get(mostGoalsTeamExternalId);
+            if (mostGoalsTeam && mostGoalsTeam.id) {
+              updates.mostGoalsTeamId = mostGoalsTeam.id;
+              console.log(`[SYNC] Time com mais gols em um jogo: ${mostGoalsTeam.name} (${mostGoalsScore} gols)`);
+            }
+          }
+
+          if (mostConcededTeamExternalId && mostConcededScore > 0) {
+            const mostConcededTeam = teamByExtId.get(mostConcededTeamExternalId);
+            if (mostConcededTeam && mostConcededTeam.id) {
+              updates.mostConcededTeamId = mostConcededTeam.id;
+              console.log(`[SYNC] Time com mais gols sofridos em um jogo: ${mostConcededTeam.name} (${mostConcededScore} gols)`);
+            }
+          }
+
+          if (Object.keys(updates).length > 0) {
+            await supabase
+              .from("competitions")
+              .update(updates)
+              .eq("code", competitionMeta.code);
           }
         }
 

@@ -333,6 +333,107 @@ export const fetchExternalStandings = async (
   }
 };
 
+// --- SCORERS ---
+
+export interface ExternalScorerPlayer {
+  id: number;
+  name: string;
+}
+
+export interface ExternalScorerTeam {
+  id: number;
+  name: string;
+}
+
+export interface ExternalScorer {
+  player: ExternalScorerPlayer;
+  team: ExternalScorerTeam;
+  goals: number;
+  assists?: number;
+}
+
+export interface ExternalScorersResponse {
+  scorers: ExternalScorer[];
+}
+
+export const fetchCompetitionScorers = async (
+  competitionCode = DEFAULT_COMPETITION_CODE,
+  season = getCurrentSeason(),
+): Promise<ExternalScorersResponse | null> => {
+  const buildUrl = (seasonParam?: string) => {
+    const params = new URLSearchParams();
+    params.set("competition", (competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase());
+    if (seasonParam) {
+      params.set("season", seasonParam);
+    }
+    return `/api/scorers?${params.toString()}`;
+  };
+
+  const tryFetch = async (seasonParam?: string) => {
+    const response = await fetch(buildUrl(seasonParam));
+    const contentType = response.headers.get("content-type") || "";
+
+    if (!contentType.includes("application/json")) {
+      const raw = await response.text().catch(() => "");
+      console.error(
+        "[SCORERS] /api/scorers retornou conteúdo não-JSON.",
+        raw.slice(0, 200),
+      );
+      return { response, payload: {}, invalidContent: true };
+    }
+
+    const payload = await response.json().catch(() => ({}));
+    return { response, payload, invalidContent: false };
+  };
+
+  try {
+    let { response, payload, invalidContent } = await tryFetch(season);
+
+    if (invalidContent) {
+      return null;
+    }
+
+    if (
+      !response.ok &&
+      season &&
+      (response.status === 404 || response.status === 403)
+    ) {
+      console.warn(
+        `[SCORERS] Season ${season} não encontrada para ${competitionCode}. Tentando sem season...`,
+      );
+      const fallbackResult = await tryFetch();
+      response = fallbackResult.response;
+      payload = fallbackResult.payload;
+      invalidContent = fallbackResult.invalidContent;
+    }
+
+    if (invalidContent) {
+      return null;
+    }
+
+    if (!response.ok) {
+      const errorData = payload || {};
+      console.error(
+        `[SCORERS] Erro na API proxy (${response.status}):`,
+        errorData.message || errorData.statusText,
+      );
+      return null;
+    }
+
+    if (!Array.isArray(payload.scorers)) {
+      return null;
+    }
+
+    return payload as ExternalScorersResponse;
+  } catch (error) {
+    console.error(
+      "[SCORERS] Falha na comunicação com /api/scorers:",
+      error,
+    );
+    return null;
+  }
+};
+
 // --- COMPETITIONS ---
 
 export interface ExternalCompetition {
