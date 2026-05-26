@@ -66,6 +66,9 @@ export const useUserSystem = () => {
     const viewerGroups = db.userGroups
       .filter((ug) => ug.userId === currentUserId)
       .map((ug) => ug.groupId);
+    
+    if (viewerGroups.length === 0) return undefined;
+    
     const fromStorage = localStorage.getItem(`bolao_active_group_${currentUserId}`);
     return (fromStorage && viewerGroups.includes(fromStorage) ? fromStorage : undefined)
       || (db.users.find((u) => u.id === currentUserId)?.activeGroupId &&
@@ -98,10 +101,13 @@ export const useUserSystem = () => {
 
       // Join Predictions.
       // For the current viewer, use their own resolvedActiveGroupId (accurate on their device).
-      // For all other users, use viewerActiveGroupId — their localStorage doesn't exist here,
+      // For all other users, use viewerActiveGroupId when available — their localStorage doesn't exist here,
       // so their per-user resolved group would be wrong and silently drop their predictions.
+      // If viewer has no active group, fall back to each user's own resolvedActiveGroupId.
       const effectiveGroupId =
-        user.id === currentUserId ? resolvedActiveGroupId : viewerActiveGroupId;
+        user.id === currentUserId
+          ? resolvedActiveGroupId
+          : (viewerActiveGroupId || resolvedActiveGroupId);
 
       // Debug: warn when effectiveGroupId is undefined (predictions may not be filtered correctly)
       if (!effectiveGroupId && myGroups.length > 0) {

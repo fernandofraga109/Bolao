@@ -24,6 +24,10 @@ import {
   ChevronDown,
   ChevronUp,
   Zap,
+  Award,
+  Medal,
+  Save,
+  Trophy,
 } from "lucide-react";
 import { useDatabase } from "../contexts/DatabaseContext";
 import { seedDatabase } from "../services/seeder";
@@ -95,6 +99,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   >(null);
   const [isSyncingCatalog, setIsSyncingCatalog] = useState(false);
 
+  // Tournament Awards States
+  const [selectedCompetitionCode, setSelectedCompetitionCode] = useState<string | null>(null);
+  const [championTeamId, setChampionTeamId] = useState<string>("");
+  const [topScorerName, setTopScorerName] = useState<string>("");
+  const [topScorerGoals, setTopScorerGoals] = useState<string>("");
+  const [bestPlayerName, setBestPlayerName] = useState<string>("");
+  const [bestGoalkeeperName, setBestGoalkeeperName] = useState<string>("");
+  const [mostGoalsTeamId, setMostGoalsTeamId] = useState<string>("");
+  const [mostConcededTeamId, setMostConcededTeamId] = useState<string>("");
+  const [isSavingAwards, setIsSavingAwards] = useState(false);
+
   const activeCompetitions = React.useMemo(() => {
     const codes = Array.from(
       new Set(
@@ -105,6 +120,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     );
     return codes.length > 0 ? codes : [DEFAULT_COMPETITION_CODE];
   }, [groups]);
+
+  // Filter teams by selected competition
+  const competitionTeams = React.useMemo(() => {
+    if (!selectedCompetitionCode) return db.teams;
+    
+    // Get teams that have standings for this competition
+    const teamIdsInCompetition = new Set(
+      db.teamStandings
+        .filter(ts => ts.competitionCode === selectedCompetitionCode)
+        .map(ts => ts.teamId)
+    );
+    
+    // Fallback: if no standings, use matches to determine teams
+    if (teamIdsInCompetition.size === 0) {
+      const teamIdsFromMatches = new Set(
+        db.matches
+          .filter(m => m.competitionCode === selectedCompetitionCode)
+          .flatMap(m => [m.homeTeamId, m.awayTeamId])
+      );
+      return db.teams.filter(t => teamIdsFromMatches.has(t.id)).sort((a, b) => a.name.localeCompare(b.name));
+    }
+    
+    return db.teams.filter(t => teamIdsInCompetition.has(t.id)).sort((a, b) => a.name.localeCompare(b.name));
+  }, [selectedCompetitionCode, db.teams, db.teamStandings, db.matches]);
 
   const handleTriggerManualSync = async (code: string) => {
     if (!onManualSync) return;
@@ -133,6 +172,53 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setIsSyncingCatalog(false);
     }
   };
+
+  const handleSaveAwards = async () => {
+    if (!selectedCompetitionCode) return;
+    
+    setIsSavingAwards(true);
+    try {
+      await db.updateCompetitionAwards(selectedCompetitionCode, {
+        championTeamId: championTeamId === "null" ? null : (championTeamId || undefined),
+        topScorerName: topScorerName || undefined,
+        topScorerGoals: topScorerGoals ? parseInt(topScorerGoals) : undefined,
+        bestPlayerName: bestPlayerName || undefined,
+        bestGoalkeeperName: bestGoalkeeperName || undefined,
+        mostGoalsTeamId: mostGoalsTeamId === "null" ? null : (mostGoalsTeamId || undefined),
+        mostConcededTeamId: mostConcededTeamId === "null" ? null : (mostConcededTeamId || undefined),
+      });
+      console.log("✅ Palpites especiais salvos com sucesso");
+    } catch (err) {
+      console.error("Erro ao salvar palpites especiais:", err);
+      alert("Erro ao salvar palpites especiais");
+    } finally {
+      setIsSavingAwards(false);
+    }
+  };
+
+  // Load existing awards when competition is selected
+  React.useEffect(() => {
+    if (selectedCompetitionCode) {
+      const comp = db.competitions.find(c => c.code.toLowerCase() === selectedCompetitionCode.toLowerCase());
+      if (comp) {
+        setChampionTeamId(comp.championTeamId || "");
+        setTopScorerName(comp.topScorerName || "");
+        setTopScorerGoals(comp.topScorerGoals?.toString() || "");
+        setBestPlayerName(comp.bestPlayerName || "");
+        setBestGoalkeeperName(comp.bestGoalkeeperName || "");
+        setMostGoalsTeamId(comp.mostGoalsTeamId || "");
+        setMostConcededTeamId(comp.mostConcededTeamId || "");
+      }
+    } else {
+      setChampionTeamId("");
+      setTopScorerName("");
+      setTopScorerGoals("");
+      setBestPlayerName("");
+      setBestGoalkeeperName("");
+      setMostGoalsTeamId("");
+      setMostConcededTeamId("");
+    }
+  }, [selectedCompetitionCode, db.competitions]);
 
   // Helper: resolve competition info from db.competitions first, then fallback to static
   const resolveCompetition = (
@@ -752,6 +838,195 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             )}
             Atualizar Catálogo
           </button>
+        </div>
+      </div>
+
+      {/* TOURNAMENT AWARDS PANEL */}
+      <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
+        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+          <Award className="text-yellow-400" />
+          Palpites Especiais (Resultados Oficiais)
+        </h2>
+        
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Competition Selector */}
+            <div className="flex-1">
+              <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                Competição
+              </label>
+              <select
+                value={selectedCompetitionCode || ""}
+                onChange={(e) => setSelectedCompetitionCode(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 outline-none"
+              >
+                <option value="">Selecione uma competição...</option>
+                {activeCompetitions.map((code) => {
+                  const comp = resolveCompetition(code);
+                  return (
+                    <option key={code} value={code}>
+                      {comp.name} ({code})
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          </div>
+
+          {selectedCompetitionCode && (
+            <div className="space-y-4 animate-fadeIn">
+              {/* Champion */}
+              <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                <label className="block text-xs font-bold text-yellow-400 mb-2 uppercase tracking-wider flex items-center gap-2">
+                  <Trophy size={14} />
+                  Seleção Campeã
+                </label>
+                <select
+                  value={championTeamId || ""}
+                  onChange={(e) => setChampionTeamId(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 outline-none"
+                >
+                  <option value="">Selecione a campeã...</option>
+                  <option value="null">Nenhum</option>
+                  {competitionTeams.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Top Scorer Name */}
+                <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                  <label className="block text-xs font-bold text-amber-400 mb-2 uppercase tracking-wider flex items-center gap-2">
+                    <Medal size={14} />
+                    Artilheiro (Nome)
+                  </label>
+                  <input
+                    type="text"
+                    value={topScorerName || ""}
+                    onChange={(e) => setTopScorerName(e.target.value)}
+                    placeholder="Nome do artilheiro"
+                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none placeholder:text-slate-600"
+                  />
+                </div>
+
+                {/* Top Scorer Goals */}
+                <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                  <label className="block text-xs font-bold text-amber-400 mb-2 uppercase tracking-wider flex items-center gap-2">
+                    <Medal size={14} />
+                    Artilheiro (Gols)
+                  </label>
+                  <input
+                    type="number"
+                    value={topScorerGoals || ""}
+                    onChange={(e) => setTopScorerGoals(e.target.value)}
+                    placeholder="Número de gols"
+                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none placeholder:text-slate-600"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Best Player */}
+                <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                  <label className="block text-xs font-bold text-yellow-400 mb-2 uppercase tracking-wider flex items-center gap-2">
+                    <Award size={14} />
+                    Melhor Jogador
+                  </label>
+                  <input
+                    type="text"
+                    value={bestPlayerName || ""}
+                    onChange={(e) => setBestPlayerName(e.target.value)}
+                    placeholder="Nome do melhor jogador"
+                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 outline-none placeholder:text-slate-600"
+                  />
+                </div>
+
+                {/* Best Goalkeeper */}
+                <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                  <label className="block text-xs font-bold text-blue-400 mb-2 uppercase tracking-wider flex items-center gap-2">
+                    <Shield size={14} />
+                    Melhor Goleiro
+                  </label>
+                  <input
+                    type="text"
+                    value={bestGoalkeeperName || ""}
+                    onChange={(e) => setBestGoalkeeperName(e.target.value)}
+                    placeholder="Nome do melhor goleiro"
+                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none placeholder:text-slate-600"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Most Goals Team */}
+                <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                  <label className="block text-xs font-bold text-emerald-400 mb-2 uppercase tracking-wider flex items-center gap-2">
+                    <Zap size={14} />
+                    Mais Gols (Seleção)
+                  </label>
+                  <select
+                    value={mostGoalsTeamId || ""}
+                    onChange={(e) => setMostGoalsTeamId(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
+                  >
+                    <option value="">Selecione a seleção...</option>
+                    <option value="null">Nenhum</option>
+                    {competitionTeams.map((team) => (
+                      <option key={team.id} value={team.id}>
+                        {team.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Most Conceded Team */}
+                <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                  <label className="block text-xs font-bold text-rose-400 mb-2 uppercase tracking-wider flex items-center gap-2">
+                    <Shield size={14} />
+                    Mais Gols Sofridos (Seleção)
+                  </label>
+                  <select
+                    value={mostConcededTeamId || ""}
+                    onChange={(e) => setMostConcededTeamId(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none"
+                  >
+                    <option value="">Selecione a seleção...</option>
+                    <option value="null">Nenhum</option>
+                    {competitionTeams.map((team) => (
+                      <option key={team.id} value={team.id}>
+                        {team.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedCompetitionCode && (
+            <div className="flex justify-end">
+              <button
+                onClick={handleSaveAwards}
+                disabled={isSavingAwards}
+                className="bg-yellow-600 hover:bg-yellow-500 text-white px-6 py-2.5 rounded-lg font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isSavingAwards ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} />
+                    Salvar Resultados
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

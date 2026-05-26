@@ -119,6 +119,15 @@ interface DatabaseContextType {
 
   upsertCompetitions: (competitionsList: CompetitionDB[]) => Promise<void>;
   updateCompetitionSync: (code: string, timestamp: string) => Promise<void>;
+  updateCompetitionAwards: (code: string, awards: { 
+    championTeamId?: string | null;
+    topScorerName?: string | null;
+    topScorerGoals?: number | null;
+    bestPlayerName?: string | null;
+    bestGoalkeeperName?: string | null;
+    mostGoalsTeamId?: string | null;
+    mostConcededTeamId?: string | null;
+  }) => Promise<void>;
   upsertTeam: (team: Team) => Promise<TeamDB>;
   upsertMatch: (match: MatchDB) => Promise<void>;
   updateMatch: (id: string, data: Partial<MatchDB>) => Promise<void>;
@@ -194,6 +203,13 @@ const mapCompetitionRow = (row: any): CompetitionDB => ({
     row.last_updated ||
     row.lastUpdated ||
     undefined,
+  topScorerName: row.topScorerName || undefined,
+  topScorerGoals: row.topScorerGoals || undefined,
+  championTeamId: row.championTeamId || undefined,
+  bestPlayerName: row.bestPlayerName || undefined,
+  bestGoalkeeperName: row.bestGoalkeeperName || undefined,
+  mostGoalsTeamId: row.mostGoalsTeamId || undefined,
+  mostConcededTeamId: row.mostConcededTeamId || undefined,
 });
 
 const mergeCompetitionIntoList = (
@@ -1102,13 +1118,20 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       return next;
     });
 
-    // DB Update — map camelCase to snake_case for Supabase
+    // DB Update — map camelCase to snake_case for Supabase (database uses snake_case for some fields)
     if (isSupabaseEnabled() && supabase && competitionsList.length > 0) {
       const rows = competitionsList.map((c) => {
         const row: any = { code: c.code, name: c.name };
         if (c.emblem !== undefined) row.emblem = c.emblem;
         if (c.type !== undefined) row.type = c.type;
         if (c.lastSync !== undefined) row.last_sync = c.lastSync;
+        if (c.topScorerName !== undefined) row.topScorerName = c.topScorerName;
+        if (c.topScorerGoals !== undefined) row.topScorerGoals = c.topScorerGoals;
+        if (c.championTeamId !== undefined) row.championTeamId = c.championTeamId;
+        if (c.bestPlayerName !== undefined) row.bestPlayerName = c.bestPlayerName;
+        if (c.bestGoalkeeperName !== undefined) row.bestGoalkeeperName = c.bestGoalkeeperName;
+        if (c.mostGoalsTeamId !== undefined) row.mostGoalsTeamId = c.mostGoalsTeamId;
+        if (c.mostConcededTeamId !== undefined) row.mostConcededTeamId = c.mostConcededTeamId;
         return row;
       });
       const { error } = await supabase
@@ -1131,6 +1154,54 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         .eq("code", code);
       if (error) {
         console.error("Erro ao atualizar sync da competição:", error.message);
+      }
+    }
+  };
+
+  const updateCompetitionAwards = async (
+    code: string,
+    awards: { 
+      championTeamId?: string | null;
+      topScorerName?: string | null;
+      topScorerGoals?: number | null;
+      bestPlayerName?: string | null;
+      bestGoalkeeperName?: string | null;
+      mostGoalsTeamId?: string | null;
+      mostConcededTeamId?: string | null;
+    }
+  ) => {
+    setCompetitions((prev) =>
+      prev.map((c) =>
+        c.code === code
+          ? { 
+              ...c, 
+              championTeamId: awards.championTeamId,
+              topScorerName: awards.topScorerName,
+              topScorerGoals: awards.topScorerGoals,
+              bestPlayerName: awards.bestPlayerName,
+              bestGoalkeeperName: awards.bestGoalkeeperName,
+              mostGoalsTeamId: awards.mostGoalsTeamId,
+              mostConcededTeamId: awards.mostConcededTeamId,
+            }
+          : c
+      ),
+    );
+    if (isSupabaseEnabled() && supabase) {
+      const updateData: any = {};
+      if (awards.championTeamId !== undefined) updateData.championTeamId = awards.championTeamId;
+      if (awards.topScorerName !== undefined) updateData.topScorerName = awards.topScorerName;
+      if (awards.topScorerGoals !== undefined) updateData.topScorerGoals = awards.topScorerGoals;
+      if (awards.bestPlayerName !== undefined) updateData.bestPlayerName = awards.bestPlayerName;
+      if (awards.bestGoalkeeperName !== undefined) updateData.bestGoalkeeperName = awards.bestGoalkeeperName;
+      if (awards.mostGoalsTeamId !== undefined) updateData.mostGoalsTeamId = awards.mostGoalsTeamId;
+      if (awards.mostConcededTeamId !== undefined) updateData.mostConcededTeamId = awards.mostConcededTeamId;
+      
+      const { error } = await supabase
+        .from("competitions")
+        .update(updateData)
+        .eq("code", code);
+      if (error) {
+        console.error("Erro ao atualizar prêmios da competição:", error.message);
       }
     }
   };
@@ -1377,6 +1448,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         },
         upsertCompetitions,
         updateCompetitionSync,
+        updateCompetitionAwards,
         upsertTeam,
         upsertMatch,
         updateMatch,
@@ -1409,6 +1481,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         removeUserFromGroup,
         upsertCompetitions,
         updateCompetitionSync,
+        updateCompetitionAwards,
         upsertTeam,
         upsertMatch,
         updateMatch,
