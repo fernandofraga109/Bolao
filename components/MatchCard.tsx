@@ -4,6 +4,7 @@ import {
   MatchStatus,
   Prediction,
   Friend,
+  GroupDB,
 } from "../types";
 import {
   calculatePoints,
@@ -28,8 +29,10 @@ import {
   CheckCircle,
   Loader2,
   Calendar,
+  RefreshCw,
 } from "lucide-react";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
+import ReplicatePredictionModal from "./ReplicatePredictionModal";
 
 interface MatchCardProps {
   match: Match;
@@ -40,6 +43,7 @@ interface MatchCardProps {
     matchId: string,
     home: number,
     away: number,
+    targetGroupIds?: string[],
   ) => Promise<void> | void;
   isAdmin?: boolean;
   onAdminSaveMatch?: (
@@ -51,6 +55,7 @@ interface MatchCardProps {
   onAdminToggleSyncLock?: (matchId: string, locked: boolean) => void;
   minRankDiff?: number;
   ruleset?: "regulamento_1" | "regulamento_2";
+  eligibleGroups?: GroupDB[];
 }
 
 export const MatchCard: React.FC<MatchCardProps> = ({
@@ -64,6 +69,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   onAdminToggleSyncLock,
   minRankDiff,
   ruleset = "regulamento_1",
+  eligibleGroups = [],
 }) => {
   const [showFriends, setShowFriends] = useState(false);
   const [homeInput, setHomeInput] = useState<string>("");
@@ -74,6 +80,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const [hasSavedPrediction, setHasSavedPrediction] = useState(
     Boolean(userPrediction),
   );
+  const [isReplicateModalOpen, setIsReplicateModalOpen] = useState(false);
 
   // Initialize inputs
   useEffect(() => {
@@ -395,6 +402,12 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         </div>
 
         {/* Footer Actions */}
+        {predictionError && (
+          <div className="mb-3 p-2 bg-brand-red/10 border border-brand-red/20 text-brand-red text-[10px] font-bold rounded-lg text-center animate-fadeIn">
+            {predictionError}
+          </div>
+        )}
+
         <div className={`flex mt-4 ${isAdmin ? "flex-col gap-3" : "items-center justify-between"}`}>
           {/* Row 1: icon buttons + (non-admin) action */}
           <div className="flex items-center justify-between">
@@ -405,6 +418,24 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               >
                 <Users size={20} />
               </button>
+
+              {eligibleGroups.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (homeInput !== "" && awayInput !== "") {
+                      setIsReplicateModalOpen(true);
+                    } else {
+                      setPredictionError("Digite um palpite antes de sincronizar.");
+                      setTimeout(() => setPredictionError(null), 3000);
+                    }
+                  }}
+                  disabled={isSavingPrediction || isPredictionDisabled}
+                  title="Sincronizar este palpite com outros grupos"
+                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800 border border-slate-700 text-indigo-400 hover:bg-indigo-500/10 hover:border-indigo-500/40 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 shrink-0 animate-fadeIn"
+                >
+                  <RefreshCw size={18} />
+                </button>
+              )}
             </div>
 
             {!isAdmin && (
@@ -534,6 +565,23 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               })}
           </div>
         </div>
+      )}
+      {/* Replicate Prediction Modal */}
+      {isReplicateModalOpen && (
+        <ReplicatePredictionModal
+          isOpen={isReplicateModalOpen}
+          onClose={() => setIsReplicateModalOpen(false)}
+          eligibleGroups={eligibleGroups}
+          match={match}
+          homeScore={parseInt(homeInput) || 0}
+          awayScore={parseInt(awayInput) || 0}
+          onConfirm={async (targetGroupIds) => {
+            const h = parseInt(homeInput);
+            const a = parseInt(awayInput);
+            await onPredict(match.id, h, a, targetGroupIds);
+            setHasSavedPrediction(true);
+          }}
+        />
       )}
     </div>
   );

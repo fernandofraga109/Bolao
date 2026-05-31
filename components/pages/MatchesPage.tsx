@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from "react";
-import { Match, User, TournamentPredictions } from "../../types";
+import { Match, User, TournamentPredictions, GroupDB } from "../../types";
 import { MatchCard } from "../MatchCard.tsx";
 import RulesSection from "../RulesSection";
 import TopScorerCard from "../TopScorerCard";
@@ -15,13 +15,14 @@ interface MatchGroupProps {
   userPredictions: Record<string, any>;
   leaderboardData: any[];
   currentUserId: string;
-  onPredict: (id: string, h: number, a: number) => Promise<void>;
+  onPredict: (id: string, h: number, a: number, targetGroupIds?: string[]) => Promise<void>;
   isAdmin: boolean;
   onAdminSaveMatch: (id: string, status: "started" | "live" | "ended", h: number, a: number) => void;
   onAdminToggleSyncLock?: (matchId: string, locked: boolean) => void;
   isToday?: boolean;
   minRankDiff?: number;
   ruleset?: "regulamento_1" | "regulamento_2";
+  eligibleGroups?: GroupDB[];
 }
 
 const MatchGroup: React.FC<MatchGroupProps> = ({
@@ -39,6 +40,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
   isToday,
   minRankDiff,
   ruleset,
+  eligibleGroups = [],
 }) => {
   const [isOpen, setIsOpen] = useState(isOpenDefault);
 
@@ -96,6 +98,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
               onAdminToggleSyncLock={onAdminToggleSyncLock}
               minRankDiff={minRankDiff}
               ruleset={ruleset}
+              eligibleGroups={eligibleGroups}
             />
           ))}
         </div>
@@ -116,13 +119,14 @@ interface MatchesPageProps {
   tournamentResults?: any;
   lockDate: string | null;
   onManualSync: () => void;
-  onPredict: (id: string, h: number, a: number) => Promise<void>;
+  onPredict: (id: string, h: number, a: number, targetGroupIds?: string[]) => Promise<void>;
   onAdminSaveMatch: (id: string, status: "started" | "live" | "ended", h: number, a: number) => void;
   onAdminToggleSyncLock?: (matchId: string, locked: boolean) => void;
   onPredictTournament: (predictions: TournamentPredictions) => void;
   onOpenGroupSwitcher?: () => void;
   minRankDiff?: number;
   ruleset?: "regulamento_1" | "regulamento_2";
+  eligibleGroups?: GroupDB[];
 }
 
 const MatchesPage: React.FC<MatchesPageProps> = ({
@@ -143,6 +147,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
   onOpenGroupSwitcher,
   minRankDiff,
   ruleset = "regulamento_1",
+  eligibleGroups = [],
 }) => {
   const [isPastMatchesOpen, setIsPastMatchesOpen] = useState(false);
 
@@ -306,6 +311,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
                     onAdminToggleSyncLock={onAdminToggleSyncLock}
                     minRankDiff={minRankDiff}
                     ruleset={ruleset}
+                    eligibleGroups={eligibleGroups}
                   />
                 ))}
             </div>
@@ -353,6 +359,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
         onAdminToggleSyncLock={onAdminToggleSyncLock}
         minRankDiff={minRankDiff}
         ruleset={ruleset}
+        eligibleGroups={eligibleGroups}
       />
 
       {/* Future Matches */}
@@ -374,6 +381,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
             onAdminToggleSyncLock={onAdminToggleSyncLock}
             minRankDiff={minRankDiff}
             ruleset={ruleset}
+            eligibleGroups={eligibleGroups}
           />
         ))}
     </div>

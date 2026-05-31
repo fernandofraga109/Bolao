@@ -601,7 +601,7 @@ export const useUserSystem = () => {
     localStorage.setItem(`bolao_active_group_${userId}`, groupId);
   };
 
-  const predictMatch = async (matchId: string, home: number, away: number) => {
+  const predictMatch = async (matchId: string, home: number, away: number, targetGroupIds?: string[]) => {
     if (!currentUser) {
       throw new Error("Voce precisa estar logado para salvar palpites.");
     }
@@ -610,14 +610,33 @@ export const useUserSystem = () => {
       throw new Error("Entre em um grupo antes de salvar palpites.");
     }
 
-    await db.upsertPrediction({
-      userId: currentUser.id,
-      groupId: activeGroupId,
-      matchId,
-      homeScore: home,
-      awayScore: away,
-      timestamp: new Date().toISOString(),
-    });
+    const predictionsToSave = [
+      {
+        userId: currentUser.id,
+        groupId: activeGroupId,
+        matchId,
+        homeScore: home,
+        awayScore: away,
+        timestamp: new Date().toISOString(),
+      },
+    ];
+
+    if (targetGroupIds && targetGroupIds.length > 0) {
+      targetGroupIds.forEach((gId) => {
+        if (gId !== activeGroupId) {
+          predictionsToSave.push({
+            userId: currentUser.id,
+            groupId: gId,
+            matchId,
+            homeScore: home,
+            awayScore: away,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      });
+    }
+
+    await db.upsertPrediction(predictionsToSave);
   };
 
   const predictTournament = (data: TournamentPredictions) => {

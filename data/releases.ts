@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.6.0";
+export const CURRENT_VERSION = "1.7.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.7.0",
+    date: "2026-05-31",
+    changes: [
+      "Replicar palpites entre grupos com mesma competição e regulamento",
+      "Botão 'Copiar Palpites' disponível na página de partidas",
+      "Seleção de grupo de destino com validação automática",
+    ],
+  },
   {
     version: "1.6.0",
     date: "2026-05-26",

@@ -135,7 +135,7 @@ interface DatabaseContextType {
   upsertMatch: (match: MatchDB) => Promise<void>;
   updateMatch: (id: string, data: Partial<MatchDB>) => Promise<void>;
 
-  upsertPrediction: (pred: PredictionDB) => Promise<void>;
+  upsertPrediction: (pred: PredictionDB | PredictionDB[]) => Promise<void>;
   upsertTournamentPrediction: (pred: TournamentPredictionDB) => Promise<void>;
   upsertExtraPhasePrediction: (pred: ExtraPhasePredictionDB) => Promise<void>;
 

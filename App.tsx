@@ -144,6 +144,25 @@ const App: React.FC = () => {
     ? getGroupById(resolvedActiveGroupId)
     : undefined;
 
+  const eligibleGroups = useMemo(() => {
+    if (!currentUser || !currentGroup) return [];
+
+    return db.groups.filter((g) => {
+      // O usuário precisa pertencer a esse grupo
+      const isMember = currentUser.groupIds.includes(g.id);
+      // Não pode ser o grupo ativo atual
+      const isNotCurrent = g.id !== currentGroup.id;
+      // Deve ter o mesmo competitionCode (ignoring case)
+      const isSameCompetition =
+        (g.competitionCode || "").toUpperCase() ===
+        (currentGroup.competitionCode || "").toUpperCase();
+      // Deve ter o mesmo regulamento
+      const isSameRuleset = g.ruleset === currentGroup.ruleset;
+
+      return isMember && isNotCurrent && isSameCompetition && isSameRuleset;
+    });
+  }, [currentUser, currentGroup, db.groups]);
+
   const currentGroupTeamIds = useMemo(() => {
     const ids = new Set<string>();
     matches.forEach((match) => {
@@ -527,6 +546,7 @@ const App: React.FC = () => {
             onOpenGroupSwitcher={() => setIsGroupSwitcherOpen(true)}
             minRankDiff={currentGroup?.underdog_min_rank_diff ?? db.systemConfig.underdog_min_rank_diff ?? 10}
             ruleset={currentGroup?.ruleset}
+            eligibleGroups={eligibleGroups}
           />
         )}
 
