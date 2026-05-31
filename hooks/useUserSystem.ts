@@ -295,8 +295,21 @@ export const useUserSystem = () => {
     syncSession();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        console.log("[onAuthStateChange] event:", _event);
+      async (event, session) => {
+        console.log("[onAuthStateChange] event:", event);
+
+        // Se for evento de recovery, garante que a URL tenha o marcador para o hook de recovery
+        if (event === "PASSWORD_RECOVERY") {
+          console.log("[onAuthStateChange] Password recovery detected!");
+          const url = new URL(window.location.href);
+          if (url.searchParams.get("mode") !== "recovery") {
+            url.searchParams.set("mode", "recovery");
+            window.history.replaceState({}, document.title, url.toString());
+            // Disparar um popstate manual para o usePasswordRecovery capturar
+            window.dispatchEvent(new PopStateEvent("popstate"));
+          }
+        }
+
         try {
           const sessionUser = session?.user ?? null;
           if (sessionUser) {
@@ -671,7 +684,7 @@ export const useUserSystem = () => {
       };
     }
 
-    const redirectTo = `${window.location.origin}/?mode=recovery`;
+    const redirectTo = `https://bolao-do-mesa.vercel.app/?mode=recovery`;
     const { error } = await supabase.auth.resetPasswordForEmail(
       normalizedEmail,
       {

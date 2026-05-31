@@ -36,7 +36,11 @@ export const usePasswordRecovery = (currentUser: User | null) => {
         "Hash:",
         window.location.hash,
       );
-      setIsPasswordRecoveryFlow(isRecovery);
+      // Só altera para true, nunca volta para false automaticamente por aqui
+      // para evitar que o Supabase limpando a URL resete o estado.
+      if (isRecovery) {
+        setIsPasswordRecoveryFlow(true);
+      }
     };
 
     checkRecovery();
@@ -66,11 +70,16 @@ export const usePasswordRecovery = (currentUser: User | null) => {
     setIsPasswordRecoveryFlow(false);
   };
 
+  // Removido o auto-finish quando currentUser existe, 
+  // pois o Supabase loga o usuário automaticamente ao clicar no link de recovery,
+  // o que resetava o estado antes de mostrar a tela de nova senha.
+  /*
   useEffect(() => {
     if (currentUser && isPasswordRecoveryFlow) {
       finishPasswordRecoveryFlow();
     }
   }, [currentUser, isPasswordRecoveryFlow]);
+  */
 
   return {
     isPasswordRecoveryFlow,
