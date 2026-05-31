@@ -4,7 +4,6 @@ import {
   MatchStatus,
   Prediction,
   Friend,
-  AIPredictionResult,
 } from "../types";
 import {
   calculatePoints,
@@ -17,7 +16,6 @@ import {
 } from "../utils/scoring";
 import {
   Users,
-  Bot,
   Save,
   Pencil,
   Trophy,
@@ -31,7 +29,6 @@ import {
   Loader2,
   Calendar,
 } from "lucide-react";
-import { getAIPrediction } from "../services/geminiService";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
 
 interface MatchCardProps {
@@ -78,11 +75,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     Boolean(userPrediction),
   );
 
-  const [isPredictingAI, setIsPredictingAI] = useState(false);
-  const [aiPrediction, setAiPrediction] = useState<AIPredictionResult | null>(
-    null,
-  );
-
   // Initialize inputs
   useEffect(() => {
     if (isAdmin) {
@@ -125,14 +117,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         setIsSavingPrediction(false);
       }
     }
-  };
-
-  const handleAIPredict = async () => {
-    setIsPredictingAI(true);
-    setAiPrediction(null);
-    const result = await getAIPrediction(match.homeTeam.name, match.awayTeam.name);
-    setAiPrediction(result);
-    setIsPredictingAI(false);
   };
 
   const handleAdminSave = () => {
@@ -415,15 +399,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           {/* Row 1: icon buttons + (non-admin) action */}
           <div className="flex items-center justify-between">
             <div className="flex gap-2">
-              {!isPredictionDisabled && (
-                <button
-                  onClick={handleAIPredict}
-                  disabled={isPredictingAI}
-                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition-all"
-                >
-                  {isPredictingAI ? <Loader2 size={20} className="animate-spin" /> : <Bot size={20} />}
-                </button>
-              )}
               <button
                 onClick={() => setShowFriends(!showFriends)}
                 className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all ${showFriends ? "bg-slate-700 border-slate-600 text-white" : "bg-slate-800 border-slate-700 text-slate-500 hover:text-white"}`}
