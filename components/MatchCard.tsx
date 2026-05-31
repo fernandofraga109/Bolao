@@ -419,7 +419,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 <Users size={20} />
               </button>
 
-              {eligibleGroups.length > 0 && (
+              {eligibleGroups.length > 0 && !isPredictionDisabled && (
                 <button
                   onClick={() => {
                     if (homeInput !== "" && awayInput !== "") {
@@ -429,7 +429,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                       setTimeout(() => setPredictionError(null), 3000);
                     }
                   }}
-                  disabled={isSavingPrediction || isPredictionDisabled}
+                  disabled={isSavingPrediction}
                   title="Sincronizar este palpite com outros grupos"
                   className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800 border border-slate-700 text-indigo-400 hover:bg-indigo-500/10 hover:border-indigo-500/40 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 shrink-0 animate-fadeIn"
                 >
