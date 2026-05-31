@@ -91,6 +91,15 @@ const AdminSpecialsOverrides: React.FC<AdminSpecialsOverridesProps> = ({
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [selectedCompetitionCode, db.teams, db.teamStandings, db.matches]);
 
+  const normalizeGroupName = (groupName: string) => {
+    if (!groupName) return "";
+    const m = /^(?:Group|GROUP)[_\s]+([A-Z])$/i.exec(groupName.trim());
+    if (!m) return groupName;
+    return `Grupo ${m[1]}`;
+  };
+
+  const KNOCKOUT_STAGE_PATTERNS = /^(LAST_16|LAST_32|ROUND_OF_16|ROUND_OF_32|QUARTER_FINAL|SEMI_FINAL|FINAL|THIRD_PLACE|PLAY_OFF)/i;
+
   // Groups derived from standings
   const groupNames = useMemo(() => {
     if (!selectedCompetitionCode) return [];
@@ -99,10 +108,15 @@ const AdminSpecialsOverrides: React.FC<AdminSpecialsOverridesProps> = ({
       if (
         ts.competitionCode?.toUpperCase() ===
           selectedCompetitionCode.toUpperCase() &&
-        ts.group &&
-        ts.group.startsWith("Grupo")
+        ts.group
       ) {
-        groups.add(ts.group);
+        const normalized = normalizeGroupName(ts.group);
+        if (
+          normalized.startsWith("Grupo") &&
+          !KNOCKOUT_STAGE_PATTERNS.test(normalized.replace(/\s+/g, "_"))
+        ) {
+          groups.add(normalized);
+        }
       }
     });
     // Fallback to matches
@@ -111,10 +125,15 @@ const AdminSpecialsOverrides: React.FC<AdminSpecialsOverridesProps> = ({
         if (
           m.competitionCode?.toUpperCase() ===
             selectedCompetitionCode.toUpperCase() &&
-          m.group &&
-          m.group.startsWith("Grupo")
+          m.group
         ) {
-          groups.add(m.group);
+          const normalized = normalizeGroupName(m.group);
+          if (
+            normalized.startsWith("Grupo") &&
+            !KNOCKOUT_STAGE_PATTERNS.test(normalized.replace(/\s+/g, "_"))
+          ) {
+            groups.add(normalized);
+          }
         }
       });
     }
@@ -130,7 +149,8 @@ const AdminSpecialsOverrides: React.FC<AdminSpecialsOverridesProps> = ({
         if (
           ts.competitionCode?.toUpperCase() ===
             selectedCompetitionCode?.toUpperCase() &&
-          ts.group === g
+          ts.group &&
+          normalizeGroupName(ts.group) === g
         ) {
           teamIds.add(ts.teamId);
         }
@@ -141,7 +161,8 @@ const AdminSpecialsOverrides: React.FC<AdminSpecialsOverridesProps> = ({
           if (
             m.competitionCode?.toUpperCase() ===
               selectedCompetitionCode?.toUpperCase() &&
-            m.group === g
+            m.group &&
+            normalizeGroupName(m.group) === g
           ) {
             teamIds.add(m.homeTeamId);
             teamIds.add(m.awayTeamId);
