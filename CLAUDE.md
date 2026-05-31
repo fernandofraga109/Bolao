@@ -2,85 +2,46 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Commands
+## 📚 Documentação Modular
 
-```bash
-npm run dev        # Start dev server on port 3000
-npm run build      # Production build
-npm run preview    # Preview production build
-npm run test       # Run Vitest (single run)
-npm run test:watch # Run Vitest in watch mode
-npm run test:ui    # Open Vitest UI
-npm run lint       # ESLint check
-npm run format     # Prettier format
-```
+Para reduzir consumo de tokens, a documentação foi dividida em arquivos focados por domínio em `docs/`.
 
-## Architecture
+**Ao iniciar uma tarefa, carregue apenas os arquivos relevantes:**
 
-**Bolão Copa 2026** is a React SPA for World Cup prediction pools. Users join groups, predict match outcomes, earn points, and compete on leaderboards.
+- `docs/README.md` - Índice completo da documentação
+- `docs/architecture/` - Arquitetura do sistema
+- `docs/conventions/` - Padrões de código e commits
+- `docs/database/` - Schema, migrations e RLS
+- `docs/features/` - Features específicas (auth, sync, scoring, leaderboard)
+- `docs/setup/` - Setup, environment e deployment
 
-### State Management
+**Exemplos de carregamento por tarefa:**
+- Trabalhando em auth: `docs/conventions/coding-standards.md` + `docs/features/auth.md`
+- Trabalhando em sync: `docs/features/sync-system.md` + `docs/architecture/integrations.md`
+- Trabalhando em UI: `docs/conventions/coding-standards.md` + `docs/architecture/state-management.md`
 
-All runtime state lives in `contexts/DatabaseContext.tsx`, which composes several custom hooks:
+## ⚡ Quick Reference
 
-- `useUserSystem` — auth, user profiles, group membership
-- `useMatchSystem` — match data, predictions, scoring
-- `useGroupSystem` — group creation/joining
-- `useLeaderboard` — ranking calculations
-- `useSyncSystem` + `useBackgroundSync` — background data sync with Supabase and external APIs
-- `usePointsProcessor` — points calculation from match results
-- `usePasswordRecovery` — password reset flow
+### Stack
+- React 19 + TypeScript + Vite + TailwindCSS
+- Supabase (PostgreSQL + Auth + Realtime)
+- Football Data API (proxied via Vite)
+- Google Gemini AI
 
-`App.tsx` is the root orchestrator — it consumes `DatabaseContext` and renders pages.
+### Estrutura Principal
+- `contexts/DatabaseContext.tsx` - Raiz de estado (compõe hooks)
+- `hooks/` - Lógica de negócio (um hook por domínio)
+- `components/pages/` - Views completas
+- `components/ui/` - Primitivos reutilizáveis
+- `services/` - Clientes externos (supabase, gemini, liveScore)
+- `api/` - Wrappers de fetch
+- `database/migrations/` - Migrations Supabase numeradas
 
-### Data Flow
-
-1. `data/initialData.ts` seeds the in-memory state on startup
-2. Supabase fetches hydrate state on auth
-3. `useSyncSystem` polls Football Data API and writes results back to Supabase
-4. Supabase Realtime pushes updates to connected clients
-
-### External Integrations
-
-- **Supabase** — PostgreSQL + Auth + Realtime. Client in `services/supabase.ts`
-- **Football Data API** — match/standings data, proxied via Vite to avoid CORS. See `.claude/memory/features/sync-system.md`
-- **Google Gemini** — AI match predictions via `services/geminiService.ts` and `api/gemini-prediction.ts`
-- **Google Sign-In** — loaded via CDN in `index.html`
-
-### Key Directories
-
-```
-hooks/             — all business logic; one hook per concern
-contexts/          — React contexts; DatabaseContext.tsx is the sole runtime state root
-components/
-  pages/           — full-page views (one per route)
-  ui/              — reusable, stateless UI primitives
-  (root)           — shared layout components (Header, BottomNav, AdminDashboard, etc.)
-services/          — external client setup (supabase.ts, geminiService.ts, liveScoreService.ts)
-api/               — thin fetch wrappers (Football Data API, Gemini, Supabase auth)
-database/
-  migrations/      — numbered Supabase migrations (0001–0004, apply in order)
-  rls/             — current RLS policies
-  seed/            — seed SQL
-  _archive/        — legacy files; do not use
-data/              — static tournament data (teams, matches, stadiums, competitions)
-utils/             — pure utility functions (scoring logic)
-src/test/          — Vitest setup and mocks
-types.ts           — all shared TypeScript interfaces
-constants.ts       — app-wide constants and initial state
-```
-
-### Known Constraints
-
-- **Sync limitation:** `useSyncSystem` uses `setInterval` and only runs while the admin tab is open. Planned fix: Supabase Edge Functions + `pg_cron`. Do not design new features around this — treat it as acknowledged debt.
-- **Schema isolation:** Supabase schema is configurable via `VITE_SUPABASE_SCHEMA`. Use `dev` for development to avoid touching prod data.
-- **CORS:** Football Data API must be called through the Vite proxy — never directly from the frontend.
-- **TLA uniqueness:** `teams.code` (TLA) is not globally unique. Always upsert teams by `externalTeamId`, never by `code`.
-- **FK ordering:** `matches.competitionCode` FK is DEFERRABLE — sync upserts competition + matches in the same flow.
-
-## Environment Variables
-
-See `.env.example` for required variables (Supabase URL/key, Football Data API key, Gemini API key).
+### Constraints Críticos
+- **Sync:** Só roda com aba admin aberta (debt conhecido)
+- **CORS:** Football Data API via proxy Vite, nunca direto
+- **Teams:** `teams.code` não é único — usar `externalTeamId`
+- **Schema:** Usar `VITE_SUPABASE_SCHEMA=dev` para desenvolvimento
 
 ---
 
