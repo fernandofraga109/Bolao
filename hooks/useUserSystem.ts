@@ -734,9 +734,10 @@ export const useUserSystem = () => {
     };
   };
 
-  const updateAvatar = async (newAvatarUrl: string) => {
+  const updateProfile = async (newName: string, newAvatarUrl: string) => {
     if (!currentUser) return { success: false, message: "Usuário não autenticado." };
-    await db.updateUser(currentUser.id, { avatar: newAvatarUrl });
+    if (!newName.trim()) return { success: false, message: "O nome não pode ser vazio." };
+    await db.updateUser(currentUser.id, { name: newName.trim(), avatar: newAvatarUrl });
     return { success: true };
   };
 
@@ -785,7 +786,7 @@ export const useUserSystem = () => {
     predictTournament,
     requestPasswordReset,
     updatePassword,
-    updateAvatar,
+    updateProfile,
     adminActions: {
       inviteUser,
       updateUserRole,

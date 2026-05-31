@@ -57,7 +57,7 @@ const App: React.FC = () => {
     predictTournament,
     requestPasswordReset,
     updatePassword,
-    updateAvatar,
+    updateProfile,
     adminActions,
   } = useUserSystem();
 
@@ -413,7 +413,7 @@ const App: React.FC = () => {
       <Header
         currentUser={currentUser}
         onLogout={logout}
-        onUpdateAvatar={updateAvatar}
+        onUpdateProfile={updateProfile}
         userPoints={currentUserPoints}
         userRank={currentUserRank}
         syncInfo={syncStatusByCompetition[activeCompetitionCode]}

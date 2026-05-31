@@ -14,7 +14,7 @@ interface SyncInfo {
 interface HeaderProps {
   currentUser: User;
   onLogout: () => void;
-  onUpdateAvatar?: (url: string) => Promise<{ success: boolean; message?: string }>;
+  onUpdateProfile?: (name: string, url: string) => Promise<{ success: boolean; message?: string }>;
   userPoints?: number;
   userRank?: number;
   syncInfo?: SyncInfo;
@@ -35,16 +35,18 @@ const formatRelative = (iso?: string): string => {
 const Header: React.FC<HeaderProps> = ({
   currentUser,
   onLogout,
-  onUpdateAvatar,
+  onUpdateProfile,
   userPoints = 0,
   userRank = 0,
   syncInfo,
   competitionLastSync,
 }) => {
   const [isAvatarModalOpen, setIsAvatarModalOpen] = React.useState(false);
+  const [newName, setNewName] = React.useState(currentUser.name || "");
   const [newAvatarUrl, setNewAvatarUrl] = React.useState(currentUser.avatar || "");
-  const [isUpdatingAvatar, setIsUpdatingAvatar] = React.useState(false);
+  const [isUpdatingProfile, setIsUpdatingProfile] = React.useState(false);
   const [isFetchingGravatar, setIsFetchingGravatar] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState("");
 
   // SHA-256 hash for Gravatar support
   const getGravatarHash = async (email: string) => {
@@ -52,6 +54,16 @@ const Header: React.FC<HeaderProps> = ({
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setNewName(val);
+    
+    // Se o avatar atual for vazio ou usar ui-avatars.com, regenera automaticamente com o novo nome
+    if (!newAvatarUrl || newAvatarUrl.includes("ui-avatars.com/api/")) {
+      setNewAvatarUrl(`https://ui-avatars.com/api/?name=${encodeURIComponent(val)}&background=random`);
+    }
   };
 
   const handleUseGravatar = async () => {
@@ -68,12 +80,27 @@ const Header: React.FC<HeaderProps> = ({
     }
   };
 
-  const handleSaveAvatar = async () => {
-    if (!onUpdateAvatar || !newAvatarUrl) return;
-    setIsUpdatingAvatar(true);
-    await onUpdateAvatar(newAvatarUrl);
-    setIsUpdatingAvatar(false);
-    setIsAvatarModalOpen(false);
+  const handleSaveProfile = async () => {
+    if (!onUpdateProfile) return;
+    const trimmedName = newName.trim();
+    if (!trimmedName) {
+      setErrorMessage("O nome não pode ser vazio.");
+      return;
+    }
+    setIsUpdatingProfile(true);
+    setErrorMessage("");
+    try {
+      const res = await onUpdateProfile(trimmedName, newAvatarUrl.trim());
+      if (res.success) {
+        setIsAvatarModalOpen(false);
+      } else {
+        setErrorMessage(res.message || "Erro ao atualizar perfil.");
+      }
+    } catch (e: any) {
+      setErrorMessage(e.message || "Erro ao atualizar perfil.");
+    } finally {
+      setIsUpdatingProfile(false);
+    }
   };
   
   return (
@@ -126,7 +153,12 @@ const Header: React.FC<HeaderProps> = ({
               </div>
               
               <button 
-                onClick={() => { setNewAvatarUrl(currentUser.avatar || ""); setIsAvatarModalOpen(true); }}
+                onClick={() => { 
+                  setNewName(currentUser.name || "");
+                  setNewAvatarUrl(currentUser.avatar || ""); 
+                  setErrorMessage("");
+                  setIsAvatarModalOpen(true); 
+                }}
                 className="relative group focus:outline-none"
               >
                 <AvatarWithFallback
@@ -155,7 +187,7 @@ const Header: React.FC<HeaderProps> = ({
       {isAvatarModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm px-4 animate-fadeIn">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 w-full max-w-sm shadow-2xl">
-            <h2 className="text-2xl font-black mb-6 text-white tracking-tight">FOTO DE PERFIL</h2>
+            <h2 className="text-2xl font-black mb-6 text-white tracking-tight">EDITAR PERFIL</h2>
 
             {currentUser.role !== "ADMIN" && (
               <div className="flex items-center justify-center gap-8 mb-6 pb-6 border-b border-slate-800">
@@ -174,6 +206,12 @@ const Header: React.FC<HeaderProps> = ({
               </div>
             )}
 
+            {errorMessage && (
+              <div className="mb-4 p-3 bg-red-950/50 border border-red-900/50 rounded-xl text-xs text-red-400 font-bold text-center">
+                {errorMessage}
+              </div>
+            )}
+
             <div className="mb-8 flex justify-center">
                <div className="relative">
                   <div className="absolute inset-0 rounded-full bg-brand-green/20 blur-xl animate-pulse"></div>
@@ -186,6 +224,19 @@ const Header: React.FC<HeaderProps> = ({
                   />
                </div>
             </div>
+
+            <div className="mb-5">
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Nome</label>
+              <input
+                type="text"
+                value={newName}
+                onChange={handleNameChange}
+                disabled={isUpdatingProfile}
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-green transition-all disabled:opacity-50"
+                placeholder="Seu nome"
+              />
+            </div>
+
             <div className="mb-8">
               <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">URL da Imagem</label>
               <div className="flex gap-2">
@@ -193,7 +244,8 @@ const Header: React.FC<HeaderProps> = ({
                   type="text"
                   value={newAvatarUrl}
                   onChange={(e) => setNewAvatarUrl(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-green transition-all"
+                  disabled={isUpdatingProfile}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-green transition-all disabled:opacity-50"
                   placeholder="https://..."
                 />
               </div>
@@ -203,27 +255,28 @@ const Header: React.FC<HeaderProps> = ({
                 </p>
                 <button
                   onClick={handleUseGravatar}
-                  disabled={isFetchingGravatar}
-                  className="text-[10px] font-black text-brand-blue uppercase tracking-widest hover:text-blue-400 transition-colors"
+                  disabled={isFetchingGravatar || isUpdatingProfile}
+                  className="text-[10px] font-black text-brand-blue uppercase tracking-widest hover:text-blue-400 transition-colors disabled:opacity-50"
                 >
                   {isFetchingGravatar ? "Buscando..." : "Usar Gravatar"}
                 </button>
               </div>
             </div>
+
             <div className="flex gap-4">
               <button
                 onClick={() => setIsAvatarModalOpen(false)}
                 className="flex-1 py-3 rounded-2xl font-black text-xs uppercase tracking-widest bg-slate-800 text-slate-400 hover:bg-slate-700 transition-all"
-                disabled={isUpdatingAvatar}
+                disabled={isUpdatingProfile}
               >
                 Cancelar
               </button>
               <button
-                onClick={() => void handleSaveAvatar()}
-                disabled={isUpdatingAvatar || !newAvatarUrl}
+                onClick={() => void handleSaveProfile()}
+                disabled={isUpdatingProfile || !newName.trim() || !newAvatarUrl}
                 className="flex-1 py-3 rounded-2xl font-black text-xs uppercase tracking-widest bg-brand-green text-brand-dark hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
               >
-                {isUpdatingAvatar ? "Salvando..." : "Confirmar"}
+                {isUpdatingProfile ? "Salvando..." : "Confirmar"}
               </button>
             </div>
 

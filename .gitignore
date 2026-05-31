@@ -32,3 +32,7 @@ dist-ssr
 .claude/cache/
 .claude/history/
 .claude/tmp/
+
+# Test files
+*-response.json
+test-*.js
