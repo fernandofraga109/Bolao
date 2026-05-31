@@ -1,7 +1,13 @@
 export enum MatchStatus {
   SCHEDULED = "SCHEDULED",
+  TIMED = "TIMED",
   LIVE = "LIVE",
+  IN_PLAY = "IN_PLAY",
+  PAUSED = "PAUSED",
   FINISHED = "FINISHED",
+  POSTPONED = "POSTPONED",
+  SUSPENDED = "SUSPENDED",
+  CANCELLED = "CANCELLED",
 }
 
 // --- DATABASE SCHEMAS (Normalized Data) ---

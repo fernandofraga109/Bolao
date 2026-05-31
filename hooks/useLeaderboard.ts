@@ -55,13 +55,15 @@ export const useLeaderboard = (
         let total = 0;
         groupMatches.forEach((match) => {
           const pred = user.predictions[match.id];
-          if (
-            (match.status === MatchStatus.FINISHED || match.status === MatchStatus.LIVE) &&
-            match.result &&
-            pred
-          ) {
-            // Priority: Persisted points in DB
-            if (typeof pred.points === "number") {
+          const isLive = match.status === MatchStatus.LIVE || 
+                         match.status === MatchStatus.IN_PLAY || 
+                         match.status === MatchStatus.PAUSED;
+          const isFinished = match.status === MatchStatus.FINISHED;
+
+          if ((isFinished || isLive) && match.result && pred) {
+            // Priority: Persisted points in DB (only for finished matches)
+            // For live matches, we ALWAYS calculate in runtime to reflect score changes
+            if (isFinished && typeof pred.points === "number") {
               total += pred.points;
             } else {
               // Fallback: On-the-fly calculation if not yet synced to DB
@@ -133,16 +135,6 @@ export const useLeaderboard = (
   const leaderboardSections = useMemo(() => {
     if (!currentUser) return [];
 
-    const groupPointsMap = new Map<string, number>();
-    db.userGroups.forEach((relation) => {
-      if (typeof relation.points === "number") {
-        groupPointsMap.set(
-          `${relation.userId}:${relation.groupId}`,
-          relation.points,
-        );
-      }
-    });
-
     const groupNameMap = new Map<string, string>();
     const groupCompetitionMap = new Map<string, string>();
     groups.forEach((group) => {
@@ -158,15 +150,8 @@ export const useLeaderboard = (
         const groupUsers = usersWithCalculatedPoints
           .filter((u) => u.groupIds.includes(groupId))
           .map((user) => {
-            const key = `${user.id}:${groupId}`;
-            const groupPoints = groupPointsMap.get(key);
-
             return {
               ...user,
-              totalPoints:
-                typeof groupPoints === "number"
-                  ? groupPoints
-                  : user.totalPoints,
               predictionsCount: db.predictions.filter(
                 (p) => p.userId === user.id && p.groupId === groupId,
               ).length,

@@ -97,6 +97,14 @@ const App: React.FC = () => {
   // --- Toast de sincronização ---
   const { toasts, dismiss, showSyncing, showResult, showWarning } = useSyncToast();
 
+  const handleSetActiveTab = (tab: Tab) => {
+    if (tab === "leaderboard") {
+      db.refetchUserGroups();
+      db.refetchPredictions();
+    }
+    setActiveTab(tab);
+  };
+
   const handleBgSyncStart = useCallback((code: string) => {
     const name = db.competitions.find(c => c.code.toUpperCase() === code)?.name;
     showSyncing(code, name);
@@ -205,7 +213,12 @@ const App: React.FC = () => {
   };
 
   const handleRefreshData = async () => {
-    await Promise.all([db.refetchMatches(), db.refetchPredictions(), db.refetchTeamStandings()]);
+    await Promise.all([
+      db.refetchMatches(), 
+      db.refetchPredictions(), 
+      db.refetchTeamStandings(),
+      db.refetchUserGroups()
+    ]);
   };
 
   const handleManualMatchesSync = async () => {
@@ -301,7 +314,7 @@ const App: React.FC = () => {
         onLogin={(user) => {
           finishPasswordRecoveryFlow();
           login(user);
-          setActiveTab(user.role === "ADMIN" ? "admin" : "matches");
+          handleSetActiveTab(user.role === "ADMIN" ? "admin" : "matches");
         }}
         onRegister={(name, email, pass, code) =>
           register(name, email, pass, code, groups)
@@ -630,7 +643,7 @@ const App: React.FC = () => {
 
       <BottomNav
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleSetActiveTab}
         userRole={currentUser.role}
         ruleset={currentGroup?.ruleset}
       />

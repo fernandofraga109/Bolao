@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.7.0";
+export const CURRENT_VERSION = "1.8.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.8.0",
+    date: "2026-05-31",
+    changes: [
+      "Pontuação ao vivo atualizada em tempo real no leaderboard",
+      "Leaderboard recarrega dados automaticamente ao abrir a aba",
+      "Simplificação de políticas RLS para melhor performance",
+    ],
+  },
   {
     version: "1.7.0",
     date: "2026-05-31",

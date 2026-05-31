@@ -189,13 +189,14 @@ CREATE POLICY "v2_matches_delete_admin" ON public.v2_matches
     FOR DELETE TO authenticated USING (is_admin());
 
 -- ---- v2_predictions ----
--- Leitura por autenticados, insert/delete pelo próprio ou admin,
--- UPDATE amplo (sync passivo atualiza pontos de todos)
+-- Leitura por autenticados, insert aberto (usePointsProcessor precisa atualizar pontos
+-- de todos os membros do grupo via upsert — INSERT ON CONFLICT avalia a política INSERT
+-- mesmo quando a linha já existe), delete pelo próprio ou admin
 CREATE POLICY "v2_predictions_select" ON public.v2_predictions
     FOR SELECT TO authenticated USING (true);
 CREATE POLICY "v2_predictions_insert" ON public.v2_predictions
     FOR INSERT TO authenticated
-    WITH CHECK (is_admin() OR auth.uid() = "userId");
+    WITH CHECK (true);
 CREATE POLICY "v2_predictions_update" ON public.v2_predictions
     FOR UPDATE TO authenticated
     USING (true) WITH CHECK (true);

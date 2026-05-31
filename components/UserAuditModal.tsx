@@ -58,6 +58,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
   useEffect(() => {
     db.refetchMatches();
     db.refetchPredictions();
+    db.refetchUserGroups();
   }, []);
 
   // Use the group the viewer is looking at (from the leaderboard section), not user.activeGroupId
