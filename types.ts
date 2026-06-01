@@ -132,7 +132,7 @@ export interface UserDB {
   email: string;
   password?: string;
   avatar: string;
-  role: "ADMIN" | "USER" | "DEACTIVATED";
+  role: "ADMIN" | "USER";
   status: "ACTIVE" | "INVITED";
   activeGroupId?: string; // Persists user preference
   totalPoints: number; // Cache for performance, or calculated on fly
