@@ -51,7 +51,7 @@ interface AdminDashboardProps {
   groups: Group[];
   currentUser: User;
   onInvite: (email: string) => void;
-  onUpdateRole: (userId: string, newRole: "ADMIN" | "USER") => void;
+  onUpdateRole: (userId: string, newRole: "ADMIN" | "USER" | "DEACTIVATED") => void;
   onRemoveUser: (userId: string) => void;
   onCreateGroup: (name: string, competitionCode: string, ruleset?: "regulamento_1" | "regulamento_2") => void;
   onDeleteGroup: (id: string) => Promise<void>;
@@ -68,6 +68,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   users,
   groups,
   currentUser,
+  onUpdateRole,
   onRemoveUser,
   onCreateGroup,
   onDeleteGroup,
@@ -344,6 +345,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       alert("Erro ao remover membro");
     } finally {
       setIsRemovingMember(false);
+    }
+  };
+
+  const handleToggleActivation = (e: React.MouseEvent, user: User) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const isDeactivated = user.role === "DEACTIVATED";
+    const confirmMsg = isDeactivated
+      ? `Reativar ${user.name}? Ele poderá fazer login novamente.`
+      : `Desativar ${user.name}? Ele não conseguirá mais fazer login, mas seus dados serão mantidos.`;
+    if (window.confirm(confirmMsg)) {
+      onUpdateRole(user.id, isDeactivated ? "USER" : "DEACTIVATED");
     }
   };
 
@@ -1440,18 +1453,36 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     subtitleClassName="text-[10px] text-slate-400"
                   />
                 </div>
-                <button
-                  onClick={(e) => handleRemoveUserSystem(e, user)}
-                  disabled={deletingUserId === user.id}
-                  className={`p-2 transition-colors ${deletingUserId === user.id ? "text-red-300" : "text-slate-600 hover:text-red-400"}`}
-                  title="Excluir do Sistema"
-                >
-                  {deletingUserId === user.id ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Trash2 size={16} />
+                <div className="flex items-center gap-1">
+                  {user.role === "DEACTIVATED" && (
+                    <span className="text-[9px] font-black uppercase tracking-widest text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full mr-1">
+                      Desativado
+                    </span>
                   )}
-                </button>
+                  <button
+                    onClick={(e) => handleToggleActivation(e, user)}
+                    className={`p-2 transition-colors ${user.role === "DEACTIVATED" ? "text-slate-600 hover:text-brand-green" : "text-slate-600 hover:text-amber-400"}`}
+                    title={user.role === "DEACTIVATED" ? "Reativar usuário" : "Desativar usuário"}
+                  >
+                    {user.role === "DEACTIVATED" ? (
+                      <UserPlus size={16} />
+                    ) : (
+                      <UserMinus size={16} />
+                    )}
+                  </button>
+                  <button
+                    onClick={(e) => handleRemoveUserSystem(e, user)}
+                    disabled={deletingUserId === user.id}
+                    className={`p-2 transition-colors ${deletingUserId === user.id ? "text-red-300" : "text-slate-600 hover:text-red-400"}`}
+                    title="Excluir do Sistema"
+                  >
+                    {deletingUserId === user.id ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Trash2 size={16} />
+                    )}
+                  </button>
+                </div>
               </div>
             ))}
           {users.filter((u) => u.role !== "ADMIN").length === 0 && (

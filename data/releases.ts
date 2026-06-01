@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.13.0";
+export const CURRENT_VERSION = "1.14.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.14.0",
+    date: "2026-06-01",
+    changes: [
+      "Verificação de conta desativada no login e registro",
+      "Usuários desativados são desconectados automaticamente",
+      "Melhorias no painel administrativo",
+    ],
+  },
   {
     version: "1.13.0",
     date: "2026-06-01",

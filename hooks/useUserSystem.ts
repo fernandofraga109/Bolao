@@ -3,6 +3,8 @@ import { User, UserRole, TournamentPredictions, Group } from "../types";
 import { useDatabase } from "../contexts/DatabaseContext";
 import { supabase, isSupabaseEnabled } from "../services/supabase";
 
+const DEACTIVATED_MESSAGE = "Esta conta foi desativada. Entre em contato com o administrador.";
+
 export const useUserSystem = () => {
   const db = useDatabase();
   const dbRef = useRef(db);
@@ -245,6 +247,25 @@ export const useUserSystem = () => {
     [],
   );
 
+  // Busca a role diretamente do banco (fonte da verdade), sem depender da
+  // hidratação de db.users — que pode estar vazia no load inicial.
+  const fetchRoleFromDb = useCallback(
+    async (userId: string): Promise<string | null> => {
+      if (!isSupabaseEnabled() || !supabase) return null;
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("userId", userId)
+        .maybeSingle();
+      if (error) {
+        console.error("[fetchRoleFromDb] error:", error);
+        return null;
+      }
+      return (data as { role?: string } | null)?.role ?? null;
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!isSupabaseEnabled() || !supabase) {
       setAuthReady(true);
@@ -269,6 +290,12 @@ export const useUserSystem = () => {
 
         const sessionUser = data.session?.user ?? null;
         if (sessionUser) {
+          if ((await fetchRoleFromDb(sessionUser.id)) === "DEACTIVATED") {
+            await supabase.auth.signOut();
+            setCurrentUserId(null);
+            localStorage.removeItem("bolao_current_user_id");
+            return;
+          }
           await ensureProfileForAuthUser(
             sessionUser.id,
             sessionUser.email ?? "",
@@ -313,6 +340,12 @@ export const useUserSystem = () => {
         try {
           const sessionUser = session?.user ?? null;
           if (sessionUser) {
+            if ((await fetchRoleFromDb(sessionUser.id)) === "DEACTIVATED") {
+              await supabase.auth.signOut();
+              setCurrentUserId(null);
+              localStorage.removeItem("bolao_current_user_id");
+              return;
+            }
             await ensureProfileForAuthUser(
               sessionUser.id,
               sessionUser.email ?? "",
@@ -339,7 +372,7 @@ export const useUserSystem = () => {
       clearTimeout(fallbackTimer);
       listener.subscription.unsubscribe();
     };
-  }, [ensureProfileForAuthUser, resumePendingGroupJoin]);
+  }, [ensureProfileForAuthUser, resumePendingGroupJoin, fetchRoleFromDb]);
 
   // --- ACTIONS ---
 
@@ -360,11 +393,17 @@ export const useUserSystem = () => {
       if (!authUser)
         return { success: false, message: "Não foi possível autenticar." };
 
+      if ((await fetchRoleFromDb(authUser.id)) === "DEACTIVATED") {
+        await supabase.auth.signOut();
+        return { success: false, message: DEACTIVATED_MESSAGE };
+      }
+
       const profile = await ensureProfileForAuthUser(
         authUser.id,
         authUser.email ?? email,
         authUser.user_metadata ?? {},
       );
+
       const hydratedUser: User = {
         ...profile,
         groupIds:
@@ -385,6 +424,8 @@ export const useUserSystem = () => {
     if (!user) return { success: false, message: "Usuário não encontrado." };
     if (user.password !== password)
       return { success: false, message: "Senha incorreta." };
+    if (user.role === "DEACTIVATED")
+      return { success: false, message: DEACTIVATED_MESSAGE };
     login(user);
     return { success: true, user };
   };
