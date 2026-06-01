@@ -887,7 +887,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
           .from("user_roles")
           .select("role, displayName, avatar, email")
           .eq("userId", user.id)
-          .single();
+          .maybeSingle();
 
         if (existingRole) {
           // Row already exists in DB. Hydrate local state with the persisted
