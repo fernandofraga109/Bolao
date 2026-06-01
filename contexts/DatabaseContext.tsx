@@ -916,7 +916,9 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   };
   const updateUser = async (id: string, data: Partial<UserDB>) => {
     setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...data } : u)));
-    if (isSupabaseEnabled() && supabase) {
+    const enabled = isSupabaseEnabled();
+    console.log("[updateUser] called for id:", id, "data:", data, "supabaseEnabled:", enabled);
+    if (enabled && supabase) {
       const payload: Record<string, any> = {};
       if ("name" in data && data.name !== undefined)
         payload.displayName = data.name;
@@ -927,8 +929,22 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       if ("role" in data && data.role !== undefined) payload.role = data.role;
 
       if (Object.keys(payload).length > 0) {
-        await supabase.from("user_roles").update(payload).eq("userId", id);
+        const prefix = import.meta.env.VITE_DB_TABLE_PREFIX || "";
+        const tableName = prefix ? `${prefix}user_roles` : "user_roles";
+        console.log("[updateUser] Sending to Supabase | table:", tableName, "| schema:", import.meta.env.VITE_SUPABASE_SCHEMA || "public", "| payload:", payload);
+        const result = await supabase.from("user_roles").update(payload).eq("userId", id).select();
+        console.log("[updateUser] Supabase result:", result);
+        if (result.error) {
+          console.error("[updateUser] Supabase error:", result.error.message, "payload:", payload);
+          throw new Error(result.error.message);
+        }
+        if (!result.data || result.data.length === 0) {
+          console.warn("[updateUser] Supabase returned 0 rows updated. The userId may not exist in the remote table, or the row is in a different schema/table.");
+          throw new Error("Usuário não encontrado no servidor para atualização.");
+        }
       }
+    } else {
+      console.warn("[updateUser] Supabase NOT enabled — only local state was updated.");
     }
   };
 

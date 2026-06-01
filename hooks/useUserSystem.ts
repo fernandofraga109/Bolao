@@ -737,8 +737,13 @@ export const useUserSystem = () => {
   const updateProfile = async (newName: string, newAvatarUrl: string) => {
     if (!currentUser) return { success: false, message: "Usuário não autenticado." };
     if (!newName.trim()) return { success: false, message: "O nome não pode ser vazio." };
-    await db.updateUser(currentUser.id, { name: newName.trim(), avatar: newAvatarUrl });
-    return { success: true };
+    try {
+      await db.updateUser(currentUser.id, { name: newName.trim(), avatar: newAvatarUrl });
+      return { success: true };
+    } catch (e: any) {
+      console.error("[updateProfile] Falha ao salvar perfil:", e);
+      return { success: false, message: e.message || "Erro ao salvar no servidor. Tente novamente." };
+    }
   };
 
   // --- Admin Actions ---
