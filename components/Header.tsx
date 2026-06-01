@@ -2,6 +2,7 @@ import React from "react";
 import { User } from "../types";
 import { Trophy, Shield, Star, RefreshCw, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
+import AvatarPicker from "./ui/AvatarPicker";
 
 interface SyncInfo {
   lastSuccessAt?: string;
@@ -56,13 +57,18 @@ const Header: React.FC<HeaderProps> = ({
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   };
 
+  const isGeneratedAvatar = (url: string) =>
+    url.includes("ui-avatars.com/api/") || url.includes("api.dicebear.com");
+
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setNewName(val);
-    
-    // Se o avatar atual for vazio ou usar ui-avatars.com, regenera automaticamente com o novo nome
-    if (!newAvatarUrl || newAvatarUrl.includes("ui-avatars.com/api/")) {
-      setNewAvatarUrl(`https://ui-avatars.com/api/?name=${encodeURIComponent(val)}&background=random`);
+
+    // Se o avatar atual for gerado automaticamente, regenera com o novo nome
+    if (!newAvatarUrl || isGeneratedAvatar(newAvatarUrl)) {
+      setNewAvatarUrl(
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(val)}&background=random&color=fff&size=128`
+      );
     }
   };
 
@@ -234,6 +240,14 @@ const Header: React.FC<HeaderProps> = ({
                 disabled={isUpdatingProfile}
                 className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-green transition-all disabled:opacity-50"
                 placeholder="Seu nome"
+              />
+            </div>
+
+            <div className="mb-5">
+              <AvatarPicker
+                name={newName}
+                selectedUrl={newAvatarUrl}
+                onSelect={(url) => setNewAvatarUrl(url)}
               />
             </div>
 

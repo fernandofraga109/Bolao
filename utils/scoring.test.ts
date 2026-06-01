@@ -227,8 +227,8 @@ describe("calculateTournamentPoints", () => {
 
   it("é case-insensitive para nomes de artilheiro", () => {
     const pts = calculateTournamentPoints(
-      { topScorer: { player: "VINI JR" } },
-      { topScorer: { player: "vini jr" } }
+      { topScorer: { player: "VINI JR", goals: 0 } },
+      { topScorer: { player: "vini jr", goals: 0 } }
     );
     expect(pts).toBe(100);
   });

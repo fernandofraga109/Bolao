@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.9.0";
+export const CURRENT_VERSION = "1.10.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.10.0",
+    date: "2026-05-31",
+    changes: [
+      "Seletor visual de avatares no modal de perfil",
+      "Avatares gerados automaticamente com melhor qualidade",
+      "Correções no cálculo de pontos de especiais",
+    ],
+  },
   {
     version: "1.9.0",
     date: "2026-05-31",

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Match, User, TournamentPredictions } from "../../types";
+import { Match, MatchDB, User, TournamentPredictions } from "../../types";
 import TopScorerCard from "../TopScorerCard";
 import { ExtraPhasePredictionsCard } from "../ExtraPhasePredictionsCard";
 import { GroupClassificationsCard } from "../GroupClassificationsCard";
@@ -156,7 +156,13 @@ const SpecialsPage: React.FC<SpecialsPageProps> = ({
         <ExtraPhasePredictionsCard
           groupId={currentUser.activeGroupId}
           userId={currentUser.id}
-          matches={matches}
+          matches={matches.map((m) => ({
+            ...m,
+            homeTeamId: m.homeTeam?.id ?? "",
+            awayTeamId: m.awayTeam?.id ?? "",
+            resultHome: m.result?.home,
+            resultAway: m.result?.away,
+          })) as unknown as MatchDB[]}
           lockDate={lockDate ? new Date(lockDate) : new Date(0)}
         />
       )}

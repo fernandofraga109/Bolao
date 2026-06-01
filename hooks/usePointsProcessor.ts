@@ -1,13 +1,12 @@
 import { useCallback } from "react";
-import { Match, MatchDB, MatchStatus } from "../types";
+import { Match, MatchDB, MatchStatus, TournamentPredictions } from "../types";
 import {
   calculatePoints,
   calculatePointsRegulamento2,
   calculateTournamentPoints,
   calculateTournamentPointsRegulamento2,
   calculateExtraPhasePoints,
-  getMatchPhase,
-  TournamentPredictions
+  getMatchPhase
 } from "../utils/scoring";
 import { supabase } from "../services/supabase";
 
