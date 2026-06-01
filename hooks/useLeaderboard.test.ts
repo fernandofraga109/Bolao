@@ -101,7 +101,19 @@ describe("useLeaderboard", () => {
     });
 
     it("usa pontos do banco (userGroups) quando disponíveis", () => {
-      const users = [makeUser("u1"), makeUser("u2")];
+      const finishedMatch = makeMatch("m1", MatchStatus.FINISHED, { home: 1, away: 0 });
+      const users = [
+        makeUser("u1", {
+          predictions: {
+            m1: { home: 1, away: 0, points: 42 },
+          },
+        }),
+        makeUser("u2", {
+          predictions: {
+            m1: { home: 0, away: 0, points: 15 },
+          },
+        }),
+      ];
       const currentUser = makeUser("u1");
       const groups = [makeGroup("g1")];
 
@@ -111,7 +123,7 @@ describe("useLeaderboard", () => {
       ];
 
       const { result } = renderHook(() =>
-        useLeaderboard(users, [], currentUser, null, { userGroups, predictions: [] }, groups)
+        useLeaderboard(users, [finishedMatch], currentUser, null, { userGroups, predictions: [] }, groups)
       );
 
       const section = result.current.leaderboardSections[0];

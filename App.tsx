@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { Tab } from "./types";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { Tab, MatchStatus } from "./types";
 
 // Custom Hooks
 import { useUserSystem } from "./hooks/useUserSystem";
@@ -7,6 +7,7 @@ import { useMatchSystem } from "./hooks/useMatchSystem";
 import { useGroupSystem } from "./hooks/useGroupSystem";
 import { useLeaderboard } from "./hooks/useLeaderboard";
 import { usePasswordRecovery } from "./hooks/usePasswordRecovery";
+import { usePollingRefresh } from "./hooks/usePollingRefresh";
 import { useDatabase } from "./contexts/DatabaseContext";
 
 // Layout Components
@@ -95,7 +96,7 @@ const App: React.FC = () => {
   const canWriteCompetitionData = currentUser?.role === "ADMIN";
 
   // --- Toast de sincronização ---
-  const { toasts, dismiss, showSyncing, showResult, showWarning } = useSyncToast();
+  const { toasts, dismiss, showSyncing, showResult, showWarning, showInfo } = useSyncToast();
 
   const handleSetActiveTab = (tab: Tab) => {
     if (tab === "leaderboard") {
@@ -144,6 +145,16 @@ const App: React.FC = () => {
     getGroupById,
     getGroupsByIds,
   } = useGroupSystem();
+
+  // Polling automático: verifica a cada 15s se o placar mudou no banco
+  // e dispara refetch de predictions + user_groups para atualizar o ranking
+  usePollingRefresh({
+    matches,
+    refetchMatches: db.refetchMatches,
+    refetchPredictions: db.refetchPredictions,
+    refetchUserGroups: db.refetchUserGroups,
+    enabled: !!currentUser && authReady,
+  });
 
   const resolvedActiveGroupId =
     currentUser?.activeGroupId || currentUser?.groupIds?.[0];
@@ -242,9 +253,18 @@ const App: React.FC = () => {
     away: number,
   ) => {
     try {
-      if (status === "ended") {
+      if (status === "started") {
+        // Zerar completamente o jogo: volta para SCHEDULED sem placar
+        await db.updateMatch(matchId, {
+          status: MatchStatus.SCHEDULED,
+          resultHome: null,
+          resultAway: null,
+          minute: null,
+        });
+      } else if (status === "ended") {
         await adminControls.finishMatch(matchId, home, away);
       } else {
+        // live
         await adminControls.updateLiveScore(matchId, home, away);
       }
     } catch (error) {
@@ -297,6 +317,24 @@ const App: React.FC = () => {
     const section = leaderboardSections.find(s => s.groupId === activeGroupId);
     return section?.users.find(u => u.id === currentUser.id)?.totalPoints || 0;
   }, [currentUser, leaderboardSections]);
+
+  // Notificação toast quando os pontos do usuário aumentam via Realtime (ex: admin finalizou jogo)
+  const prevUserPointsRef = useRef<number | null>(null);
+  useEffect(() => {
+    const prev = prevUserPointsRef.current;
+    prevUserPointsRef.current = currentUserPoints;
+
+    // Só notificar se já tínhamos um valor anterior e os pontos aumentaram
+    if (prev !== null && currentUserPoints > prev && currentUser) {
+      const diff = currentUserPoints - prev;
+      const groupName = currentGroup?.name || "Bolão";
+      showInfo(
+        activeCompetitionCode,
+        `+${diff} pts! Seu ranking em "${groupName}" foi atualizado.`,
+        activeCompetitionCode
+      );
+    }
+  }, [currentUserPoints, currentUser, currentGroup, activeCompetitionCode, showInfo]);
 
   const { containerRef: mainRef, pullDistance, isRefreshing, handlers: pullHandlers } = usePullToRefresh({
     onRefresh: handleRefreshData,

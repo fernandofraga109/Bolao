@@ -63,7 +63,9 @@ export const useLeaderboard = (
           if ((isFinished || isLive) && match.result && pred) {
             // Priority: Persisted points in DB (only for finished matches)
             // For live matches, we ALWAYS calculate in runtime to reflect score changes
-            if (isFinished && typeof pred.points === "number") {
+            // For Regulamento 2, we ALWAYS calculate points in runtime because they are group-contextual (e.g. placar-sozinho)
+            // and relying on persisted points might lead to discrepancy if group membership changes or triggers delay.
+            if (isFinished && typeof pred.points === "number" && activeRuleset !== "regulamento_2") {
               total += pred.points;
             } else {
               // Fallback: On-the-fly calculation if not yet synced to DB

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { CheckCircle2, AlertTriangle, XCircle, X, RefreshCw, Clock } from "lucide-react";
+import { CheckCircle2, AlertTriangle, XCircle, X, RefreshCw, Clock, Trophy } from "lucide-react";
 
-export type SyncToastVariant = "success" | "warning" | "error" | "syncing";
+export type SyncToastVariant = "success" | "warning" | "error" | "syncing" | "info";
 
 export interface SyncToastItem {
   id: string;
@@ -50,6 +50,13 @@ const VARIANT_CONFIG: Record<
     label: "Sincronizando",
     dot: "bg-blue-400",
   },
+  info: {
+    icon: <Trophy size={15} className="text-brand-gold shrink-0" />,
+    border: "border-brand-gold/40",
+    bg: "bg-brand-gold/10",
+    label: "Ranking",
+    dot: "bg-brand-gold",
+  },
 };
 
 const AUTO_DISMISS_MS: Record<SyncToastVariant, number> = {
@@ -57,6 +64,7 @@ const AUTO_DISMISS_MS: Record<SyncToastVariant, number> = {
   warning: 8000,
   error: 10000,
   syncing: 0, // não auto-dismissar enquanto sincroniza
+  info: 5000,
 };
 
 function formatTime(ts: number) {
@@ -301,5 +309,27 @@ export const useSyncToast = () => {
     []
   );
 
-  return { toasts, dismiss, showSyncing, showResult, showWarning };
+  const showInfo = useCallback(
+    (
+      competitionCode: string,
+      message: string,
+      competitionName?: string
+    ) => {
+      const id = `toast-${++toastIdCounter}`;
+      setToasts((prev) => [
+        ...prev,
+        {
+          id,
+          competitionCode,
+          competitionName,
+          variant: "info",
+          message,
+          timestamp: Date.now(),
+        },
+      ]);
+    },
+    []
+  );
+
+  return { toasts, dismiss, showSyncing, showResult, showWarning, showInfo };
 };

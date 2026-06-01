@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.10.0";
+export const CURRENT_VERSION = "1.11.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.11.0",
+    date: "2026-05-31",
+    changes: [
+      "Correção no cálculo de pontos do Regulamento 2",
+      "Pontos agora calculados em tempo real para placar-sozinho",
+      "Melhorias no sistema de polling de atualizações",
+    ],
+  },
   {
     version: "1.10.0",
     date: "2026-05-31",

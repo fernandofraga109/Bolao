@@ -312,7 +312,24 @@ export const useMatchSystem = (
     adminControls: {
       startMatch: (id: string) => db.updateMatch(id, { status: MatchStatus.LIVE, resultHome: 0, resultAway: 0 }),
       updateLiveScore: (id: string, h: number, a: number) => { registerAdminOverride(id); return db.updateMatch(id, { status: MatchStatus.LIVE, resultHome: h, resultAway: a }); },
-      finishMatch: (id: string, h: number, a: number) => { registerAdminOverride(id); return db.updateMatch(id, { status: MatchStatus.FINISHED, resultHome: h, resultAway: a }); },
+      finishMatch: async (id: string, h: number, a: number) => {
+        registerAdminOverride(id);
+        await db.updateMatch(id, { status: MatchStatus.FINISHED, resultHome: h, resultAway: a });
+        
+        // Obter a partida para determinar os grupos afetados por este campeonato
+        const match = dbRef.current.matches.find((m: any) => m.id === id);
+        if (match) {
+          const compCode = (match.competitionCode || "WC").toUpperCase();
+          const affectedGroupIds = (dbRef.current.groups || [])
+            .filter((g: any) => (g.competitionCode || "WC").toUpperCase() === compCode)
+            .map((g: any) => g.id);
+
+          if (affectedGroupIds.length > 0) {
+            console.log(`[ADMIN] Jogo finalizado manualmente. Recalculando pontos para os grupos:`, affectedGroupIds);
+            await recalculateUserGroupPoints(affectedGroupIds);
+          }
+        }
+      },
     },
   };
 };
