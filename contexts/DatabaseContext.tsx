@@ -881,31 +881,39 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     // 2. Database Sync
     if (isSupabaseEnabled() && supabase) {
       try {
-        // Check if user already has a role to avoid overwriting ADMIN status during race conditions
+        // Check if user already has a role to avoid overwriting ADMIN status
+        // and user-customized displayName/avatar during login race conditions.
         const { data: existingRole } = await supabase
           .from("user_roles")
-          .select("role")
+          .select("role, displayName, avatar, email")
           .eq("userId", user.id)
           .single();
 
         if (existingRole) {
-          // Correct local state if DB role differs from optimistic value (e.g., ADMIN logged in as new session)
-          if (existingRole.role && existingRole.role !== user.role) {
-            setUsers((prev) =>
-              prev.map((u) =>
-                u.id === user.id ? { ...u, role: existingRole.role as UserRole } : u,
-              ),
-            );
+          // Row already exists in DB. Hydrate local state with the persisted
+          // values (role, displayName, avatar) instead of overwriting them with
+          // the freshly-generated profile coming from auth metadata.
+          setUsers((prev) =>
+            prev.map((u) =>
+              u.id === user.id
+                ? {
+                    ...u,
+                    role: (existingRole.role as UserRole) ?? u.role,
+                    name: existingRole.displayName ?? u.name,
+                    avatar: existingRole.avatar ?? u.avatar,
+                    email: existingRole.email ?? u.email,
+                  }
+                : u,
+            ),
+          );
+          // Only patch email if it's missing in the DB (e.g. legacy rows).
+          // Never overwrite displayName/avatar here — those are user-edited.
+          if (!existingRole.email && user.email) {
+            await supabase
+              .from("user_roles")
+              .update({ email: user.email })
+              .eq("userId", user.id);
           }
-          // Update other fields but NOT the role if it's already set (to prevent demotion)
-          await supabase
-            .from("user_roles")
-            .update({
-              displayName: user.name,
-              email: user.email,
-              avatar: user.avatar,
-            })
-            .eq("userId", user.id);
         } else {
           // New user, safe to insert with default role
           await supabase.from("user_roles").insert({

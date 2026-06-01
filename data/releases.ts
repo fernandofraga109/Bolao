@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.12.0";
+export const CURRENT_VERSION = "1.13.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,14 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.13.0",
+    date: "2026-06-01",
+    changes: [
+      "Correção: login não sobrescreve mais nome e avatar editados",
+      "Perfil do usuário agora preservado ao fazer login novamente",
+    ],
+  },
   {
     version: "1.12.0",
     date: "2026-06-01",
