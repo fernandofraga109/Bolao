@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.11.0";
+export const CURRENT_VERSION = "1.12.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.12.0",
+    date: "2026-06-01",
+    changes: [
+      "Auto-sync configurável por competição (pausar Brasileirão sem afetar a Copa)",
+      "Card dedicado para configuração do Bônus Zebra",
+      "Painel administrativo reorganizado para melhor clareza",
+    ],
+  },
   {
     version: "1.11.0",
     date: "2026-05-31",

@@ -119,6 +119,7 @@ interface DatabaseContextType {
 
   upsertCompetitions: (competitionsList: CompetitionDB[]) => Promise<void>;
   updateCompetitionSync: (code: string, timestamp: string) => Promise<void>;
+  updateCompetitionAutoSync: (code: string, enabled: boolean) => Promise<void>;
   updateCompetitionAwards: (code: string, awards: { 
     championTeamId?: string | null;
     topScorerName?: string | null;
@@ -207,6 +208,12 @@ const mapCompetitionRow = (row: any): CompetitionDB => ({
     row.last_updated ||
     row.lastUpdated ||
     undefined,
+  autoSyncEnabled:
+    row.autoSyncEnabled !== undefined
+      ? row.autoSyncEnabled
+      : row.auto_sync_enabled !== undefined
+        ? row.auto_sync_enabled
+        : true,
   topScorerName: row.topScorerName || undefined,
   topScorerGoals: row.topScorerGoals || undefined,
   championTeamId: row.championTeamId || undefined,
@@ -1181,6 +1188,26 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
+  const updateCompetitionAutoSync = async (code: string, enabled: boolean) => {
+    setCompetitions((prev) =>
+      prev.map((c) =>
+        c.code === code ? { ...c, autoSyncEnabled: enabled } : c,
+      ),
+    );
+    if (isSupabaseEnabled() && supabase) {
+      const { error } = await supabase
+        .from("competitions")
+        .update({ autoSyncEnabled: enabled })
+        .eq("code", code);
+      if (error) {
+        console.error(
+          "Erro ao atualizar autoSyncEnabled da competição:",
+          error.message,
+        );
+      }
+    }
+  };
+
   const updateCompetitionAwards = async (
     code: string,
     awards: { 
@@ -1492,6 +1519,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         },
         upsertCompetitions,
         updateCompetitionSync,
+        updateCompetitionAutoSync,
         updateCompetitionAwards,
         upsertTeam,
         upsertMatch,
@@ -1526,6 +1554,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         removeUserFromGroup,
         upsertCompetitions,
         updateCompetitionSync,
+        updateCompetitionAutoSync,
         updateCompetitionAwards,
         upsertTeam,
         upsertMatch,

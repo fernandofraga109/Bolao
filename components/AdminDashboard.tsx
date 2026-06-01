@@ -757,19 +757,195 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* COMPETITIONS SYNC PANEL */}
       <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
-        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-          <Zap className="text-brand-green" />
-          Sincronização de Competições
-        </h2>
+        {/* Header with Title and System Configurations (Dropdown & DB button) */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-700/50 mb-6">
+          <div className="flex items-center gap-3">
+            <Zap className="text-brand-green shrink-0" size={24} />
+            <div>
+              <h2 className="text-xl font-bold text-white leading-tight">
+                Sincronização de Competições
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Controle de atualizações automáticas e manuais do sistema
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            {/* SYNC WIDGET (Unified) */}
+            <div className="relative z-20">
+              <button
+                onClick={() => setShowSyncMenu(!showSyncMenu)}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg border transition-all w-full sm:w-auto justify-between sm:justify-start ${isAutoSyncEnabled
+                    ? "bg-slate-800 border-green-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                    : "bg-slate-800 border-slate-700 hover:border-slate-600"
+                  }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`p-1.5 rounded-full ${isAutoSyncEnabled ? "bg-green-500/20 text-green-500" : "bg-slate-700 text-slate-400"}`}
+                  >
+                    <RefreshCw
+                      size={16}
+                      className={isSyncing ? "animate-spin" : ""}
+                    />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                      Sincronização
+                    </div>
+                    <div
+                      className={`text-xs font-bold ${isAutoSyncEnabled ? "text-white" : "text-slate-400"}`}
+                    >
+                      {isAutoSyncEnabled ? "Automática: ON" : "Manual / Parada"}
+                    </div>
+                  </div>
+                </div>
+                {showSyncMenu ? (
+                  <ChevronUp size={16} className="text-slate-500 ml-2" />
+                ) : (
+                  <ChevronDown size={16} className="text-slate-500 ml-2" />
+                )}
+              </button>
+
+              {/* Dropdown Menu */}
+              {showSyncMenu && (
+                <div className="absolute top-full left-0 sm:left-auto sm:right-0 mt-2 w-[min(20rem,calc(100vw-2rem))] bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden animate-fadeIn">
+                  <div className="p-4 space-y-4">
+                    {/* Toggle Area */}
+                    <div className="flex justify-between items-center pb-4 border-b border-slate-700">
+                      <div className="flex flex-col">
+                        <span className="text-sm text-white font-bold">
+                          Atualização em Tempo Real
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          Puxa placares da API oficial
+                        </span>
+                      </div>
+                      <button
+                        onClick={toggleAutoSync}
+                        className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center ${isAutoSyncEnabled ? "bg-green-600" : "bg-slate-600"}`}
+                      >
+                        <div
+                          className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${isAutoSyncEnabled ? "translate-x-6" : "translate-x-0"}`}
+                        ></div>
+                      </button>
+                    </div>
+
+                    {/* Interval Settings */}
+                    <div className="space-y-2">
+                      <label className="text-xs text-slate-500 uppercase font-bold flex items-center gap-2">
+                        <Clock size={12} /> Intervalo de Busca
+                      </label>
+                      <select
+                        value={db.systemConfig.sync_interval_ms}
+                        onChange={handleUpdateInterval}
+                        className="w-full bg-slate-900 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-brand-green"
+                      >
+                        <option value={15000}>15 segundos (Rápido)</option>
+                        <option value={30000}>30 segundos</option>
+                        <option value={60000}>1 minuto (Recomendado)</option>
+                        <option value={180000}>3 minutos</option>
+                        <option value={300000}>5 minutos</option>
+                        <option value={600000}>10 minutos</option>
+                      </select>
+                    </div>
+
+                    {/* Note */}
+                    <div className="bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/20 flex gap-2">
+                      <div className="mt-0.5">
+                        <Clock size={12} className="text-indigo-400" />
+                      </div>
+                      <p className="text-[10px] text-indigo-200 leading-relaxed">
+                        A atualização consome cotas da API. Use "15 segundos"
+                        apenas durante jogos importantes.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs text-slate-500 uppercase font-bold tracking-wider">
+                        Última sincronização por competição
+                      </label>
+
+                      {Object.keys(syncStatusByCompetition).length === 0 ? (
+                        <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 text-[11px] text-slate-400">
+                          Nenhuma sincronização registrada ainda.
+                        </div>
+                      ) : (
+                        <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                          {Object.values(syncStatusByCompetition)
+                            .sort((a, b) => {
+                              const aTime = a.lastAttemptAt
+                                ? new Date(a.lastAttemptAt).getTime()
+                                : 0;
+                              const bTime = b.lastAttemptAt
+                                ? new Date(b.lastAttemptAt).getTime()
+                                : 0;
+                              return bTime - aTime;
+                            })
+                            .map((status) => (
+                              <div
+                                key={status.competitionCode}
+                                className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs font-mono text-brand-green">
+                                    {status.competitionCode}
+                                  </span>
+                                  <span
+                                    className={`text-[10px] px-2 py-0.5 rounded-full border ${status.lastSuccess ? "text-green-300 bg-green-900/20 border-green-700/50" : "text-amber-300 bg-amber-900/20 border-amber-700/50"}`}
+                                  >
+                                    {status.lastSuccess ? "ok" : "atenção"}
+                                  </span>
+                                </div>
+                                <div className="mt-1 text-[10px] text-slate-400">
+                                  {status.lastSuccess
+                                    ? `sincronizado ${formatRelativeSyncTime(status.lastSuccessAt)}`
+                                    : `última tentativa ${formatRelativeSyncTime(status.lastAttemptAt)}`}
+                                </div>
+                                {status.lastMessage && (
+                                  <p className="mt-1 text-[10px] text-slate-500 line-clamp-2">
+                                    {status.lastMessage}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* DB Inspector Button */}
+            <button
+              onClick={() => setActiveView("db_inspector")}
+              className={`flex items-center gap-2 border px-3 py-2 rounded-lg font-bold text-xs transition-all shadow-sm ${isSupabaseEnabled() ? "bg-slate-800 hover:bg-slate-700 text-brand-green border-brand-green/30" : "bg-red-900/20 border-red-500/50 text-red-300"}`}
+            >
+              <Database size={14} />
+              {isSupabaseEnabled() ? "Banco de Dados" : "Configurar BD"}
+            </button>
+          </div>
+        </div>
+
         <div className="flex flex-col gap-3">
           {activeCompetitions.map((code) => {
             const comp = resolveCompetition(code);
             const status = syncStatusByCompetition[code];
             const isThisSyncing = status?.isSyncing;
+            const compRow = db.competitions.find(
+              (c) => c.code.toUpperCase() === code.toUpperCase(),
+            );
+            const autoSyncEnabled = compRow?.autoSyncEnabled !== false;
             return (
               <div
                 key={code}
-                className="bg-slate-900 border border-slate-700 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:border-slate-500 transition-all shadow-sm gap-4"
+                className={`bg-slate-900 border rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between transition-all shadow-sm gap-4 ${
+                  autoSyncEnabled
+                    ? "border-slate-700 hover:border-slate-500"
+                    : "border-amber-700/40 bg-amber-900/5"
+                }`}
               >
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-full border border-slate-700 bg-white p-1 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
@@ -780,9 +956,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     />
                   </div>
                   <div className="flex flex-col">
-                    <h3 className="font-bold text-white text-sm">
-                      {comp.name}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-white text-sm">
+                        {comp.name}
+                      </h3>
+                      {!autoSyncEnabled && (
+                        <span className="text-[9px] font-bold text-amber-300 bg-amber-900/30 border border-amber-700/40 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                          Pausada
+                        </span>
+                      )}
+                    </div>
                     <span className="text-[10px] font-mono text-brand-green bg-brand-green/10 px-1.5 py-0.5 rounded border border-brand-green/20 w-fit mt-0.5">
                       {code}
                     </span>
@@ -790,6 +973,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
 
                 <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                  {/* Auto-sync toggle (por competição) */}
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-slate-500">
+                      Auto-sync
+                    </span>
+                    <button
+                      onClick={() =>
+                        void db.updateCompetitionAutoSync(code, !autoSyncEnabled)
+                      }
+                      title={
+                        autoSyncEnabled
+                          ? `Desativar auto-sync para ${comp.name}`
+                          : `Ativar auto-sync para ${comp.name}`
+                      }
+                      className={`w-10 h-5 rounded-full p-0.5 transition-colors duration-300 flex items-center ${
+                        autoSyncEnabled ? "bg-green-600" : "bg-slate-600"
+                      }`}
+                    >
+                      <div
+                        className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${
+                          autoSyncEnabled ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      ></div>
+                    </button>
+                  </div>
+
                   <div className="text-[10px] text-slate-400 bg-slate-800 px-3 py-1.5 rounded-lg flex flex-col border border-slate-700/50 min-w-[140px]">
                     <span className="uppercase font-bold tracking-wider mb-0.5">
                       Última Atualização
@@ -806,7 +1015,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     onClick={() => handleTriggerManualSync(code)}
                     disabled={isThisSyncing}
                     className="bg-brand-green hover:bg-emerald-400 text-slate-900 px-4 py-2 rounded-lg font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm shadow-md shadow-brand-green/10 shrink-0"
-                    title={`Sincronizar ${comp.name}`}
+                    title={`Sincronizar ${comp.name} (manual)`}
                   >
                     {isThisSyncing ? (
                       <Loader2 size={16} className="animate-spin" />
@@ -1034,187 +1243,39 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* SPECIALS OVERRIDES PANEL (Classificados, Maior Diferença de Gols) */}
       <AdminSpecialsOverrides selectedCompetitionCode={selectedCompetitionCode} />
 
-      {/* ADVANCED SETTINGS BAR */}
-      <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-3 px-2">
-          <Settings size={18} className="text-slate-400" />
-          <h3 className="text-slate-300 font-bold text-sm">
-            Configurações de Sistema
-          </h3>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {/* SYNC WIDGET (Unified) */}
-          <div className="relative z-20">
-            <button
-              onClick={() => setShowSyncMenu(!showSyncMenu)}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg border transition-all ${isAutoSyncEnabled
-                  ? "bg-slate-800 border-green-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
-                  : "bg-slate-800 border-slate-700 hover:border-slate-600"
-                }`}
-            >
-              <div
-                className={`p-1.5 rounded-full ${isAutoSyncEnabled ? "bg-green-500/20 text-green-500" : "bg-slate-700 text-slate-400"}`}
-              >
-                <RefreshCw
-                  size={16}
-                  className={isSyncing ? "animate-spin" : ""}
-                />
-              </div>
-              <div className="text-left">
-                <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                  Sincronização
-                </div>
-                <div
-                  className={`text-xs font-bold ${isAutoSyncEnabled ? "text-white" : "text-slate-400"}`}
-                >
-                  {isAutoSyncEnabled ? "Automática: ON" : "Manual / Parada"}
-                </div>
-              </div>
-              {showSyncMenu ? (
-                <ChevronUp size={16} className="text-slate-500" />
-              ) : (
-                <ChevronDown size={16} className="text-slate-500" />
-              )}
-            </button>
 
-            {/* Dropdown Menu */}
-            {showSyncMenu && (
-              <div className="absolute top-full right-0 mt-2 w-80 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden animate-fadeIn">
-                <div className="p-4 space-y-4">
-                  {/* Toggle Area */}
-                  <div className="flex justify-between items-center pb-4 border-b border-slate-700">
-                    <div className="flex flex-col">
-                      <span className="text-sm text-white font-bold">
-                        Atualização em Tempo Real
-                      </span>
-                      <span className="text-[10px] text-slate-400">
-                        Puxa placares da API oficial
-                      </span>
-                    </div>
-                    <button
-                      onClick={toggleAutoSync}
-                      className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center ${isAutoSyncEnabled ? "bg-green-600" : "bg-slate-600"}`}
-                    >
-                      <div
-                        className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${isAutoSyncEnabled ? "translate-x-6" : "translate-x-0"}`}
-                      ></div>
-                    </button>
-                  </div>
-
-                  {/* Interval Settings */}
-                  <div className="space-y-2">
-                    <label className="text-xs text-slate-500 uppercase font-bold flex items-center gap-2">
-                      <Clock size={12} /> Intervalo de Busca
-                    </label>
-                    <select
-                      value={db.systemConfig.sync_interval_ms}
-                      onChange={handleUpdateInterval}
-                      className="w-full bg-slate-900 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-brand-green"
-                    >
-                      <option value={15000}>15 segundos (Rápido)</option>
-                      <option value={30000}>30 segundos</option>
-                      <option value={60000}>1 minuto (Recomendado)</option>
-                      <option value={180000}>3minuto</option>
-                      <option value={300000}>5 minutos</option>
-                      <option value={600000}>10 minutos</option>
-                    </select>
-                  </div>
-
-                  {/* Note */}
-                  <div className="bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/20 flex gap-2">
-                    <div className="mt-0.5">
-                      <Clock size={12} className="text-indigo-400" />
-                    </div>
-                    <p className="text-[10px] text-indigo-200 leading-relaxed">
-                      A atualização consome cotas da API. Use "15 segundos"
-                      apenas durante jogos importantes.
-                    </p>
-                  </div>
-
-                  {/* Zebra Bonus Global Config */}
-                  <div className="space-y-2">
-                    <label className="text-xs text-slate-500 uppercase font-bold flex items-center gap-2">
-                      <Zap size={12} className="text-amber-400" /> Bônus Zebra — Mínimo de Ranking
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="number"
-                        min={1}
-                        max={100}
-                        value={db.systemConfig.underdog_min_rank_diff ?? 10}
-                        onChange={(e) =>
-                          db.updateSystemConfig({ underdog_min_rank_diff: Number(e.target.value) })
-                        }
-                        className="w-20 px-2 py-2 text-sm bg-slate-900 border border-slate-600 rounded-lg text-white text-center outline-none focus:border-amber-500"
-                      />
-                      <span className="text-xs text-slate-400">posições de diferença no ranking FIFA para ativar o bônus zebra (padrão global)</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs text-slate-500 uppercase font-bold tracking-wider">
-                      Ultima sincronizacao por competicao
-                    </label>
-
-                    {Object.keys(syncStatusByCompetition).length === 0 ? (
-                      <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 text-[11px] text-slate-400">
-                        Nenhuma sincronizacao registrada ainda.
-                      </div>
-                    ) : (
-                      <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
-                        {Object.values(syncStatusByCompetition)
-                          .sort((a, b) => {
-                            const aTime = a.lastAttemptAt
-                              ? new Date(a.lastAttemptAt).getTime()
-                              : 0;
-                            const bTime = b.lastAttemptAt
-                              ? new Date(b.lastAttemptAt).getTime()
-                              : 0;
-                            return bTime - aTime;
-                          })
-                          .map((status) => (
-                            <div
-                              key={status.competitionCode}
-                              className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2"
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs font-mono text-brand-green">
-                                  {status.competitionCode}
-                                </span>
-                                <span
-                                  className={`text-[10px] px-2 py-0.5 rounded-full border ${status.lastSuccess ? "text-green-300 bg-green-900/20 border-green-700/50" : "text-amber-300 bg-amber-900/20 border-amber-700/50"}`}
-                                >
-                                  {status.lastSuccess ? "ok" : "atencao"}
-                                </span>
-                              </div>
-                              <div className="mt-1 text-[10px] text-slate-400">
-                                {status.lastSuccess
-                                  ? `sincronizado ${formatRelativeSyncTime(status.lastSuccessAt)}`
-                                  : `ultima tentativa ${formatRelativeSyncTime(status.lastAttemptAt)}`}
-                              </div>
-                              {status.lastMessage && (
-                                <p className="mt-1 text-[10px] text-slate-500 line-clamp-2">
-                                  {status.lastMessage}
-                                </p>
-                              )}
-                            </div>
-                          ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+      {/* ZEBRA BONUS CONFIG */}
+      <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
+        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+          <Zap className="text-amber-400" />
+          Configuração do Bônus Zebra
+        </h2>
+        <p className="text-xs text-slate-400 mb-5 leading-relaxed">
+          Define o mínimo de diferença no ranking FIFA entre as duas seleções de
+          um jogo para que o palpite no time mais fraco (zebra) ative o bônus de
+          underdog. Vale como padrão global para todos os grupos.
+        </p>
+        <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <label className="text-xs font-bold text-amber-400 uppercase tracking-wider shrink-0">
+            Mínimo de Ranking
+          </label>
+          <div className="flex items-center gap-3 flex-1">
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={db.systemConfig.underdog_min_rank_diff ?? 10}
+              onChange={(e) =>
+                db.updateSystemConfig({
+                  underdog_min_rank_diff: Number(e.target.value),
+                })
+              }
+              className="w-24 px-3 py-2 text-sm bg-slate-800 border border-slate-600 rounded-lg text-white text-center outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+            />
+            <span className="text-xs text-slate-400">
+              posições de diferença no ranking FIFA para ativar o bônus zebra.
+            </span>
           </div>
-
-          {/* DB Inspector Button */}
-          <button
-            onClick={() => setActiveView("db_inspector")}
-            className={`flex items-center gap-2 border px-3 py-2 rounded-lg font-bold text-xs transition-all shadow-sm ${isSupabaseEnabled() ? "bg-slate-800 hover:bg-slate-700 text-brand-green border-brand-green/30" : "bg-red-900/20 border-red-500/50 text-red-300"}`}
-          >
-            <Database size={14} />
-            {isSupabaseEnabled() ? "Banco de Dados" : "Configurar BD"}
-          </button>
         </div>
       </div>
 

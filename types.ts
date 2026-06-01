@@ -25,6 +25,7 @@ export interface CompetitionDB {
   emblem?: string;
   type?: "LEAGUE" | "CUP" | string;
   lastSync?: string;
+  autoSyncEnabled?: boolean;
   topScorerName?: string;
   topScorerGoals?: number;
   championTeamId?: string;

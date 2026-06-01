@@ -115,10 +115,18 @@ export const useBackgroundSync = ({
           continue;
         }
 
-        // Guarda 3: DB lastSync — algum cliente já sincronizou recentemente?
+        // Guarda 3: auto-sync por competição — admin desativou esta competição?
         const comp = competitionsRef.current.find(
           (c) => c.code.toUpperCase() === code
         );
+        if (comp && comp.autoSyncEnabled === false) {
+          console.log(
+            `🚫 [BackgroundSync] ${code}: auto-sync desabilitado para esta competição.`
+          );
+          continue;
+        }
+
+        // Guarda 4: DB lastSync — algum cliente já sincronizou recentemente?
         const lastSyncTs = comp?.lastSync
           ? new Date(comp.lastSync).getTime()
           : 0;
