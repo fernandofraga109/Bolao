@@ -107,40 +107,33 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
 
   if (!banner) return null;
 
+  const accent = banner.alert
+    ? { border: "border-l-red-500", bg: "bg-red-900/40", text: "text-red-200", iconBg: "bg-red-500/30", iconText: "text-red-300", subBg: "bg-red-500/20", subText: "text-red-300" }
+    : banner.urgent
+    ? { border: "border-l-amber-500", bg: "bg-amber-900/40", text: "text-amber-100", iconBg: "bg-amber-500/30", iconText: "text-amber-300", subBg: "bg-amber-500/20", subText: "text-amber-300" }
+    : { border: "border-l-indigo-500", bg: "bg-indigo-900/40", text: "text-indigo-100", iconBg: "bg-indigo-500/30", iconText: "text-indigo-300", subBg: "bg-indigo-500/20", subText: "text-indigo-300" };
+
   return (
     <div
-      className={`mt-3 rounded-xl border px-4 py-3 flex items-center gap-3 animate-fadeIn ${
-        banner.alert
-          ? "bg-red-900/20 border-red-500/30"
-          : banner.urgent
-          ? "bg-amber-900/20 border-amber-500/30"
-          : "bg-indigo-900/20 border-indigo-500/30"
-      }`}
+      className={`mt-3 rounded-2xl border border-slate-700/50 ${accent.border} border-l-4 ${accent.bg} px-5 py-4 flex items-center gap-4 animate-fadeIn shadow-lg`}
     >
       <div
-        className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-          banner.alert
-            ? "bg-red-500/20 text-red-400"
-            : banner.urgent
-            ? "bg-amber-500/20 text-amber-400"
-            : "bg-indigo-500/20 text-indigo-400"
-        }`}
+        className={`shrink-0 w-10 h-10 rounded-full ${accent.iconBg} ${accent.iconText} flex items-center justify-center animate-pulse`}
       >
-        {banner.alert ? <AlertTriangle size={16} /> : <Clock size={16} />}
+        {banner.alert ? <AlertTriangle size={20} /> : <Clock size={20} />}
       </div>
       <div className="flex-1 min-w-0">
-        <p
-          className={`text-xs font-bold leading-tight ${
-            banner.alert ? "text-red-300" : "text-slate-200"
-          }`}
-        >
+        <span className={`text-[10px] font-black uppercase tracking-widest ${accent.subText}`}>
+          {banner.alert ? "Atenção" : "Palpites Pendentes"}
+        </span>
+        <p className={`text-sm font-bold leading-snug mt-0.5 ${accent.text}`}>
           {banner.text}
         </p>
         {banner.sub && (
-          <p className="text-[10px] font-semibold text-slate-400 mt-0.5 flex items-center gap-1">
+          <span className={`inline-flex items-center gap-1.5 mt-1.5 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${accent.subBg} ${accent.subText}`}>
             <Hourglass size={10} />
             {banner.sub}
-          </p>
+          </span>
         )}
       </div>
     </div>
