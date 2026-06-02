@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { User, Match, MatchStatus, TournamentPredictions, Group } from "../types";
-import { calculatePoints, calculateTournamentPoints, calculatePointsRegulamento2, getMatchPhase, calculateTournamentPointsRegulamento2 } from "../utils/scoring";
+import { calculatePoints, calculateTournamentPoints, calculatePointsRegulamento2, getMatchPhase, calculateTournamentPointsRegulamento2, getScoreCategoryRegulamento1, getScoreCategoryRegulamento2 } from "../utils/scoring";
 import { DEFAULT_COMPETITION_CODE } from "../data/competitions";
 
 interface UserGroupDB {
@@ -53,40 +53,85 @@ export const useLeaderboard = (
       .filter((user) => user.role !== "ADMIN")
       .map((user) => {
         let total = 0;
+        const breakdown = {
+          exactCount: 0,
+          diffCount: 0,
+          outcomeCount: 0,
+          wrongCount: 0,
+          underdogBonusCount: 0,
+          underdogBonusTotal: 0,
+          aloneBonusCount: 0,
+          aloneBonusTotal: 0,
+        };
         groupMatches.forEach((match) => {
           const pred = user.predictions[match.id];
-          const isLive = match.status === MatchStatus.LIVE || 
-                         match.status === MatchStatus.IN_PLAY || 
+          const isLive = match.status === MatchStatus.LIVE ||
+                         match.status === MatchStatus.IN_PLAY ||
                          match.status === MatchStatus.PAUSED;
           const isFinished = match.status === MatchStatus.FINISHED;
 
           if ((isFinished || isLive) && match.result && pred) {
-            // Priority: Persisted points in DB (only for finished matches)
-            // For live matches, we ALWAYS calculate in runtime to reflect score changes
-            // For Regulamento 2, we ALWAYS calculate points in runtime because they are group-contextual (e.g. placar-sozinho)
-            // and relying on persisted points might lead to discrepancy if group membership changes or triggers delay.
-            if (isFinished && typeof pred.points === "number" && activeRuleset !== "regulamento_2") {
-              total += pred.points;
-            } else {
-              // Fallback: On-the-fly calculation if not yet synced to DB
-              if (activeRuleset === "regulamento_2") {
-                const matchPredictions = users
-                  .filter((u) => u.groupIds.includes(activeGroupId || "") && u.predictions && u.predictions[match.id])
-                  .map((u) => ({
-                    userId: u.id,
-                    homeScore: u.predictions[match.id].home,
-                    awayScore: u.predictions[match.id].away,
-                  }));
+            if (activeRuleset === "regulamento_2") {
+              const matchPredictions = users
+                .filter((u) => u.groupIds.includes(activeGroupId || "") && u.predictions && u.predictions[match.id])
+                .map((u) => ({
+                  userId: u.id,
+                  homeScore: u.predictions[match.id].home,
+                  awayScore: u.predictions[match.id].away,
+                }));
 
-                total += calculatePointsRegulamento2(
-                  pred.home,
-                  pred.away,
-                  match.result.home,
-                  match.result.away,
-                  getMatchPhase(match.stage, match.group),
-                  matchPredictions,
-                  user.id
-                );
+              const cat = getScoreCategoryRegulamento2(
+                pred.home,
+                pred.away,
+                match.result.home,
+                match.result.away,
+                getMatchPhase(match.stage, match.group),
+                matchPredictions,
+                user.id
+              );
+
+              if (cat.type === "exact") breakdown.exactCount++;
+              else if (cat.type === "diff") breakdown.diffCount++;
+              else if (cat.type === "outcome") breakdown.outcomeCount++;
+              else breakdown.wrongCount++;
+
+              if (cat.aloneBonus) {
+                breakdown.aloneBonusCount++;
+                breakdown.aloneBonusTotal += 5;
+              }
+
+              total += calculatePointsRegulamento2(
+                pred.home,
+                pred.away,
+                match.result.home,
+                match.result.away,
+                getMatchPhase(match.stage, match.group),
+                matchPredictions,
+                user.id
+              );
+            } else {
+              const cat = getScoreCategoryRegulamento1(
+                pred.home,
+                pred.away,
+                match.result.home,
+                match.result.away,
+                match.homeTeam.ranking,
+                match.awayTeam.ranking,
+                activeMinRankDiff,
+              );
+
+              if (cat.type === "exact") breakdown.exactCount++;
+              else if (cat.type === "diff") breakdown.diffCount++;
+              else if (cat.type === "outcome") breakdown.outcomeCount++;
+              else breakdown.wrongCount++;
+
+              if (cat.underdogBonus > 0) {
+                breakdown.underdogBonusCount++;
+                breakdown.underdogBonusTotal += cat.underdogBonus;
+              }
+
+              if (isFinished && typeof pred.points === "number") {
+                total += pred.points;
               } else {
                 total += calculatePoints(
                   pred.home,
@@ -118,7 +163,7 @@ export const useLeaderboard = (
           }
         }
 
-        return { ...user, totalPoints: total };
+        return { ...user, totalPoints: total, scoreBreakdown: breakdown };
       });
   }, [matches, users, tournamentResults, currentUser, groups, db.userGroups]);
 

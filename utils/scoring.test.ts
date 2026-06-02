@@ -6,6 +6,8 @@ import {
   calculatePointsRegulamento2,
   calculateTournamentPointsRegulamento2,
   calculateExtraPhasePoints,
+  getScoreCategoryRegulamento1,
+  getScoreCategoryRegulamento2,
   POINTS_EXACT,
   POINTS_GOAL_DIFF,
   POINTS_OUTCOME,
@@ -370,6 +372,79 @@ describe("calculateTournamentPointsRegulamento2", () => {
     );
     // 20 (Grupo A) + 10 (Oitavas) + 5 (Quartas) = 35 pts
     expect(pts).toBe(35);
+  });
+});
+
+describe("getScoreCategoryRegulamento1", () => {
+  it("classifica como exact para placar idêntico", () => {
+    const cat = getScoreCategoryRegulamento1(2, 1, 2, 1);
+    expect(cat.type).toBe("exact");
+    expect(cat.underdogBonus).toBe(0);
+  });
+
+  it("classifica como diff quando acerta diferença mas não o placar", () => {
+    const cat = getScoreCategoryRegulamento1(3, 1, 2, 0);
+    expect(cat.type).toBe("diff");
+    expect(cat.underdogBonus).toBe(0);
+  });
+
+  it("classifica como outcome quando acerta apenas o vencedor", () => {
+    const cat = getScoreCategoryRegulamento1(1, 0, 3, 1);
+    expect(cat.type).toBe("outcome");
+  });
+
+  it("classifica como wrong quando erra o resultado", () => {
+    const cat = getScoreCategoryRegulamento1(2, 0, 0, 1);
+    expect(cat.type).toBe("wrong");
+    expect(cat.underdogBonus).toBe(0);
+  });
+
+  it("retorna underdogBonus > 0 quando azarão vence e rankings diferem", () => {
+    const cat = getScoreCategoryRegulamento1(0, 1, 0, 1, 1, 50);
+    expect(cat.type).toBe("exact");
+    expect(cat.underdogBonus).toBeGreaterThan(0);
+  });
+});
+
+describe("getScoreCategoryRegulamento2", () => {
+  const matchPredsMock = [
+    { userId: "u1", homeScore: 2, awayScore: 1 },
+    { userId: "u2", homeScore: 1, awayScore: 1 },
+    { userId: "u3", homeScore: 0, awayScore: 2 },
+  ];
+
+  it("classifica como exact para placar idêntico", () => {
+    const cat = getScoreCategoryRegulamento2(2, 1, 2, 1, "groups", matchPredsMock, "u1");
+    expect(cat.type).toBe("exact");
+    expect(cat.aloneBonus).toBe(true); // só u1 acertou
+  });
+
+  it("classifica como exact sem aloneBonus se outros também acertaram", () => {
+    const sharedPreds = [
+      { userId: "u1", homeScore: 2, awayScore: 1 },
+      { userId: "u2", homeScore: 2, awayScore: 1 },
+    ];
+    const cat = getScoreCategoryRegulamento2(2, 1, 2, 1, "groups", sharedPreds, "u1");
+    expect(cat.type).toBe("exact");
+    expect(cat.aloneBonus).toBe(false);
+  });
+
+  it("classifica como outcome para empate não exato", () => {
+    const cat = getScoreCategoryRegulamento2(2, 2, 1, 1, "groups", matchPredsMock, "u1");
+    expect(cat.type).toBe("outcome");
+    expect(cat.aloneBonus).toBe(false);
+  });
+
+  it("classifica como diff para vitória com diferença correta", () => {
+    const cat = getScoreCategoryRegulamento2(3, 1, 2, 0, "ko", matchPredsMock, "u1");
+    expect(cat.type).toBe("diff");
+    expect(cat.aloneBonus).toBe(false);
+  });
+
+  it("classifica como wrong quando erra tudo", () => {
+    const cat = getScoreCategoryRegulamento2(0, 2, 2, 0, "groups", matchPredsMock, "u1");
+    expect(cat.type).toBe("wrong");
+    expect(cat.aloneBonus).toBe(false);
   });
 });
 

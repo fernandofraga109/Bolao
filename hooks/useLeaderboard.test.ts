@@ -100,6 +100,29 @@ describe("useLeaderboard", () => {
       expect(result.current.leaderboardSections).toEqual([]);
     });
 
+    it("popula scoreBreakdown para regulamento_1", () => {
+      const finishedMatch = makeMatch("m1", MatchStatus.FINISHED, { home: 2, away: 1 });
+
+      const users = [
+        makeUser("u1", {
+          predictions: {
+            m1: { home: 2, away: 1 }, // exact
+          },
+        }),
+      ];
+
+      const { result } = renderHook(() =>
+        useLeaderboard(users, [finishedMatch], makeUser("u1"), null, { userGroups: [], predictions: [] }, [makeGroup("g1")])
+      );
+
+      const bd = result.current.usersWithCalculatedPoints[0].scoreBreakdown;
+      expect(bd).toBeDefined();
+      expect(bd?.exactCount).toBe(1);
+      expect(bd?.diffCount).toBe(0);
+      expect(bd?.outcomeCount).toBe(0);
+      expect(bd?.wrongCount).toBe(0);
+    });
+
     it("usa pontos do banco (userGroups) quando disponíveis", () => {
       const finishedMatch = makeMatch("m1", MatchStatus.FINISHED, { home: 1, away: 0 });
       const users = [

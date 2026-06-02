@@ -193,6 +193,17 @@ export interface Prediction {
   points?: number;
 }
 
+export interface ScoreBreakdown {
+  exactCount: number;
+  diffCount: number;
+  outcomeCount: number;
+  wrongCount: number;
+  underdogBonusCount?: number;
+  underdogBonusTotal?: number;
+  aloneBonusCount?: number;
+  aloneBonusTotal?: number;
+}
+
 export interface TournamentPredictions {
   championTeamId?: string;
   topScorer?: {
@@ -221,6 +232,7 @@ export interface User {
   tournamentPredictions?: TournamentPredictions;
   totalPoints: number;
   predictionsCount?: number;
+  scoreBreakdown?: ScoreBreakdown;
 }
 
 export interface Match {

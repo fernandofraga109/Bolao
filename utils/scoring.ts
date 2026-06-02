@@ -81,33 +81,12 @@ export const calculatePoints = (
   awayRank?: number,
   minRankDiff = FALLBACK_MIN_RANK_DIFF
 ): number => {
-  let points = 0;
+  const cat = getScoreCategoryRegulamento1(predHome, predAway, realHome, realAway, homeRank, awayRank, minRankDiff);
 
-  if (predHome === realHome && predAway === realAway) {
-    points = POINTS_EXACT;
-  } else {
-    const predOutcome = predHome > predAway ? 'home' : predHome < predAway ? 'away' : 'draw';
-    const realOutcome = realHome > realAway ? 'home' : realHome < realAway ? 'away' : 'draw';
-
-    if (predOutcome === realOutcome) {
-      const predDiff = predHome - predAway;
-      const realDiff = realHome - realAway;
-
-      if (predDiff === realDiff) {
-        points = POINTS_GOAL_DIFF;
-      } else {
-        points = POINTS_OUTCOME;
-      }
-    }
-  }
-
-  if (points > 0 && homeRank && awayRank && realHome !== realAway) {
-    const winnerRank = realHome > realAway ? homeRank : awayRank;
-    const loserRank = realHome > realAway ? awayRank : homeRank;
-    points += calculateUnderdogBonus(winnerRank, loserRank, minRankDiff);
-  }
-
-  return points;
+  if (cat.type === 'exact') return POINTS_EXACT + cat.underdogBonus;
+  if (cat.type === 'diff') return POINTS_GOAL_DIFF + cat.underdogBonus;
+  if (cat.type === 'outcome') return POINTS_OUTCOME + cat.underdogBonus;
+  return POINTS_WRONG;
 };
 
 export interface MatchPredictionContext {
@@ -115,6 +94,100 @@ export interface MatchPredictionContext {
   homeScore: number;
   awayScore: number;
 }
+
+export interface ScoreCategoryR1 {
+  type: 'exact' | 'diff' | 'outcome' | 'wrong';
+  underdogBonus: number;
+}
+
+export interface ScoreCategoryR2 {
+  type: 'exact' | 'diff' | 'outcome' | 'wrong';
+  aloneBonus: boolean;
+}
+
+/**
+ * REGULAMENTO 1: Returns the score category and underdog bonus without computing total points.
+ */
+export const getScoreCategoryRegulamento1 = (
+  predHome: number,
+  predAway: number,
+  realHome: number,
+  realAway: number,
+  homeRank?: number,
+  awayRank?: number,
+  minRankDiff = FALLBACK_MIN_RANK_DIFF
+): ScoreCategoryR1 => {
+  const isExact = predHome === realHome && predAway === realAway;
+
+  const predOutcome = predHome > predAway ? 'home' : predHome < predAway ? 'away' : 'draw';
+  const realOutcome = realHome > realAway ? 'home' : realHome < realAway ? 'away' : 'draw';
+
+  let underdogBonus = 0;
+  if (realHome !== realAway && homeRank && awayRank) {
+    const winnerRank = realHome > realAway ? homeRank : awayRank;
+    const loserRank = realHome > realAway ? awayRank : homeRank;
+    underdogBonus = calculateUnderdogBonus(winnerRank, loserRank, minRankDiff);
+  }
+
+  if (isExact) {
+    return { type: 'exact', underdogBonus };
+  }
+
+  if (predOutcome === realOutcome) {
+    const predDiff = predHome - predAway;
+    const realDiff = realHome - realAway;
+    if (predDiff === realDiff) {
+      return { type: 'diff', underdogBonus };
+    }
+    return { type: 'outcome', underdogBonus };
+  }
+
+  return { type: 'wrong', underdogBonus: 0 };
+};
+
+/**
+ * REGULAMENTO 2: Returns the score category and alone-bonus flag without computing total points.
+ */
+export const getScoreCategoryRegulamento2 = (
+  predHome: number,
+  predAway: number,
+  realHome: number,
+  realAway: number,
+  phase: MatchPhase,
+  matchPredictions: MatchPredictionContext[],
+  currentUserId: string
+): ScoreCategoryR2 => {
+  const isExact = predHome === realHome && predAway === realAway;
+  const isRealDraw = realHome === realAway;
+  const isOutcomeCorrect =
+    (realHome > realAway && predHome > predAway) ||
+    (realHome < realAway && predHome < predAway) ||
+    (realHome === realAway && predHome === predAway);
+
+  const realDiff = realHome - realAway;
+  const predDiff = predHome - predAway;
+  const isDiffCorrect = realDiff === predDiff;
+
+  if (isExact) {
+    const exactHits = matchPredictions.filter(
+      (p) => p.homeScore === realHome && p.awayScore === realAway
+    );
+    const aloneBonus = exactHits.length === 1 && exactHits[0].userId === currentUserId;
+    return { type: 'exact', aloneBonus };
+  }
+
+  if (isOutcomeCorrect) {
+    if (isRealDraw) {
+      return { type: 'outcome', aloneBonus: false };
+    } else if (isDiffCorrect) {
+      return { type: 'diff', aloneBonus: false };
+    } else {
+      return { type: 'outcome', aloneBonus: false };
+    }
+  }
+
+  return { type: 'wrong', aloneBonus: false };
+};
 
 /**
  * REGULAMENTO 2: State-aware prediction points calculator (with Placar Sozinho +5 bonus)
@@ -128,18 +201,7 @@ export const calculatePointsRegulamento2 = (
   matchPredictions: MatchPredictionContext[],
   currentUserId: string
 ): number => {
-  const isExact = predHome === realHome && predAway === realAway;
-  const isRealDraw = realHome === realAway;
-  const isOutcomeCorrect =
-    (realHome > realAway && predHome > predAway) ||
-    (realHome < realAway && predHome < predAway) ||
-    (realHome === realAway && predHome === predAway);
-
-  const realDiff = realHome - realAway;
-  const predDiff = predHome - predAway;
-  const isDiffCorrect = realDiff === predDiff;
-
-  let basePoints = 0;
+  const cat = getScoreCategoryRegulamento2(predHome, predAway, realHome, realAway, phase, matchPredictions, currentUserId);
 
   let pointsExact = 15;
   let pointsDiff = 13;
@@ -155,28 +217,16 @@ export const calculatePointsRegulamento2 = (
     pointsOutcome = 16;
   }
 
-  if (isExact) {
-    basePoints = pointsExact;
-
-    // Placar Sozinho bonus check
-    const exactHits = matchPredictions.filter(
-      (p) => p.homeScore === realHome && p.awayScore === realAway
-    );
-    if (exactHits.length === 1 && exactHits[0].userId === currentUserId) {
-      basePoints += 5; // +5 points bonus
-    }
-  } else if (isOutcomeCorrect) {
-    if (isRealDraw) {
-      // In case of a draw, no extra diff points are awarded. Only base outcome points.
-      basePoints = pointsOutcome;
-    } else if (isDiffCorrect) {
-      basePoints = pointsDiff;
-    } else {
-      basePoints = pointsOutcome;
-    }
+  if (cat.type === 'exact') {
+    return pointsExact + (cat.aloneBonus ? 5 : 0);
   }
-
-  return basePoints;
+  if (cat.type === 'diff') {
+    return pointsDiff;
+  }
+  if (cat.type === 'outcome') {
+    return pointsOutcome;
+  }
+  return 0;
 };
 
 /**

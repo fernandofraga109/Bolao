@@ -42,10 +42,12 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
   // The sections are already filtered to a single group in App.tsx
   const viewingGroupId = sections[0]?.groupId || "";
+  const activeGroup = groups.find((g) => g.id === viewingGroupId);
+  const ruleset = activeGroup?.ruleset || "regulamento_1";
 
   return (
     <>
-      <Leaderboard sections={sections} onUserClick={(u) => setAuditUser(u as User)} />
+      <Leaderboard sections={sections} ruleset={ruleset} onUserClick={(u) => setAuditUser(u as User)} />
       {auditUser && (
         <UserAuditModal
           user={auditUser}

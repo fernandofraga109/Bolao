@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { Friend } from "../types";
-import { Trophy, Medal, TrendingUp, TrendingDown, Minus, Search } from "lucide-react";
+import { Trophy, Medal, TrendingUp, TrendingDown, Minus, Search, BarChart3 } from "lucide-react";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
+import LeaderboardDetails from "./LeaderboardDetails";
 
 interface LeaderboardProps {
   sections: {
@@ -10,10 +11,12 @@ interface LeaderboardProps {
     competitionCode?: string;
     users: Friend[];
   }[];
+  ruleset?: "regulamento_1" | "regulamento_2";
   onUserClick?: (user: Friend) => void;
 }
 
-const Leaderboard: React.FC<LeaderboardProps> = ({ sections, onUserClick }) => {
+const Leaderboard: React.FC<LeaderboardProps> = ({ sections, ruleset = "regulamento_1", onUserClick }) => {
+  const [activeView, setActiveView] = useState<"ranking" | "details">("ranking");
   const sectionsWithSortedUsers = sections.map((section) => {
     const sorted = [...section.users].sort((a, b) => b.totalPoints - a.totalPoints);
     let currentRank = 0;
@@ -75,19 +78,62 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, onUserClick }) => {
 
   return (
     <div className="w-full max-w-2xl mx-auto pb-8">
-      <div className="bg-gradient-to-br from-brand-dark via-brand-dark to-brand-blue/20 p-5 sm:p-8 rounded-3xl mb-8 shadow-2xl border border-slate-800 relative overflow-hidden">
+      <div className="bg-gradient-to-br from-brand-dark via-brand-dark to-brand-blue/20 p-5 sm:p-8 rounded-3xl mb-6 shadow-2xl border border-slate-800 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-brand-green/5 blur-3xl rounded-full -mr-20 -mt-20"></div>
         <div className="relative">
-          <h2 className="text-3xl font-black text-white mb-2 tracking-tight">CLASSIFICAÇÃO</h2>
-          <p className="text-slate-400 text-sm font-medium">Acompanhe a disputa em tempo real</p>
-          <div className="mt-4 flex items-center gap-2">
-            <span className="text-[10px] text-brand-green font-bold uppercase tracking-widest px-2 py-0.5 bg-brand-green/10 rounded-full border border-brand-green/20">
-              * Barra indica % de pontos em relação ao 1º colocado
-            </span>
+          <h2 className="text-3xl font-black text-white tracking-tight mb-3">CLASSIFICAÇÃO</h2>
+
+          {/* Toggle - linha própria para melhor visibilidade em mobile */}
+          <div className="flex bg-slate-900/60 rounded-xl p-1 border border-slate-700/50 mb-3">
+            <button
+              onClick={() => setActiveView("ranking")}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-black uppercase tracking-wider transition-all ${
+                activeView === "ranking"
+                  ? "bg-brand-green text-brand-dark shadow-md"
+                  : "text-slate-400 hover:text-white hover:bg-slate-800/50"
+              }`}
+            >
+              <Trophy size={16} />
+              <span>Ranking</span>
+            </button>
+            <button
+              onClick={() => setActiveView("details")}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-black uppercase tracking-wider transition-all ${
+                activeView === "details"
+                  ? "bg-brand-green text-brand-dark shadow-md"
+                  : "text-slate-400 hover:text-white hover:bg-slate-800/50"
+              }`}
+            >
+              <BarChart3 size={16} />
+              <span>Detalhes</span>
+            </button>
           </div>
+
+          <p className="text-slate-400 text-sm font-medium">
+            {activeView === "ranking"
+              ? "Acompanhe a disputa em tempo real"
+              : "Detalhamento de acertos por jogador"}
+          </p>
+          {activeView === "ranking" && (
+            <div className="mt-4 flex items-center gap-2">
+              <span className="text-[10px] text-brand-green font-bold uppercase tracking-widest px-2 py-0.5 bg-brand-green/10 rounded-full border border-brand-green/20">
+                * Barra indica % de pontos em relação ao 1º colocado
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
+      {activeView === "details" && (
+        <LeaderboardDetails
+          sections={sections}
+          ruleset={ruleset}
+          onUserClick={onUserClick}
+        />
+      )}
+
+      {activeView === "ranking" && (
+      <>
       {sectionsWithSortedUsers.length === 0 ? (
         <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl overflow-hidden shadow-xl border border-slate-700/50 p-12 text-center">
           <div className="bg-slate-700/50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -209,7 +255,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, onUserClick }) => {
           })}
         </div>
       )}
-      
+      </>)}
     </div>
   );
 };
