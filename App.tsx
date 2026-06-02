@@ -218,12 +218,6 @@ const App: React.FC = () => {
     if (seen !== CURRENT_VERSION) setShowWhatsNew(true);
   }, []);
 
-  // Reset tab to matches if group ruleset switches away from regulamento_2 while on specials tab
-  useEffect(() => {
-    if (activeTab === "specials" && currentGroup?.ruleset !== "regulamento_2") {
-      setActiveTab("matches");
-    }
-  }, [currentGroup?.ruleset, activeTab]);
 
   const handleWhatsNewClose = () => {
     localStorage.setItem("bolao_last_seen_version", CURRENT_VERSION);
@@ -620,13 +614,10 @@ const App: React.FC = () => {
             currentUser={currentUser}
             isSyncing={isSyncing}
             canWriteCompetitionData={canWriteCompetitionData}
-            tournamentResults={tournamentResults}
-            lockDate={lockDate}
             onManualSync={() => void handleManualMatchesSync()}
             onPredict={predictMatch}
             onAdminSaveMatch={handleAdminSaveMatch}
             onAdminToggleSyncLock={handleAdminToggleSyncLock}
-            onPredictTournament={predictTournament}
             onOpenGroupSwitcher={() => setIsGroupSwitcherOpen(true)}
             minRankDiff={currentGroup?.underdog_min_rank_diff ?? db.systemConfig.underdog_min_rank_diff ?? 10}
             ruleset={currentGroup?.ruleset}
@@ -716,7 +707,6 @@ const App: React.FC = () => {
         activeTab={activeTab}
         setActiveTab={handleSetActiveTab}
         userRole={currentUser.role}
-        ruleset={currentGroup?.ruleset}
       />
 
     </div>

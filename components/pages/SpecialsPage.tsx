@@ -129,6 +129,7 @@ const SpecialsPage: React.FC<SpecialsPageProps> = ({
         ruleset={ruleset}
         currentUserId={currentUser.id}
         currentGroupId={currentUser.activeGroupId}
+        defaultExpanded={ruleset === "regulamento_1"}
       />
 
       {ruleset === "regulamento_2" && (
@@ -152,7 +153,7 @@ const SpecialsPage: React.FC<SpecialsPageProps> = ({
         </>
       )}
 
-      {currentUser.activeGroupId && (
+      {currentUser.activeGroupId && ruleset === "regulamento_2" && (
         <ExtraPhasePredictionsCard
           groupId={currentUser.activeGroupId}
           userId={currentUser.id}

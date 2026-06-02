@@ -20,6 +20,7 @@ interface TopScorerCardProps {
     ruleset?: "regulamento_1" | "regulamento_2";
     currentUserId?: string;
     currentGroupId?: string;
+    defaultExpanded?: boolean;
 }
 
 // Sub-component: Other users' predictions accordion
@@ -180,9 +181,10 @@ const TopScorerCard: React.FC<TopScorerCardProps> = ({
     ruleset = "regulamento_1",
     currentUserId,
     currentGroupId,
+    defaultExpanded = false,
 }) => {
     // Collapse State
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
     // Form State
     const [championId, setChampionId] = useState(prediction?.championTeamId || '');

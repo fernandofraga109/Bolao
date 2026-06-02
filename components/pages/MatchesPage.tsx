@@ -1,10 +1,8 @@
-import React, { useState, useMemo, useCallback } from "react";
-import { Match, MatchStatus, User, TournamentPredictions, GroupDB } from "../../types";
+import React, { useState, useMemo } from "react";
+import { Match, MatchStatus, User, GroupDB } from "../../types";
 import { MatchCard } from "../MatchCard.tsx";
 import { getMatchPhase } from "../../utils/scoring";
 import RulesSection from "../RulesSection";
-import TopScorerCard from "../TopScorerCard";
-import { ExtraPhasePredictionsCard } from "../ExtraPhasePredictionsCard";
 import { CalendarDays, History, ChevronDown, ChevronUp, Zap, Users } from "lucide-react";
 
 // --- Helper: Date Group Accordion ---
@@ -120,13 +118,10 @@ interface MatchesPageProps {
   currentUser: User;
   isSyncing: boolean;
   canWriteCompetitionData: boolean;
-  tournamentResults?: any;
-  lockDate: string | null;
   onManualSync: () => void;
   onPredict: (id: string, h: number, a: number, targetGroupIds?: string[]) => Promise<void>;
   onAdminSaveMatch: (id: string, status: "started" | "live" | "ended", h: number, a: number) => void;
   onAdminToggleSyncLock?: (matchId: string, locked: boolean) => void;
-  onPredictTournament: (predictions: TournamentPredictions) => void;
   onOpenGroupSwitcher?: () => void;
   minRankDiff?: number;
   ruleset?: "regulamento_1" | "regulamento_2";
@@ -141,13 +136,10 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
   currentUser,
   isSyncing,
   canWriteCompetitionData,
-  tournamentResults,
-  lockDate,
   onManualSync,
   onPredict,
   onAdminSaveMatch,
   onAdminToggleSyncLock,
-  onPredictTournament,
   onOpenGroupSwitcher,
   minRankDiff,
   ruleset = "regulamento_1",
@@ -198,14 +190,6 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
     return { pastGroups: past, todayMatches: today, futureGroups: future };
   }, [matches]);
 
-  const currentGroupTeamIds = useMemo(() => {
-    const ids = new Set<string>();
-    matches.forEach((match) => {
-      if (match.homeTeam?.id) ids.add(match.homeTeam.id);
-      if (match.awayTeam?.id) ids.add(match.awayTeam.id);
-    });
-    return Array.from(ids);
-  }, [matches]);
 
   const formatDateTitle = (dateStr: string) => {
     const date = new Date(dateStr + "T12:00:00");
@@ -274,16 +258,6 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
 
       {!isAdmin && <RulesSection minRankDiff={minRankDiff} ruleset={ruleset} />}
 
-      {!isAdmin && ruleset !== "regulamento_2" && (
-        <TopScorerCard
-          prediction={currentUser.tournamentPredictions}
-          onPredict={onPredictTournament}
-          lockDate={lockDate ? new Date(lockDate) : new Date(0)}
-          finalResult={tournamentResults}
-          allowedChampionTeamIds={currentGroupTeamIds}
-          ruleset={ruleset}
-        />
-      )}
 
       {/* Past Matches */}
       {Object.keys(pastGroups).length > 0 && (
