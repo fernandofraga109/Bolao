@@ -58,6 +58,29 @@ export default defineConfig(({ mode }) => {
         });
       },
     },
+    "/api/teams": {
+      target: "https://api.football-data.org",
+      changeOrigin: true,
+      secure: true,
+      rewrite: (incomingPath: string) => {
+        const [, search = ""] = incomingPath.split("?");
+        const params = new URLSearchParams(search);
+        const competition = (params.get("competition") || "WC").toUpperCase();
+        const season = params.get("season");
+        const seasonQuery = season
+          ? `?season=${encodeURIComponent(season)}`
+          : "";
+        return `/v4/competitions/${competition}/teams${seasonQuery}`;
+      },
+      configure: (proxy: any) => {
+        proxy.on("proxyReq", (proxyReq: any) => {
+          if (footballDataToken) {
+            proxyReq.setHeader("X-Auth-Token", footballDataToken);
+          }
+          proxyReq.setHeader("Content-Type", "application/json");
+        });
+      },
+    },
     "/api/competitions": {
       target: "https://api.football-data.org",
       changeOrigin: true,
