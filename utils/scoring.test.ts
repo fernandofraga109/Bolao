@@ -97,9 +97,9 @@ describe("calculatePoints", () => {
       expect(pts).toBe(POINTS_EXACT);
     });
 
-    it("adiciona bônus com minRankDiff customizado menor (5) quando diff entre rankings está entre 5 e 10", () => {
-      // ranking 20 vs 10 → diff = 10 > 5, azarão (rank 20) vence
-      const ptsCustom = calculatePoints(0, 1, 0, 1, 10, 20, 5);
+    it("adiciona bônus com minRankDiff customizado menor (5) quando diff entre rankings está acima de 5", () => {
+      // ranking 40 vs 5 → diff = 35 > 5, azarão (rank 40) vence, Math.floor(35 * 0.03) = 1
+      const ptsCustom = calculatePoints(0, 1, 0, 1, 5, 40, 5);
       expect(ptsCustom).toBeGreaterThan(POINTS_EXACT);
     });
 
@@ -110,8 +110,8 @@ describe("calculatePoints", () => {
     });
 
     it("com minRankDiff = 0, azarão por qualquer margem gera bônus", () => {
-      // ranking 2 vs 1 → diff = 1 > 0, azarão vence
-      const pts = calculatePoints(0, 1, 0, 1, 1, 2, 0);
+      // ranking 50 vs 1 → diff = 49 > 0, azarão vence, Math.floor(49 * 0.03) = 1
+      const pts = calculatePoints(0, 1, 0, 1, 1, 50, 0);
       expect(pts).toBeGreaterThan(POINTS_EXACT);
     });
 
@@ -150,8 +150,8 @@ describe("calculateUnderdogBonus", () => {
 
   describe("minRankDiff customizado", () => {
     it("dispara bônus quando diff está acima do minRankDiff customizado (5)", () => {
-      // ranking 20 vs 10 → diff = 10, que é > 5, então deve dar bônus
-      const bonus = calculateUnderdogBonus(20, 10, 5);
+      // ranking 40 vs 5 → diff = 35, que é > 5, então deve dar bônus (Math.floor(35 * 0.03) = 1)
+      const bonus = calculateUnderdogBonus(40, 5, 5);
       expect(bonus).toBeGreaterThan(0);
     });
 
@@ -168,15 +168,15 @@ describe("calculateUnderdogBonus", () => {
     });
 
     it("com minRankDiff = 0, qualquer vitória de azarão gera bônus", () => {
-      // ranking 2 vs 1 → diff = 1, que é > 0, então deve dar bônus
-      const bonus = calculateUnderdogBonus(2, 1, 0);
+      // ranking 35 vs 1 → diff = 34, que é > 0, então deve dar bônus (Math.floor(34 * 0.03) = 1)
+      const bonus = calculateUnderdogBonus(35, 1, 0);
       expect(bonus).toBeGreaterThan(0);
     });
 
-    it("com minRankDiff = 0, diff de 1 posição gera bônus mínimo de 1", () => {
-      // diff = 1, factor = 0.25 → ceil(0.25) = 1
+    it("com minRankDiff = 0, diff de 1 posição gera bônus mínimo", () => {
+      // diff = 1, factor = 0.03 → Math.floor(0.03) = 0
       const bonus = calculateUnderdogBonus(2, 1, 0);
-      expect(bonus).toBe(1);
+      expect(bonus).toBe(0);
     });
 
     it("comportamento padrão sem passar minRankDiff é igual a passar minRankDiff = 10", () => {
@@ -275,12 +275,19 @@ describe("calculatePointsRegulamento2", () => {
   });
 
   it("retorna pontos corretos para as diferentes fases (Terceiro Lugar e Final)", () => {
+    // Precisamos um mock onde u1 seja o ÚNICO a acertar o placar exato
+    const aloneMatchPreds = [
+      { userId: "u1", homeScore: 1, awayScore: 0 },
+      { userId: "u2", homeScore: 2, awayScore: 1 },
+      { userId: "u3", homeScore: 0, awayScore: 2 },
+    ];
+
     // 3º Lugar: Exato = 17, se for sozinho = 22
-    const pts3 = calculatePointsRegulamento2(1, 0, 1, 0, "third_place", matchPredsMock, "u1");
+    const pts3 = calculatePointsRegulamento2(1, 0, 1, 0, "third_place", aloneMatchPreds, "u1");
     expect(pts3).toBe(22);
 
     // Final: Exato = 22, se for sozinho = 27
-    const ptsFinal = calculatePointsRegulamento2(1, 0, 1, 0, "final", matchPredsMock, "u1");
+    const ptsFinal = calculatePointsRegulamento2(1, 0, 1, 0, "final", aloneMatchPreds, "u1");
     expect(ptsFinal).toBe(27);
   });
 });

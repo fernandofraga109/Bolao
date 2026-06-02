@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from "react";
-import { Match, User, TournamentPredictions, GroupDB } from "../../types";
+import { Match, MatchStatus, User, TournamentPredictions, GroupDB } from "../../types";
 import { MatchCard } from "../MatchCard.tsx";
+import { getMatchPhase } from "../../utils/scoring";
 import RulesSection from "../RulesSection";
 import TopScorerCard from "../TopScorerCard";
 import { ExtraPhasePredictionsCard } from "../ExtraPhasePredictionsCard";
@@ -23,6 +24,7 @@ interface MatchGroupProps {
   minRankDiff?: number;
   ruleset?: "regulamento_1" | "regulamento_2";
   eligibleGroups?: GroupDB[];
+  phaseLockSet?: Set<string>;
 }
 
 const MatchGroup: React.FC<MatchGroupProps> = ({
@@ -41,6 +43,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
   minRankDiff,
   ruleset,
   eligibleGroups = [],
+  phaseLockSet,
 }) => {
   const [isOpen, setIsOpen] = useState(isOpenDefault);
 
@@ -99,6 +102,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
               minRankDiff={minRankDiff}
               ruleset={ruleset}
               eligibleGroups={eligibleGroups}
+              phaseLockSet={phaseLockSet}
             />
           ))}
         </div>
@@ -212,6 +216,19 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
     });
   };
 
+  const phaseLockSet = useMemo(() => {
+    if (ruleset !== "regulamento_2") return new Set<string>();
+    const locked = new Set<string>();
+    const now = new Date();
+    matches.forEach((m) => {
+      const started = m.status !== MatchStatus.SCHEDULED || now > new Date(m.date);
+      if (started) {
+        locked.add(getMatchPhase(m.stage, m.group));
+      }
+    });
+    return locked;
+  }, [matches, ruleset]);
+
   const isAdmin = currentUser.role === "ADMIN";
 
   return (
@@ -312,6 +329,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
                     minRankDiff={minRankDiff}
                     ruleset={ruleset}
                     eligibleGroups={eligibleGroups}
+                    phaseLockSet={phaseLockSet}
                   />
                 ))}
             </div>
@@ -360,6 +378,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
         minRankDiff={minRankDiff}
         ruleset={ruleset}
         eligibleGroups={eligibleGroups}
+        phaseLockSet={phaseLockSet}
       />
 
       {/* Future Matches */}
@@ -382,6 +401,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
             minRankDiff={minRankDiff}
             ruleset={ruleset}
             eligibleGroups={eligibleGroups}
+            phaseLockSet={phaseLockSet}
           />
         ))}
     </div>

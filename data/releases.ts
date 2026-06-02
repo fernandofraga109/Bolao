@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.14.0";
+export const CURRENT_VERSION = "1.15.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.15.0",
+    date: "2026-06-01",
+    changes: [
+      "Lock de fase no Regulamento 2",
+      "Palpites bloqueados quando fase da competição inicia",
+      "Melhorias nos testes de pontuação",
+    ],
+  },
   {
     version: "1.14.0",
     date: "2026-06-01",

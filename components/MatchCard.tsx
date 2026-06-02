@@ -56,6 +56,7 @@ interface MatchCardProps {
   minRankDiff?: number;
   ruleset?: "regulamento_1" | "regulamento_2";
   eligibleGroups?: GroupDB[];
+  phaseLockSet?: Set<string>;
 }
 
 export const MatchCard: React.FC<MatchCardProps> = ({
@@ -70,6 +71,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   minRankDiff,
   ruleset = "regulamento_1",
   eligibleGroups = [],
+  phaseLockSet,
 }) => {
   const [showFriends, setShowFriends] = useState(false);
   const [homeInput, setHomeInput] = useState<string>("");
@@ -138,7 +140,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const isLocked = new Date() > matchDate || match.status !== MatchStatus.SCHEDULED;
   const isLive = match.status === MatchStatus.LIVE;
   const isFinished = match.status === MatchStatus.FINISHED;
-  const isPredictionDisabled = !isAdmin && (isFinished || isLive || isLocked);
+  const isPhaseLocked = ruleset === "regulamento_2" && phaseLockSet?.has(getMatchPhase(match.stage, match.group));
+  const isPredictionDisabled = !isAdmin && (isFinished || isLive || isLocked || !!isPhaseLocked);
 
   const underdogTeam = (match.homeTeam?.ranking ?? 0) > (match.awayTeam?.ranking ?? 0)
     ? match.homeTeam
@@ -462,7 +465,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                    </div>
                 ) : isPredictionDisabled ? (
                   <div className="flex items-center gap-2 px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500">
-                     <Lock size={14} /> Fechado
+                     <Lock size={14} />
+                     {isPhaseLocked && !isLocked ? "Fase Iniciada" : "Fechado"}
                   </div>
                 ) : (
                   <button
