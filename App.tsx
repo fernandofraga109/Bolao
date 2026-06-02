@@ -21,6 +21,7 @@ import PullToRefreshIndicator from "./components/ui/PullToRefreshIndicator";
 // Auth
 import Login from "./components/Login";
 import GroupSwitcher from "./components/GroupSwitcher";
+import DeactivatedUserModal from "./components/DeactivatedUserModal";
 
 // Pages
 import MatchesPage from "./components/pages/MatchesPage";
@@ -366,6 +367,15 @@ const App: React.FC = () => {
         onPasswordResetComplete={finishPasswordRecoveryFlow}
         availableUsers={users}
       />
+    );
+  }
+
+  // --- Deactivated User Block ---
+  if (currentUser.role === "DEACTIVATED") {
+    return (
+      <div className="min-h-screen bg-brand-dark">
+        <DeactivatedUserModal onLogout={logout} />
+      </div>
     );
   }
 

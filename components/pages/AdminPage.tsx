@@ -8,7 +8,7 @@ interface AdminPageProps {
   groups: Group[];
   currentUser: User;
   onInvite: (email: string) => void;
-  onUpdateRole: (userId: string, newRole: "ADMIN" | "USER") => void;
+  onUpdateRole: (userId: string, newRole: "ADMIN" | "USER" | "DEACTIVATED") => void;
   onRemoveUser: (userId: string) => void;
   onCreateGroup: (name: string, competitionCode: string) => void;
   onDeleteGroup: (id: string) => Promise<void>;
