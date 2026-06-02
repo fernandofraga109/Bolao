@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.15.0";
+export const CURRENT_VERSION = "1.16.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.16.0",
+    date: "2026-06-01",
+    changes: [
+      "Banner de palpites pendentes na página de partidas",
+      "Alerta de bloqueio de fase no Regulamento 2",
+      "Contagem regressiva para fechamento de palpites",
+    ],
+  },
   {
     version: "1.15.0",
     date: "2026-06-01",

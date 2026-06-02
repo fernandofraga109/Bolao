@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { Tab, MatchStatus } from "./types";
+import { getMatchPhase } from "./utils/scoring";
 
 // Custom Hooks
 import { useUserSystem } from "./hooks/useUserSystem";
@@ -39,6 +40,7 @@ import {
   PlusCircle,
 } from "lucide-react";
 import RegulamentoModal from "./components/RegulamentoModal";
+import PendingPredictionsBanner from "./components/PendingPredictionsBanner";
 
 
 const App: React.FC = () => {
@@ -191,6 +193,19 @@ const App: React.FC = () => {
     });
     return Array.from(ids);
   }, [matches]);
+
+  const phaseLockSet = useMemo(() => {
+    if (currentGroup?.ruleset !== "regulamento_2") return new Set<string>();
+    const locked = new Set<string>();
+    const now = new Date();
+    matches.forEach((m) => {
+      const started = m.status !== MatchStatus.SCHEDULED || now > new Date(m.date);
+      if (started) {
+        locked.add(getMatchPhase(m.stage, m.group));
+      }
+    });
+    return locked;
+  }, [matches, currentGroup?.ruleset]);
 
   const [activeTab, setActiveTab] = useState<Tab>("matches");
   const [groupError, setGroupError] = useState<string | null>(null);
@@ -554,6 +569,14 @@ const App: React.FC = () => {
               )}
             </div>
           )}
+
+          <PendingPredictionsBanner
+            matches={matches}
+            predictions={myPredictionsMap}
+            ruleset={currentGroup?.ruleset}
+            phaseLockSet={phaseLockSet}
+            isAdmin={currentUser.role === "ADMIN"}
+          />
         </div>
       )}
 
