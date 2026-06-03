@@ -80,6 +80,40 @@ const getFlagUrl = (teamCode: string): string => {
 const normalizeCompetitionCode = (value?: string) =>
   (value || "WC").toUpperCase();
 
+/**
+ * Extrai o resultado efetivo de um jogo do payload da football-data API.
+ * O campo `fullTime` inclui penalties em jogos de mata-mata, então
+ * calculamos o resultado real como regularTime + extraTime (sem penalties).
+ */
+export const extractMatchResult = (score: any) => {
+  const duration = score?.duration as "REGULAR" | "EXTRA_TIME" | "PENALTY_SHOOTOUT" | undefined;
+  const regularTime = score?.regularTime;
+  const extraTime = score?.extraTime;
+  const penalties = score?.penalties;
+  const fullTime = score?.fullTime;
+
+  if (duration === "EXTRA_TIME" || duration === "PENALTY_SHOOTOUT") {
+    const rtHome = regularTime?.home ?? 0;
+    const rtAway = regularTime?.away ?? 0;
+    const etHome = extraTime?.home ?? 0;
+    const etAway = extraTime?.away ?? 0;
+    return {
+      home: rtHome + etHome,
+      away: rtAway + etAway,
+      penaltiesHome: duration === "PENALTY_SHOOTOUT" ? (penalties?.home ?? null) : null,
+      penaltiesAway: duration === "PENALTY_SHOOTOUT" ? (penalties?.away ?? null) : null,
+    };
+  }
+
+  // REGULAR ou fallback
+  return {
+    home: fullTime?.home ?? null,
+    away: fullTime?.away ?? null,
+    penaltiesHome: null,
+    penaltiesAway: null,
+  };
+};
+
 type SyncOperation = "matches" | "standings" | "combined";
 
 export interface CompetitionSyncStatus {
@@ -513,8 +547,9 @@ export const useSyncSystem = (
         let mostConcededScore = -1;
 
         for (const match of finishedMatches) {
-          const homeGoals = match.score.fullTime.home;
-          const awayGoals = match.score.fullTime.away;
+          const extracted = extractMatchResult(match.score);
+          const homeGoals = extracted.home ?? 0;
+          const awayGoals = extracted.away ?? 0;
           const homeTeamId = match.homeTeam?.id;
           const awayTeamId = match.awayTeam?.id;
 
@@ -603,10 +638,13 @@ export const useSyncSystem = (
           }
 
           const status = mapExternalStatusToInternal(em.status);
-          
-          const homeScore = em.score?.fullTime?.home;
-          const awayScore = em.score?.fullTime?.away;
-          
+
+          const extracted = extractMatchResult(em.score);
+          const homeScore = extracted.home;
+          const awayScore = extracted.away;
+          const penaltiesHome = extracted.penaltiesHome;
+          const penaltiesAway = extracted.penaltiesAway;
+
           const result = homeScore != null ? { home: homeScore, away: awayScore } : undefined;
 
           const existing = findInternalMatch(em, hydratedInternalMatches);

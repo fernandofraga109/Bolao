@@ -79,7 +79,13 @@ export interface ExternalMatch {
     crest?: string;
   } | null;
   score?: {
+    winner?: string;
+    duration?: "REGULAR" | "EXTRA_TIME" | "PENALTY_SHOOTOUT";
     fullTime?: { home: number; away: number };
+    halfTime?: { home: number; away: number };
+    regularTime?: { home: number; away: number };
+    extraTime?: { home: number; away: number };
+    penalties?: { home: number; away: number };
   };
 }
 

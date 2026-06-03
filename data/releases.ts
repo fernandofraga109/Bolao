@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.17.0";
+export const CURRENT_VERSION = "1.18.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.18.0",
+    date: "2026-06-03",
+    changes: [
+      "Correção: resultado de mata-mata agora ignora penalties",
+      "Placar calculado como tempo regular + prorrogação",
+      "Campos de penalties armazenados separadamente",
+    ],
+  },
   {
     version: "1.17.0",
     date: "2026-06-02",
