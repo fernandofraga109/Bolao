@@ -475,7 +475,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     className="group/save flex items-center gap-2 bg-brand-green text-brand-dark px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-brand-green/20 hover:scale-105 active:scale-95 transition-all"
                   >
                     {isSavingPrediction ? <Loader2 size={16} className="animate-spin" /> : (hasSavedPrediction ? <Pencil size={16} /> : <Save size={16} />)}
-                    {isSavingPrediction ? "Salvando" : (hasSavedPrediction ? "Editar" : "Palpitar")}
+                    {isSavingPrediction ? "Salvando" : (hasSavedPrediction ? "Salvar" : "Palpitar")}
                   </button>
                 )}
               </div>
