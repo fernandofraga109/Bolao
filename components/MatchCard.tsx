@@ -309,6 +309,27 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   </span>
                 </div>
 
+                {/* Detalhes de Pênaltis (apenas usuários normais) */}
+                {!isAdmin && match.score?.duration === "PENALTY_SHOOTOUT" && (
+                  <div className="flex flex-col items-center mt-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                    <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest mb-1">Disputa de Pênaltis</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-black text-white">
+                        {match.score.penalties?.home ?? 0}
+                      </span>
+                      <span className="text-xs font-bold text-slate-500">×</span>
+                      <span className="text-sm font-black text-white">
+                        {match.score.penalties?.away ?? 0}
+                      </span>
+                    </div>
+                    {match.score.winner && (
+                      <span className="text-[9px] font-bold text-amber-300 mt-1">
+                        Vencedor: {match.score.winner === "HOME_TEAM" ? match.homeTeam.name : match.awayTeam.name}
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {/* Palpite do Usuário */}
                 <div className="flex flex-col items-center mt-1">
                   <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/50 border border-slate-700/50">

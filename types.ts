@@ -93,6 +93,7 @@ export interface MatchDB {
   minute?: number | null;
   lastSyncAt?: string;
   syncLocked?: boolean;
+  score?: any; // Payload completo do score da API (duration, regularTime, extraTime, penalties, etc.)
 }
 
 export interface PredictionDB {
@@ -252,6 +253,7 @@ export interface Match {
   minute?: number | null;
   lastSyncAt?: string;
   syncLocked?: boolean;
+  score?: any; // Payload completo do score da API (duration, regularTime, extraTime, penalties, etc.)
 }
 
 export type Group = GroupDB;

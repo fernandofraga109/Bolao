@@ -608,6 +608,7 @@ export const useSyncSystem = (
           result: m.resultHome != null ? { home: m.resultHome, away: m.resultAway } : undefined,
           homeTeam: dbRef.current.teams.find((t: any) => t.id === m.homeTeamId),
           awayTeam: dbRef.current.teams.find((t: any) => t.id === m.awayTeamId),
+          score: m.score,
         }));
 
         const matchUpserts: any[] = [];
@@ -706,6 +707,7 @@ export const useSyncSystem = (
                 date: em.utcDate,
                 minute: liveMinute,
                 lastSyncAt: new Date().toISOString(),
+                score: em.score,
               });
 
 
@@ -745,6 +747,7 @@ export const useSyncSystem = (
                 matchday: em.matchday,
                 minute: em.minute ?? null,
                 lastSyncAt: new Date().toISOString(),
+                score: em.score,
               });
             } else {
               // Times com id/tla nulos = jogos de fase eliminatória ainda não definidos (TBD).

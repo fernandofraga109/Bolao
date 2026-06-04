@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.19.0";
+export const CURRENT_VERSION = "1.20.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.20.0",
+    date: "2026-06-04",
+    changes: [
+      "Exibição de detalhes de pênaltis em jogos de mata-mata",
+      "Placar de penalties e vencedor destacados",
+      "Campo score JSON adicionado para dados completos",
+    ],
+  },
   {
     version: "1.19.0",
     date: "2026-06-04",

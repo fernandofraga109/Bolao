@@ -114,7 +114,8 @@ CREATE TABLE IF NOT EXISTS public.matches (
     status text NOT NULL,
     "resultHome" integer,
     "resultAway" integer,
-    "externalMatchId" text UNIQUE
+    "externalMatchId" text UNIQUE,
+    score jsonb -- Payload completo do score da API (duration, regularTime, extraTime, penalties, etc.)
 );
 
 
