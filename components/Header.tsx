@@ -191,8 +191,8 @@ const Header: React.FC<HeaderProps> = ({
       </header>
 
       {isAvatarModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm px-4 animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 w-full max-w-sm shadow-2xl">
+        <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/90 backdrop-blur-sm px-4 py-6 overflow-y-auto animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 w-full max-w-sm shadow-2xl my-auto">
             <h2 className="text-2xl font-black mb-6 text-white tracking-tight">EDITAR PERFIL</h2>
 
             {currentUser.role !== "ADMIN" && (
@@ -241,6 +241,11 @@ const Header: React.FC<HeaderProps> = ({
                 className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-green transition-all disabled:opacity-50"
                 placeholder="Seu nome"
               />
+              {currentUser.email && (
+                <p className="mt-2 text-[10px] font-bold text-slate-600 truncate">
+                  {currentUser.email}
+                </p>
+              )}
             </div>
 
             <div className="mb-5">

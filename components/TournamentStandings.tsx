@@ -14,6 +14,7 @@ import {
   fetchExternalStandings,
   getCurrentSeason,
 } from "../services/liveScoreService";
+import { translateGroupName } from "../utils/translations";
 
 interface TournamentStandingsProps {
   matches: Match[];
@@ -83,19 +84,13 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
   const normalizeCompetition = (value?: string) =>
     (value || "WC").toUpperCase();
 
-  const normalizeGroupName = (groupName: string) => {
-    const m = /^(?:Group|GROUP)[_\s]+([A-Z])$/i.exec(groupName.trim());
-    if (!m) return groupName;
-    return `Grupo ${m[1]}`;
-  };
-
   const buildStandingsFromExternal = useCallback(
     (groupsData: ExternalStandingGroup[]) => {
       const mapped: Record<string, TeamStats[]> = {};
 
       groupsData.forEach((groupEntry) => {
         const groupName = groupEntry.group
-          ? normalizeGroupName(groupEntry.group)
+          ? translateGroupName(groupEntry.group)
           : "Tabela";
         const rows = Array.isArray(groupEntry.table) ? groupEntry.table : [];
 
@@ -154,7 +149,7 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
       if (!standing) return;
 
       const groupName = standing.group
-        ? normalizeGroupName(standing.group)
+        ? translateGroupName(standing.group)
         : "Tabela";
       if (!grouped[groupName]) grouped[groupName] = [];
 
@@ -596,7 +591,7 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
                 className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-sm"
               >
                 <div className="bg-slate-900/50 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
-                  <h3 className="font-bold text-white">{normalizeGroupName(groupName)}</h3>
+                  <h3 className="font-bold text-white">{translateGroupName(groupName)}</h3>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -685,13 +680,12 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
                       onClick={() => toggleKnockoutGroup(groupName)}
                       className="w-full flex items-center justify-between px-4 py-3 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors"
                     >
-                      <span className="font-bold text-white">{normalizeGroupName(groupName)}</span>
                       <div className="flex items-center gap-3">
                         <div className="p-1.5 bg-brand-green/10 rounded-lg text-brand-green">
                           <GitMerge size={16} />
                         </div>
                         <h3 className="text-white font-bold text-sm uppercase tracking-wider">
-                          {normalizeGroupName(groupName)}
+                          {translateGroupName(groupName)}
                         </h3>
                       </div>
                       {isOpen ? (

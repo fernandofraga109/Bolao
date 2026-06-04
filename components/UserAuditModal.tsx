@@ -12,6 +12,7 @@ import {
   POINTS_BEST_PLAYER,
   POINTS_BEST_GOALKEEPER,
 } from "../utils/scoring";
+import { translateGroupName } from "../utils/translations";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
 
 interface UserAuditModalProps {
@@ -626,7 +627,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
                           </p>
                           <div className="flex items-center gap-1.5">
                             <p className="text-[10px] text-slate-500 uppercase tracking-wider">
-                              {row.match.group}
+                              {translateGroupName(row.match.group)}
                             </p>
                             <span className="text-slate-700">·</span>
                             <p className="text-[10px] text-slate-600">

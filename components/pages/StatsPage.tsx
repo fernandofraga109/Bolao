@@ -13,6 +13,7 @@ import {
   Calendar,
   MapPin,
 } from "lucide-react";
+import { translateGroupName } from "../../utils/translations";
 
 interface StatsPageProps {
   user: User;
@@ -157,7 +158,7 @@ const PredictionCard: React.FC<{ entry: PredictionEntry }> = ({ entry }) => {
         <div className="flex items-center gap-2 text-[11px] text-slate-400">
           <MapPin size={11} className="shrink-0" />
           <span className="font-semibold truncate max-w-[120px]">
-            {match.group}
+            {translateGroupName(match.group)}
           </span>
           <span className="text-slate-600">·</span>
           <Calendar size={11} className="shrink-0" />

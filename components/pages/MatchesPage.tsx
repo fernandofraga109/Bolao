@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Match, MatchStatus, User, GroupDB } from "../../types";
 import { MatchCard } from "../MatchCard.tsx";
 import { getMatchPhase } from "../../utils/scoring";
+import { translateGroupName } from "../../utils/translations";
 import RulesSection from "../RulesSection";
 import { CalendarDays, History, ChevronDown, ChevronUp, Zap, Users } from "lucide-react";
 
@@ -171,7 +172,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
         if (match.stage === "REGULAR_SEASON" && match.matchday) {
           key = `Rodada ${match.matchday}`;
         } else if (match.group) {
-          key = match.group;
+          key = translateGroupName(match.group);
         }
         if (!past[key]) past[key] = [];
         past[key].push(match);
@@ -280,11 +281,29 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
           {isPastMatchesOpen && (
             <div className="mt-4 space-y-4 pl-2 border-l-2 border-slate-800 ml-4 animate-fadeIn">
               {Object.entries(pastGroups)
-                .sort(([a], [b]) => {
-                  const numA = parseInt(a.replace(/\D/g, ""));
-                  const numB = parseInt(b.replace(/\D/g, ""));
+                .sort(([, matchesA], [, matchesB]) => {
+                  // Ordena pelo último jogo de cada fase (mais recente primeiro)
+                  const lastDateA = Math.max(
+                    ...matchesA.map((m) => new Date(m.date).getTime()),
+                  );
+                  const lastDateB = Math.max(
+                    ...matchesB.map((m) => new Date(m.date).getTime()),
+                  );
+                  // Ordem descendente: mais recente primeiro
+                  if (lastDateB !== lastDateA) return lastDateB - lastDateA;
+
+                  // Fallback: Rodada X (descendente)
+                  const [titleA] = matchesA;
+                  const [titleB] = matchesB;
+                  const numA = parseInt(
+                    titleA?.group?.replace(/\D/g, "") || "",
+                  );
+                  const numB = parseInt(
+                    titleB?.group?.replace(/\D/g, "") || "",
+                  );
                   if (!isNaN(numA) && !isNaN(numB)) return numB - numA;
-                  return b.localeCompare(a);
+
+                  return 0;
                 })
                 .map(([title, groupMatches]) => (
                   <MatchGroup
