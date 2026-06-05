@@ -115,7 +115,9 @@ CREATE TABLE IF NOT EXISTS public.matches (
     "resultHome" integer,
     "resultAway" integer,
     "externalMatchId" text UNIQUE,
-    score jsonb -- Payload completo do score da API (duration, regularTime, extraTime, penalties, etc.)
+    score jsonb, -- Payload completo do score da API (duration, regularTime, extraTime, penalties, etc.)
+    "penaltiesHome" integer, -- Placar de pênaltis (apenas quando duration = PENALTY_SHOOTOUT)
+    "penaltiesAway" integer -- Placar de pênaltis (apenas quando duration = PENALTY_SHOOTOUT)
 );
 
 

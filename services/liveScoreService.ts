@@ -146,11 +146,6 @@ export const fetchExternalMatches = async (
     const contentType = response.headers.get("content-type") || "";
 
     if (!contentType.includes("application/json")) {
-      const raw = await response.text().catch(() => "");
-      console.error(
-        "[LIVE SCORE] /api/matches retornou conteúdo não-JSON.",
-        raw.slice(0, 200),
-      );
       return { response, payload: {}, invalidContent: true };
     }
 
@@ -161,15 +156,9 @@ export const fetchExternalMatches = async (
   try {
     let { response, payload, invalidContent } = await tryFetch(season);
 
-    if (invalidContent) {
-      return [];
-    }
-
-    if (
-      !response.ok &&
-      season &&
-      (response.status === 404 || response.status === 403)
-    ) {
+    // Se a resposta não é JSON (proxy retorna HTML em 404) OU é 404/403,
+    // tenta o fallback sem season antes de desistir
+    if (season && (invalidContent || (!response.ok && (response.status === 404 || response.status === 403)))) {
       console.warn(
         `[LIVE SCORE] Season ${season} indisponível para ${competitionCode}. Tentando sem season...`,
       );

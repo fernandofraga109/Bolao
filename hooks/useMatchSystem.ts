@@ -103,6 +103,8 @@ export const useMatchSystem = (
           status: m.status as MatchStatus,
           result: m.resultHome != null ? { home: m.resultHome, away: m.resultAway! } : undefined,
           score: m.score,
+          penaltiesHome: m.penaltiesHome,
+          penaltiesAway: m.penaltiesAway,
         } as Match;
       })
       .filter((m): m is Match => m !== null)

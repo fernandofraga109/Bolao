@@ -609,6 +609,8 @@ export const useSyncSystem = (
           homeTeam: dbRef.current.teams.find((t: any) => t.id === m.homeTeamId),
           awayTeam: dbRef.current.teams.find((t: any) => t.id === m.awayTeamId),
           score: m.score,
+          penaltiesHome: m.penaltiesHome,
+          penaltiesAway: m.penaltiesAway,
         }));
 
         const matchUpserts: any[] = [];
@@ -675,11 +677,16 @@ export const useSyncSystem = (
               });
             }
 
+            const isPenaltyShootout = em.score?.duration === "PENALTY_SHOOTOUT";
             const hasChanged =
               existing.status !== status ||
               (homeScore != null && existing.result?.home !== homeScore) ||
               (awayScore != null && existing.result?.away !== awayScore) ||
               existing.minute !== liveMinute ||
+              (penaltiesHome != null && existing.penaltiesHome !== penaltiesHome) ||
+              (penaltiesAway != null && existing.penaltiesAway !== penaltiesAway) ||
+              // Se a API sinaliza pênaltis mas o banco ainda não tem os valores, forçar update
+              (isPenaltyShootout && (existing.penaltiesHome == null || existing.penaltiesAway == null)) ||
               // Verifica lastUpdated da API para detectar outras mudanças (horário, adiamento, etc)
               shouldUpdateByLastUpdated(em.lastUpdated, existing.lastSyncAt, 30);
 
@@ -708,6 +715,8 @@ export const useSyncSystem = (
                 minute: liveMinute,
                 lastSyncAt: new Date().toISOString(),
                 score: em.score,
+                penaltiesHome: penaltiesHome ?? null,
+                penaltiesAway: penaltiesAway ?? null,
               });
 
 
@@ -748,6 +757,8 @@ export const useSyncSystem = (
                 minute: em.minute ?? null,
                 lastSyncAt: new Date().toISOString(),
                 score: em.score,
+                penaltiesHome: penaltiesHome ?? null,
+                penaltiesAway: penaltiesAway ?? null,
               });
             } else {
               // Times com id/tla nulos = jogos de fase eliminatória ainda não definidos (TBD).

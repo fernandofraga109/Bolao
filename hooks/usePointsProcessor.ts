@@ -34,6 +34,8 @@ export const usePointsProcessor = (dbRef: any) => {
           awayTeam: teams.find((t: any) => t.id === m.awayTeamId),
           result: { home: m.resultHome, away: m.resultAway },
           score: m.score,
+          penaltiesHome: m.penaltiesHome,
+          penaltiesAway: m.penaltiesAway,
         } as Match);
       }
     });
@@ -417,6 +419,8 @@ export const usePointsProcessor = (dbRef: any) => {
           homeTeam: teams.find((t: any) => t.id === m.homeTeamId),
           awayTeam: teams.find((t: any) => t.id === m.awayTeamId),
           score: m.score,
+          penaltiesHome: m.penaltiesHome,
+          penaltiesAway: m.penaltiesAway,
         });
       }
     });
