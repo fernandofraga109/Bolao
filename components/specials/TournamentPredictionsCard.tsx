@@ -674,8 +674,8 @@ const TournamentPredictionsCard: React.FC<TournamentPredictionsCardProps> = ({
                   </>
                 ) : hasSavedPredictions ? (
                   <>
-                    <Edit2 size={16} />
-                    Editar Palpites Especiais
+                    <Save size={16} />
+                    Salvar Palpites Especiais
                   </>
                 ) : (
                   <>

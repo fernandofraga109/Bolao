@@ -180,7 +180,7 @@ export const RELEASES: Release[] = [
     date: "2026-05-12",
     changes: [
       "Dropdown 'Seleção Campeã' exibe apenas os times da competição ativa, carregados do banco de dados",
-      "Botão de palpites especiais exibe 'Editar Palpites Especiais' quando já existem palpites guardados",
+      "Botão de palpites especiais exibe 'Salvar Palpites Especiais' quando já existem palpites guardados",
       "Badge 'Salvo' aparece no cabeçalho do card de palpites especiais quando há palpites registados",
     ],
   },
