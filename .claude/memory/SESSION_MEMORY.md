@@ -9,7 +9,7 @@ _Read this first at the start of every session. Update after every significant t
 React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Supabase (PostgreSQL + Auth + Realtime) + Tailwind CSS.
 
 **Current version:** `1.5.0`
-**Test suite:** 43 tests passing (Vitest + RTL + happy-dom)
+**Test suite:** 109 tests passing (Vitest + RTL + happy-dom)
 **Feature memories:** `.claude/memory/features/sync-system.md`
 
 ---
@@ -19,7 +19,7 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 | Priority | Item | Plan | Status |
 |----------|------|------|--------|
 | **Verify** | Players & Top Scorers — Phase 5 | `.claude/plans/players-and-top-scorers.md` | Phase 5 IMPLEMENTED (uncommitted) — Artilharia tab + `getTopScorers`; awaiting user verification. Phases 1–4 in `122f6ed`; combobox fix & specials/ extraction still uncommitted. |
-| Proposed | Specials components refactor | `.claude/plans/specials-components-refactor.md` | PROPOSED — Phase A (consolidate specials/ folder) recommended first; awaiting approval |
+| Deferred | Specials components refactor | `.claude/plans/specials-components-refactor.md` | DEFERRED ("soon") — safety net DONE (chars. tests 67→109 green). Refactor not started. Phase A (specials/ folder) recommended first; Phase B (AdminDashboard split) only smoke-tested = highest residual risk. |
 | Deferred | Large file refactor (5 phases) | `.claude/plans/large-file-refactors.md` | Planned, not started — branch `chore/structural-refactor` |
 | Ongoing | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Open |
 

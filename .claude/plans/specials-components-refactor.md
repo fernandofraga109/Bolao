@@ -1,6 +1,50 @@
 # Plan: Specials Components Refactor
 
-_Status: **PROPOSED** — awaiting approval. Created 2026-06-06._
+_Status: **DEFERRED** — safety net in place, refactor not started. Created 2026-06-06. Last updated 2026-06-06._
+
+> **Not executing now — deferred to "soon".** A characterization-test safety net
+> was built first (see "Pre-refactor safety net" below) so the move can be done
+> later with confidence that live behavior is unchanged. When picking this up,
+> run `npm test` (baseline **109 green**) before and after each phase.
+
+## Pre-refactor safety net (DONE — 2026-06-06)
+
+Built via the `test-runner` agent **before** any refactor, since the app is in
+production. Suite went **67 → 109 tests** (10 files, all green). New tests are
+co-located beside each source file:
+
+| Test file | Cases | Covers |
+|---|---|---|
+| `components/ExtraPhasePredictionsCard.test.tsx` | 6 | Phase A |
+| `components/GroupClassificationsCard.test.tsx` | 7 | Phase A |
+| `components/KnockoutClassificationsCard.test.tsx` | 7 | Phase A |
+| `components/AdminSpecialsOverrides.test.tsx` | 7 | Phase A |
+| `components/pages/StatsPage.test.tsx` | 7 | Phase C |
+| `components/pages/MatchesPage.test.tsx` | 3 | Phase C |
+| `components/LeaderboardDetails.test.tsx` | 4 | Phase C |
+| `components/AdminDashboard.test.tsx` | 1 (smoke) | Phase B |
+
+**Coverage vs. risk going into the refactor:**
+- **Phase A — well covered.** Tests lock the exact things a move/extraction can
+  break: the "show other members' predictions" accordions toggle; picks stay
+  hidden ("Oculto") until lock then reveal team codes; locked-vs-unlocked
+  disables Save; `onPredict` / `updateCompetitionAwards` fire with correct args.
+- **Phase C — covered.** `PredictionCard`, `CollapsibleSection`, `MatchGroup`,
+  `StatBadge` render + toggle correctly.
+- **Phase B — thin net (by design).** `AdminDashboard` has only a smoke-mount
+  test. Deep behavior (sync menu, awards form, DB inspector, user/group mgmt) is
+  **untested** → still requires manual smoke-test of every admin action. Highest
+  residual risk; keep it last and isolated.
+
+**Behavior locked in as-is (NOT to be "fixed" by the refactor):**
+1. `ExtraPhasePredictionsCard`: knockout phases with no fixtures fall back to the
+   global tournament `lockDate` for their badge (future lock → all "Aberto",
+   past lock → all "Em Andamento").
+2. `OtherExtraPhasePredictions` keys rows by `userId` (fine for the current
+   one-prediction-per-phase shape; would collide if that ever changes).
+
+---
+
 
 ## Problem Summary
 
