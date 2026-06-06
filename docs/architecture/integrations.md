@@ -9,10 +9,11 @@
 
 ## Football Data API
 
-- Dados de partidas e classificações
-- Proxied via Vite para evitar CORS
+- Dados de partidas, classificações, artilheiros e elencos
+- Proxied via Vite (dev) / Vercel Edge Functions (prod) para esconder o token e evitar CORS
 - **Nunca chamar direto do frontend** - sempre pelo proxy
 - Sync logic em `hooks/useSyncSystem.ts`
+- 📄 **Detalhamento completo** (quais endpoints, quando e fluxo do sync): `docs/architecture/external-api-calls.md`
 
 ## Google Gemini
 

@@ -31,6 +31,7 @@ import StatsPage from "./components/pages/StatsPage";
 import TournamentPage from "./components/pages/TournamentPage";
 import AdminPage from "./components/pages/AdminPage";
 import SpecialsPage from "./components/pages/SpecialsPage";
+import TopScoresPage from "./components/topscores/TopScoresPage";
 
 import { DEFAULT_COMPETITION_CODE, getCompetitionByCode } from "./data/competitions";
 import { CURRENT_VERSION } from "./data/releases";
@@ -642,6 +643,11 @@ const App: React.FC = () => {
             ruleset={currentGroup?.ruleset}
             competitionCode={activeCompetitionCode}
           />
+        )}
+
+        {/* Top Scorers Tab */}
+        {activeTab === "topscores" && (
+          <TopScoresPage competitionCode={activeCompetitionCode} />
         )}
 
         {/* Tournament Standings Tab */}

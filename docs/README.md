@@ -9,6 +9,7 @@ Esta estrutura permite carregar apenas o contexto relevante para cada tarefa, re
 - `state-management.md` - DatabaseContext e hooks
 - `data-flow.md` - Fluxo de dados e sync
 - `integrations.md` - Integrações externas
+- `external-api-calls.md` - Chamadas à API externa: quais endpoints, quando e o fluxo do sync
 
 ### 📐 Convenções (`docs/conventions/`)
 - `commit-pattern.md` - Padrão de commits

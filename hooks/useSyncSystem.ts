@@ -14,6 +14,7 @@ import {
   type ExternalTeam,
 } from "../services/liveScoreService";
 import { supabase, isSupabaseEnabled } from "../services/supabase";
+import { persistScorers } from "./usePlayerSync";
 
 // Map team codes to ISO 3166-1 alpha-2 country codes for flagcdn.com
 const teamCodeToCountryCode: Record<string, string> = {
@@ -381,6 +382,24 @@ export const useSyncSystem = (
             competitionPayload,
             { onConflict: "code" },
           );
+        }
+
+        // ── FASE 1.6: Persistir artilheiros (alimenta a aba Artilharia) ──────
+        // Reaproveita `scorersData` já buscado na FASE 1 — NENHUMA chamada extra
+        // à API externa. Escreve em players + tournament_players.
+        // Gating igual ao resto do pipeline: admin (canWriteData) ou background
+        // sync (usuário comum, autorizado pelo RLS de INSERT/UPDATE).
+        if (scorersData && (canWriteData || isBackgroundSync)) {
+          try {
+            const scorerResult = await persistScorers(normalizedCode, scorersData);
+            if (scorerResult.error) {
+              console.warn(`[SYNC] Erro ao persistir artilheiros: ${scorerResult.error}`);
+            } else if (scorerResult.synced > 0) {
+              console.log(`[SYNC] ${scorerResult.synced} artilheiros persistidos para ${normalizedCode}.`);
+            }
+          } catch (scorerErr) {
+            console.warn("[SYNC] Falha ao persistir artilheiros:", scorerErr);
+          }
         }
 
         // ── FASE 2: Construir mapa de times ─────────────────────────────────

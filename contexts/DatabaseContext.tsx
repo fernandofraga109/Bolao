@@ -154,6 +154,7 @@ interface DatabaseContextType {
   syncSquads: (competitionCodes: string[]) => Promise<{ synced: number; errors: string[] }>;
   syncScorers: (competitionCodes: string[]) => Promise<{ synced: number; errors: string[] }>;
   searchPlayers: (query: string, competitionCode?: string) => Promise<PlayerWithContextDB[]>;
+  getTopScorers: (competitionCode: string, limit?: number) => Promise<PlayerWithContextDB[]>;
   getPlayersByIds: (ids: string[]) => Promise<PlayerDB[]>;
 }
 
@@ -354,7 +355,15 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   const [systemConfig, setSystemConfig] =
     useState<SystemConfigDB>(DEFAULT_CONFIG);
 
-  const { players, isSyncingPlayers, syncSquads, syncScorers, searchPlayers, getPlayersByIds } = usePlayerSync();
+  const {
+    players,
+    isSyncingPlayers,
+    syncSquads,
+    syncScorers,
+    searchPlayers,
+    getTopScorers,
+    getPlayersByIds,
+  } = usePlayerSync();
 
   // --- Supabase Realtime & Sync Effect ---
   useEffect(() => {
@@ -1556,6 +1565,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         syncSquads,
         syncScorers,
         searchPlayers,
+        getTopScorers,
         getPlayersByIds,
       }), [
         competitions,
@@ -1597,6 +1607,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         syncSquads,
         syncScorers,
         searchPlayers,
+        getTopScorers,
         getPlayersByIds,
       ])}
     >

@@ -1,6 +1,6 @@
 # Plan: Players & Top Scorers
 
-_Status: **IN PROGRESS** — Phases 1–4 complete; Phase 5 (Top Scores tab) remaining_
+_Status: **IN PROGRESS** — Phases 1–5 implemented; awaiting user verification of the Artilharia tab_
 
 ## Problem Summary
 
@@ -70,9 +70,13 @@ All API proxy endpoints and fetch functions already exist. No new API plumbing n
 
 ### Phase 5 — Top Scores tab
 
-- [ ] Create `components/pages/TopScoresPage.tsx` showing `topScorers` list
-- [ ] Add tab to `BottomNav.tsx` ("Top Scores")
-- [ ] Wire up routing/render
+- [x] `getTopScorers(competitionCode, limit)` added to `usePlayerSync` + exposed via `DatabaseContext` (queries `tournament_players` scoped to the active competition, ordered by goals→assists→penalties; resolves names from `players`)
+- [x] Created `components/topscores/TopScoresPage.tsx` + `components/topscores/ScorerRow.tsx` — **new domain-colocation architecture** (per specials-components-refactor hybrid layout), not `components/pages/`
+- [x] Added `"topscores"` to `Tab` type (`types.ts`)
+- [x] Added "Artilharia" tab to `BottomNav.tsx` (`Goal` icon, visible to all roles like Jogos/Tabela)
+- [x] Wired render in `App.tsx` (`competitionCode={activeCompetitionCode}`)
+- [x] `tsc` clean + 67 tests green
+- [ ] User verification (empty state pre-tournament; real data after scorer sync)
 
 ---
 

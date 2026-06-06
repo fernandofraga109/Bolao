@@ -295,7 +295,7 @@ export interface Match {
 export type Group = GroupDB;
 export type Friend = User; // Legacy alias
 
-export type Tab = "matches" | "leaderboard" | "stats" | "tournament" | "admin" | "specials";
+export type Tab = "matches" | "leaderboard" | "stats" | "tournament" | "admin" | "specials" | "topscores";
 
 export interface AIPredictionResult {
   homeScore: number;

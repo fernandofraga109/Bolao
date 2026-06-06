@@ -1,10 +1,79 @@
 import { useState, useEffect } from 'react';
 import { supabase, isSupabaseEnabled } from '../services/supabase';
-import { fetchCompetitionTeams, fetchCompetitionScorers } from '../services/liveScoreService';
+import {
+  fetchCompetitionTeams,
+  fetchCompetitionScorers,
+  type ExternalScorersResponse,
+} from '../services/liveScoreService';
 import { PlayerDB, TournamentPlayerDB, PlayerWithContextDB } from '../types';
 
 type IdentityRow = Omit<PlayerDB, 'id'>;
 type TournamentRow = Omit<TournamentPlayerDB, 'id'>;
+
+/**
+ * Persists an already-fetched scorers payload into `players` + `tournament_players`.
+ *
+ * Module-level (not part of the hook) so the match/standings sync pipeline
+ * (`useSyncSystem`) can reuse it WITHOUT making a second `/api/scorers` call —
+ * the pipeline already fetches `scorersData` in its parallel phase.
+ *
+ * Returns the number of tournament rows written (or an error message).
+ */
+export const persistScorers = async (
+  competitionCode: string,
+  scorersData: ExternalScorersResponse | null
+): Promise<{ synced: number; error?: string }> => {
+  if (!isSupabaseEnabled() || !supabase) return { synced: 0, error: 'Supabase not enabled' };
+  if (!scorersData?.scorers?.length) return { synced: 0 };
+
+  const code = (competitionCode || '').toUpperCase();
+
+  const identityBatch: IdentityRow[] = scorersData.scorers.map((scorer) => ({
+    externalPlayerId: scorer.player.id,
+    name: scorer.player.name,
+    firstName: scorer.player.firstName,
+    lastName: scorer.player.lastName,
+    dateOfBirth: scorer.player.dateOfBirth,
+    nationality: scorer.player.nationality,
+  }));
+
+  const { data: upserted, error: identityError } = await supabase
+    .from('players')
+    .upsert(identityBatch, { onConflict: '"externalPlayerId"', ignoreDuplicates: false })
+    .select('id, externalPlayerId');
+
+  if (identityError) return { synced: 0, error: identityError.message };
+
+  const extIdToUuid = new Map<number, string>(
+    (upserted ?? []).map((r: any) => [r.externalPlayerId, r.id])
+  );
+
+  const tournamentBatch: TournamentRow[] = scorersData.scorers
+    .filter((scorer) => extIdToUuid.has(scorer.player.id))
+    .map((scorer) => ({
+      playerId: extIdToUuid.get(scorer.player.id)!,
+      competitionCode: code,
+      externalTeamId: scorer.team.id,
+      teamName: scorer.team.name,
+      goals: scorer.goals ?? 0,
+      assists: scorer.assists ?? 0,
+      penalties: scorer.penalties ?? 0,
+      playedMatches: 0,
+      lastUpdated: new Date().toISOString(),
+    }));
+
+  if (tournamentBatch.length === 0) return { synced: 0 };
+
+  const { error: tpError } = await supabase
+    .from('tournament_players')
+    .upsert(tournamentBatch, {
+      onConflict: '"playerId","competitionCode"',
+      ignoreDuplicates: false,
+    });
+
+  if (tpError) return { synced: 0, error: tpError.message };
+  return { synced: tournamentBatch.length };
+};
 
 export const usePlayerSync = () => {
   const [players, setPlayers] = useState<PlayerWithContextDB[]>([]);
@@ -202,56 +271,9 @@ export const usePlayerSync = () => {
         const response = await fetchCompetitionScorers(code);
         if (!response) continue;
 
-        const identityBatch: IdentityRow[] = response.scorers.map((scorer) => ({
-          externalPlayerId: scorer.player.id,
-          name: scorer.player.name,
-          firstName: scorer.player.firstName,
-          lastName: scorer.player.lastName,
-          dateOfBirth: scorer.player.dateOfBirth,
-          nationality: scorer.player.nationality,
-        }));
-
-        const { data: upserted, error: identityError } = await supabase
-          .from('players')
-          .upsert(identityBatch, { onConflict: '"externalPlayerId"', ignoreDuplicates: false })
-          .select('id, externalPlayerId');
-
-        if (identityError) {
-          errors.push(`${code} identity: ${identityError.message}`);
-          continue;
-        }
-
-        const extIdToUuid = new Map<number, string>(
-          (upserted ?? []).map((r: any) => [r.externalPlayerId, r.id])
-        );
-
-        const tournamentBatch: TournamentRow[] = response.scorers
-          .filter((scorer) => extIdToUuid.has(scorer.player.id))
-          .map((scorer) => ({
-            playerId: extIdToUuid.get(scorer.player.id)!,
-            competitionCode: code,
-            externalTeamId: scorer.team.id,
-            teamName: scorer.team.name,
-            goals: scorer.goals ?? 0,
-            assists: scorer.assists ?? 0,
-            penalties: scorer.penalties ?? 0,
-            playedMatches: 0,
-            lastUpdated: new Date().toISOString(),
-          }));
-
-        if (tournamentBatch.length > 0) {
-          const { error: tpError } = await supabase
-            .from('tournament_players')
-            .upsert(tournamentBatch, {
-              onConflict: '"playerId","competitionCode"',
-              ignoreDuplicates: false,
-            });
-          if (tpError) {
-            errors.push(`${code} stats: ${tpError.message}`);
-          } else {
-            synced += tournamentBatch.length;
-          }
-        }
+        const result = await persistScorers(code, response);
+        if (result.error) errors.push(`${code}: ${result.error}`);
+        else synced += result.synced;
       }
     } finally {
       setIsSyncingPlayers(false);
@@ -331,6 +353,62 @@ export const usePlayerSync = () => {
       .filter(Boolean) as PlayerWithContextDB[];
   };
 
+  // Top scorers list scoped to a single competition, ordered by goals.
+  // Unlike `players` (whose tournamentEntry is the player's best entry across all
+  // competitions), this queries `tournament_players` directly for the active
+  // competition so the ranking is accurate even for multi-competition players.
+  const getTopScorers = async (
+    competitionCode: string,
+    limit = 30
+  ): Promise<PlayerWithContextDB[]> => {
+    if (!isSupabaseEnabled() || !supabase || !competitionCode) return [];
+
+    const { data: tpRows } = await supabase
+      .from('tournament_players')
+      .select(
+        'id, playerId, competitionCode, externalTeamId, teamName, teamCrest, goals, assists, penalties, playedMatches, lastUpdated'
+      )
+      .ilike('competitionCode', competitionCode)
+      .gt('goals', 0)
+      .order('goals', { ascending: false })
+      .order('assists', { ascending: false })
+      .order('penalties', { ascending: true })
+      .limit(limit);
+
+    if (!tpRows || tpRows.length === 0) return [];
+
+    const playerIds = [...new Set(tpRows.map((r: any) => r.playerId))];
+    const { data: playerRows } = await supabase
+      .from('players')
+      .select('*')
+      .in('id', playerIds);
+
+    const playerMap = new Map<string, any>((playerRows || []).map((p: any) => [p.id, p]));
+
+    return tpRows
+      .map((tp: any) => {
+        const player = playerMap.get(tp.playerId);
+        if (!player) return null;
+        return {
+          ...player,
+          tournamentEntry: {
+            id: tp.id,
+            playerId: tp.playerId,
+            competitionCode: tp.competitionCode,
+            externalTeamId: tp.externalTeamId,
+            teamName: tp.teamName,
+            teamCrest: tp.teamCrest,
+            goals: tp.goals,
+            assists: tp.assists,
+            penalties: tp.penalties,
+            playedMatches: tp.playedMatches,
+            lastUpdated: tp.lastUpdated,
+          } satisfies TournamentPlayerDB,
+        } as PlayerWithContextDB;
+      })
+      .filter(Boolean) as PlayerWithContextDB[];
+  };
+
   // Targeted resolver: fetch player identities by their UUIDs directly from the DB,
   // independent of the in-memory `players` cache. Used to display saved prediction
   // names reliably even if the catalog is still loading or incomplete.
@@ -342,5 +420,13 @@ export const usePlayerSync = () => {
     return (data as PlayerDB[]) || [];
   };
 
-  return { players, isSyncingPlayers, syncSquads, syncScorers, searchPlayers, getPlayersByIds };
+  return {
+    players,
+    isSyncingPlayers,
+    syncSquads,
+    syncScorers,
+    searchPlayers,
+    getTopScorers,
+    getPlayersByIds,
+  };
 };

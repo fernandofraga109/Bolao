@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tab, UserRole } from '../types';
-import { Calendar, Trophy, ShieldCheck, Table2, Activity, Sparkles } from 'lucide-react';
+import { Calendar, Trophy, ShieldCheck, Table2, Activity, Sparkles, Goal } from 'lucide-react';
 
 interface BottomNavProps {
   activeTab: Tab;
@@ -19,13 +19,18 @@ const NavButton: React.FC<{
   return (
     <button
       onClick={onClick}
-      className={`relative flex flex-col items-center justify-center w-full py-3 gap-1 transition-colors ${isActive ? 'text-brand-green font-black' : 'text-slate-500 hover:text-slate-300'}`}
+      className={`relative flex flex-col items-center justify-center flex-1 min-w-0 px-0.5 py-2.5 sm:py-3 gap-1 transition-colors ${isActive ? 'text-brand-green font-black' : 'text-slate-500 hover:text-slate-300'}`}
     >
       {isActive && (
         <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-brand-green rounded-full" />
       )}
       {icon}
-      <span className="text-[10px] uppercase tracking-widest font-black">{label}</span>
+      {/* clamp() scales the label with viewport width so 6 tabs never overflow
+          on narrow phones (≤360px) while keeping the spaced look on wider screens.
+          truncate is a final safety net; tracking is relaxed on mobile to fit. */}
+      <span className="w-full text-center truncate leading-none uppercase font-black text-[clamp(8px,2.4vw,10px)] tracking-normal sm:text-[10px] sm:tracking-widest">
+        {label}
+      </span>
     </button>
   );
 };
@@ -47,6 +52,13 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, userRole
           onClick={() => setActiveTab('tournament')}
           icon={<Table2 size={20} strokeWidth={activeTab === 'tournament' ? 3 : 2} />}
           label="Tabela"
+        />
+        <NavButton
+          tab="topscores"
+          activeTab={activeTab}
+          onClick={() => setActiveTab('topscores')}
+          icon={<Goal size={20} strokeWidth={activeTab === 'topscores' ? 3 : 2} />}
+          label="Artilharia"
         />
         {userRole !== 'ADMIN' && (
           <NavButton

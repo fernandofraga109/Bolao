@@ -18,7 +18,7 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 
 | Priority | Item | Plan | Status |
 |----------|------|------|--------|
-| **Next** | Players & Top Scorers — Phase 5 | `.claude/plans/players-and-top-scorers.md` | IN PROGRESS — Phases 1–4 committed (`122f6ed`) + combobox bug fix & specials/ extraction (uncommitted); Phase 5 (TopScoresPage + BottomNav tab) remaining |
+| **Verify** | Players & Top Scorers — Phase 5 | `.claude/plans/players-and-top-scorers.md` | Phase 5 IMPLEMENTED (uncommitted) — Artilharia tab + `getTopScorers`; awaiting user verification. Phases 1–4 in `122f6ed`; combobox fix & specials/ extraction still uncommitted. |
 | Proposed | Specials components refactor | `.claude/plans/specials-components-refactor.md` | PROPOSED — Phase A (consolidate specials/ folder) recommended first; awaiting approval |
 | Deferred | Large file refactor (5 phases) | `.claude/plans/large-file-refactors.md` | Planned, not started — branch `chore/structural-refactor` |
 | Ongoing | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Open |
@@ -90,10 +90,24 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 - **Saved-prediction names showing blank — FIXED:** root cause = `fetchPlayers` loaded the whole catalog with `.select('*')` and no pagination; Supabase caps at 1000 rows but WC squads = 48×26 = 1248, so ~250 players were dropped from `db.players` → name resolution failed for those. Fix: (a) `fetchAllRows` pager (1000/page) in `usePlayerSync` for both `players` + `tournament_players`; (b) new `getPlayersByIds(ids)` targeted resolver exposed via context; (c) `TournamentPredictionsCard` gap-fills its 3 names via `db.getPlayersByIds` when an id is absent from `db.players`. NOTE: autocomplete worked throughout because `searchPlayers` is a name-filtered query that never hit the 1000 cap.
 - ⚠️ If names are still blank after this, the stored `topScorerPlayerId`/etc. are orphaned UUIDs from a `v2_players` re-creation (migration 0022 DROP+recreate regenerates UUIDs) — user must re-select. `getPlayersByIds` returns nothing for ids not in the current table.
 
+## Completed — Players & Top Scorer Phase 5 / Artilharia tab (2026-06-06, uncommitted)
+
+- **`getTopScorers(competitionCode, limit=30)`** added to `usePlayerSync` + exposed via `DatabaseContext`. Queries `tournament_players` scoped to the active competition (`.ilike` on code, `.gt('goals',0)`, ordered goals→assists→penalties), resolves names via `players`. Distinct from `db.players` (whose `tournamentEntry` is the best-across-competitions entry) so the ranking is competition-accurate.
+- **New domain-colocation architecture** (per `specials-components-refactor.md` hybrid layout): created `components/topscores/TopScoresPage.tsx` + `components/topscores/ScorerRow.tsx` — NOT `components/pages/`. First page to live in its own domain folder.
+- `"topscores"` added to `Tab` type; "Artilharia" tab (`Goal` icon) added to `BottomNav` visible to ALL roles (like Jogos/Tabela). Rendered in `App.tsx` with `competitionCode={activeCompetitionCode}`.
+- ⚠️ `TopScoresPage` effect depends on `[competitionCode]` only — `db.getTopScorers` is a fresh closure each context render (not useCallback-wrapped, like all usePlayerSync fns), so depending on it would refetch/flicker on every poll. Do NOT "fix" the exhaustive-deps lint suppression.
+- `tsc` clean, 67 tests green. No Tailwind `xs:` breakpoint exists (CDN config) — secondary stats use plain `flex`.
+
+## Completed — Scorer persistence in main sync pipeline (2026-06-06, uncommitted)
+
+- `syncMatchesAndStandings` (useSyncSystem) already fetched `scorersData` in FASE 1 (only used it for `competitions.topScorerName/Goals`). Now it ALSO persists the full list into `players` + `tournament_players` (FASE 1.6) so the Artilharia tab populates on every manual/automatic sync — **zero new external API calls**.
+- Extracted module-level `persistScorers(competitionCode, scorersData)` from `usePlayerSync` (exported); both `usePlayerSync.syncScorers` and `useSyncSystem` reuse it. No duplicated upsert logic.
+- Gated `(canWriteData || isBackgroundSync)` + try/catch (non-fatal). RLS (migration 0020) allows INSERT/UPDATE on `v2_players`/`v2_tournament_players` for any `authenticated` user → background sync by normal users writes scorers fine.
+- **Sync external API call audit** (per-run): `/api/teams`, `/api/matches`, `/api/standings`, `/api/scorers` (always, parallel) + `/api/live-matches` (only when IN_PLAY/PAUSED matches exist). `team-ranking.json` is a local bundled file, not external. Admin "Sync Players" button still calls `/api/teams` (squads) separately.
+
 ## Next Action
 
-Phase 5: create `components/pages/TopScoresPage.tsx` (scorers list ordered by goals) + add tab to `BottomNav.tsx` + wire routing in `App.tsx`.
-Optionally start specials refactor Phase A (`.claude/plans/specials-components-refactor.md`).
+Await user verification of the Artilharia tab (now auto-populated by normal sync). On confirmation: move plan to `completed/`, invoke `changelog-updater`. Then optionally specials refactor Phase A (`.claude/plans/specials-components-refactor.md`).
 
 ## Completed — Players & Top Scorer Phases 1–4 (2026-06-06, commit `122f6ed`)
 
