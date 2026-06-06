@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { TournamentPredictions, PlayerWithContextDB } from '../types';
+import { TournamentPredictions } from '../../types';
 import {
   Trophy,
   Lock,
@@ -11,20 +11,13 @@ import {
   ChevronDown,
   ChevronUp,
   Check,
-  Users,
-  X,
 } from 'lucide-react';
-import {
-  POINTS_TOP_SCORER_GOALS,
-  POINTS_TOP_SCORER_NAME,
-  POINTS_CHAMPION,
-  POINTS_BEST_PLAYER,
-  POINTS_BEST_GOALKEEPER,
-  calculateTournamentPoints,
-} from '../utils/scoring';
-import { useDatabase } from '../contexts/DatabaseContext';
+import { calculateTournamentPoints } from '../../utils/scoring';
+import { useDatabase } from '../../contexts/DatabaseContext';
+import { PlayerCombobox } from './PlayerCombobox';
+import { OtherUsersPredictions } from './OtherUsersPredictions';
 
-interface TopScorerCardProps {
+interface TournamentPredictionsCardProps {
   prediction?: TournamentPredictions;
   onPredict: (data: TournamentPredictions) => void;
   lockDate: Date;
@@ -37,358 +30,7 @@ interface TopScorerCardProps {
   competitionCode?: string;
 }
 
-// Sub-component: Player autocomplete combobox
-interface PlayerComboboxProps {
-  value: string;
-  displayName: string;
-  placeholder: string;
-  disabled: boolean;
-  accentClass: string;
-  onSelect: (id: string, name: string) => void;
-  onClear: () => void;
-  filterPosition?: string;
-  competitionCode?: string;
-}
-
-const PlayerCombobox: React.FC<PlayerComboboxProps & { db: ReturnType<typeof useDatabase> }> = ({
-  value,
-  displayName,
-  placeholder,
-  disabled,
-  accentClass,
-  onSelect,
-  onClear,
-  filterPosition,
-  competitionCode,
-  db,
-}) => {
-  const [query, setQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [results, setResults] = useState<PlayerWithContextDB[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Close on click outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-        setIsSearching(false);
-        setQuery('');
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setQuery(val);
-    setIsSearching(true);
-    setIsOpen(true);
-
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    if (val.length < 2) {
-      setResults([]);
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-    debounceRef.current = setTimeout(async () => {
-      try {
-        let found = await db.searchPlayers(val, competitionCode);
-        if (filterPosition) {
-          found = found.filter((p) => p.position === filterPosition);
-        }
-        setResults(found);
-      } catch {
-        setResults([]);
-      } finally {
-        setIsLoading(false);
-      }
-    }, 300);
-  };
-
-  const handleSelect = (player: PlayerWithContextDB) => {
-    onSelect(player.id, player.name);
-    setIsSearching(false);
-    setQuery('');
-    setIsOpen(false);
-    setResults([]);
-  };
-
-  const handleClear = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onClear();
-    setIsSearching(false);
-    setQuery('');
-    setResults([]);
-    setIsOpen(false);
-  };
-
-  const handleFocus = () => {
-    if (!disabled) {
-      setIsSearching(true);
-    }
-  };
-
-  const playersNotSynced = db.players.length === 0;
-  const inputValue = isSearching ? query : displayName;
-  const borderClass = value ? accentClass : 'border-slate-600';
-
-  return (
-    <div className="relative" ref={containerRef}>
-      <div className="relative flex items-center">
-        <input
-          type="text"
-          placeholder={placeholder}
-          value={inputValue}
-          onChange={handleInputChange}
-          onFocus={handleFocus}
-          disabled={disabled}
-          className={`w-full bg-slate-800 border ${borderClass} rounded px-3 py-2 text-sm text-white focus:${accentClass} outline-none placeholder:text-slate-600 pr-8 transition-colors`}
-        />
-        {value && !disabled && (
-          <button
-            type="button"
-            onClick={handleClear}
-            className="absolute right-2 text-slate-400 hover:text-white transition-colors"
-            tabIndex={-1}
-          >
-            <X size={14} />
-          </button>
-        )}
-      </div>
-
-      {playersNotSynced && !disabled && (
-        <p className="text-[10px] text-slate-500 mt-1">Sincronize os elencos no Painel Admin</p>
-      )}
-
-      {isOpen && isSearching && !disabled && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-56 overflow-y-auto custom-scrollbar">
-          {isLoading ? (
-            <div className="px-3 py-2 text-xs text-slate-400">Buscando...</div>
-          ) : query.length < 2 ? (
-            <div className="px-3 py-2 text-xs text-slate-500">Digite pelo menos 2 caracteres</div>
-          ) : results.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-slate-400">Nenhum jogador encontrado</div>
-          ) : (
-            results.map((player) => (
-              <button
-                key={player.id}
-                type="button"
-                onClick={() => handleSelect(player)}
-                className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-2 transition-colors border-b border-slate-700/50 last:border-0"
-              >
-                {player.tournamentEntry?.teamCrest && (
-                  <img
-                    src={player.tournamentEntry.teamCrest}
-                    alt=""
-                    className="w-4 h-3 object-cover rounded-sm flex-shrink-0"
-                  />
-                )}
-                <span className="font-medium truncate">{player.name}</span>
-                <span className="text-slate-400 text-xs ml-auto flex-shrink-0">
-                  {player.tournamentEntry?.teamName || ''}
-                </span>
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Sub-component: Other users' predictions accordion
-const OtherUsersPredictions: React.FC<{
-  db: ReturnType<typeof useDatabase>;
-  currentUserId?: string;
-  currentGroupId: string;
-  ruleset: string;
-  isLocked: boolean;
-  players: PlayerWithContextDB[];
-}> = ({ db, currentUserId, currentGroupId, ruleset, isLocked, players }) => {
-  const [isOpen, setIsOpen] = useState(false);
-
-  const otherPredictions = useMemo(() => {
-    return db.tournamentPredictions.filter(
-      (tp) => tp.groupId === currentGroupId && tp.userId !== currentUserId
-    );
-  }, [db.tournamentPredictions, currentGroupId, currentUserId]);
-
-  const getUserName = (userId: string) => {
-    const user = db.users.find((u) => u.id === userId);
-    return user?.name || 'Anônimo';
-  };
-
-  const getTeamCode = (teamId?: string) => {
-    if (!teamId) return '—';
-    const team = db.teams.find((t) => t.id === teamId);
-    return team?.code || team?.name || '—';
-  };
-
-  const getTeamFlag = (teamId?: string) => {
-    if (!teamId) return null;
-    const team = db.teams.find((t) => t.id === teamId);
-    return team?.flag || null;
-  };
-
-  return (
-    <div className="mt-4 border border-slate-700 rounded-xl overflow-hidden">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-slate-900/60 hover:bg-slate-900/80 transition-colors"
-      >
-        <div className="flex items-center gap-2 text-slate-300">
-          <Users size={14} />
-          <span className="text-xs font-bold uppercase tracking-wide">
-            Palpites do Grupo ({otherPredictions.length})
-          </span>
-        </div>
-        {isOpen ? (
-          <ChevronUp size={14} className="text-slate-500" />
-        ) : (
-          <ChevronDown size={14} className="text-slate-500" />
-        )}
-      </button>
-
-      {isOpen &&
-        (otherPredictions.length === 0 ? (
-          <div className="p-4 text-xs text-slate-500 text-center">
-            Nenhum outro participante fez palpites neste grupo ainda.
-          </div>
-        ) : (
-          <div className="overflow-x-auto animate-fadeIn">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-slate-900/40 text-slate-400 border-t border-slate-700">
-                  <th className="px-3 py-2 text-left font-medium">Participante</th>
-                  <th className="px-2 py-2 text-center font-medium">Campeã</th>
-                  <th className="px-2 py-2 text-center font-medium">Artilheiro</th>
-                  {ruleset === 'regulamento_2' ? (
-                    <>
-                      <th className="px-2 py-2 text-center font-medium">+Gols</th>
-                      <th className="px-2 py-2 text-center font-medium">+Sofridos</th>
-                    </>
-                  ) : (
-                    <>
-                      <th className="px-2 py-2 text-center font-medium">Mel. Jogador</th>
-                      <th className="px-2 py-2 text-center font-medium">Mel. Goleiro</th>
-                    </>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700/50">
-                {otherPredictions.map((tp) => (
-                  <tr key={tp.userId} className="hover:bg-slate-800/50 transition-colors">
-                    <td className="px-3 py-2 font-semibold text-slate-200 whitespace-nowrap">
-                      {getUserName(tp.userId)}
-                    </td>
-                    <td className="px-2 py-2 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        {isLocked ? (
-                          <>
-                            {getTeamFlag(tp.championTeamId) && (
-                              <img
-                                src={getTeamFlag(tp.championTeamId)!}
-                                alt=""
-                                className="w-4 h-3 object-cover rounded-sm"
-                              />
-                            )}
-                            <span className="text-slate-300">{getTeamCode(tp.championTeamId)}</span>
-                          </>
-                        ) : (
-                          <span className="text-slate-500 italic">Oculto</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-2 py-2 text-center text-slate-300 whitespace-nowrap">
-                      {isLocked
-                        ? tp.topScorerPlayerId
-                          ? players.find((p) => p.id === tp.topScorerPlayerId)?.name ||
-                            `#${tp.topScorerPlayerId.slice(0, 6)}`
-                          : '—'
-                        : 'Oculto'}
-                    </td>
-                    {ruleset === 'regulamento_2' ? (
-                      <>
-                        <td className="px-2 py-2 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            {isLocked ? (
-                              <>
-                                {getTeamFlag(tp.mostGoalsTeamId) && (
-                                  <img
-                                    src={getTeamFlag(tp.mostGoalsTeamId)!}
-                                    alt=""
-                                    className="w-4 h-3 object-cover rounded-sm"
-                                  />
-                                )}
-                                <span className="text-slate-300">
-                                  {getTeamCode(tp.mostGoalsTeamId)}
-                                </span>
-                              </>
-                            ) : (
-                              <span className="text-slate-500 italic">Oculto</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-2 py-2 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            {isLocked ? (
-                              <>
-                                {getTeamFlag(tp.mostConcededTeamId) && (
-                                  <img
-                                    src={getTeamFlag(tp.mostConcededTeamId)!}
-                                    alt=""
-                                    className="w-4 h-3 object-cover rounded-sm"
-                                  />
-                                )}
-                                <span className="text-slate-300">
-                                  {getTeamCode(tp.mostConcededTeamId)}
-                                </span>
-                              </>
-                            ) : (
-                              <span className="text-slate-500 italic">Oculto</span>
-                            )}
-                          </div>
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="px-2 py-2 text-center text-slate-300 whitespace-nowrap">
-                          {isLocked
-                            ? tp.bestPlayerId
-                              ? players.find((p) => p.id === tp.bestPlayerId)?.name ||
-                                `#${tp.bestPlayerId.slice(0, 6)}`
-                              : '—'
-                            : 'Oculto'}
-                        </td>
-                        <td className="px-2 py-2 text-center text-slate-300 whitespace-nowrap">
-                          {isLocked
-                            ? tp.bestGoalkeeperId
-                              ? players.find((p) => p.id === tp.bestGoalkeeperId)?.name ||
-                                `#${tp.bestGoalkeeperId.slice(0, 6)}`
-                              : '—'
-                            : 'Oculto'}
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ))}
-    </div>
-  );
-};
-
-const TopScorerCard: React.FC<TopScorerCardProps> = ({
+const TournamentPredictionsCard: React.FC<TournamentPredictionsCardProps> = ({
   prediction,
   onPredict,
   lockDate,
@@ -403,19 +45,37 @@ const TopScorerCard: React.FC<TopScorerCardProps> = ({
   // Collapse State
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
-  // Form State
+  const db = useDatabase();
+
+  // Resolve a player name: db.players is the source of truth; fall back to the
+  // name already stored in the prediction prop (resolved by useUserSystem when
+  // db.players was already loaded on a prior render).
+  const resolvePlayerName = (id: string | undefined, fallback?: string) => {
+    if (!id) return '';
+    return db.players.find((p) => p.id === id)?.name || fallback || '';
+  };
+
+  // Form State — initialize names from db.players immediately if populated
   const [championId, setChampionId] = useState(prediction?.championTeamId || '');
   const [tsPlayerId, setTsPlayerId] = useState(prediction?.topScorerPlayerId || '');
-  const [tsPlayerName, setTsPlayerName] = useState(prediction?.topScorer?.player || '');
+  const [tsPlayerName, setTsPlayerName] = useState(() =>
+    resolvePlayerName(prediction?.topScorerPlayerId, prediction?.topScorer?.player)
+  );
   const [tsGoals, setTsGoals] = useState(prediction?.topScorer?.goals?.toString() || '');
   const [bestPlayerId, setBestPlayerId] = useState(prediction?.bestPlayerId || '');
-  const [bestPlayerName, setBestPlayerName] = useState(prediction?.bestPlayer || '');
+  const [bestPlayerName, setBestPlayerName] = useState(() =>
+    resolvePlayerName(prediction?.bestPlayerId, prediction?.bestPlayer)
+  );
   const [bestGkId, setBestGkId] = useState(prediction?.bestGoalkeeperId || '');
-  const [bestGkName, setBestGkName] = useState(prediction?.bestGoalkeeper || '');
+  const [bestGkName, setBestGkName] = useState(() =>
+    resolvePlayerName(prediction?.bestGoalkeeperId, prediction?.bestGoalkeeper)
+  );
   const [mostGoalsTeamId, setMostGoalsTeamId] = useState(prediction?.mostGoalsTeamId || '');
   const [mostConcededTeamId, setMostConcededTeamId] = useState(
     prediction?.mostConcededTeamId || ''
   );
+
+  const [isSaved, setIsSaved] = useState(false);
 
   // Custom Dropdown States
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -429,42 +89,42 @@ const TopScorerCard: React.FC<TopScorerCardProps> = ({
 
   const [isLocked, setIsLocked] = useState(false);
 
-  const db = useDatabase();
-
-  // Sync prediction prop into form state when DB hydration arrives after mount
+  // Sync IDs and non-player fields when prediction prop changes (group switch, refetch)
   useEffect(() => {
     setChampionId(prediction?.championTeamId || '');
     setTsPlayerId(prediction?.topScorerPlayerId || '');
     setTsGoals(prediction?.topScorer?.goals?.toString() || '');
-    setTsPlayerName(prediction?.topScorer?.player || '');
     setBestPlayerId(prediction?.bestPlayerId || '');
-    setBestPlayerName(prediction?.bestPlayer || '');
     setBestGkId(prediction?.bestGoalkeeperId || '');
-    setBestGkName(prediction?.bestGoalkeeper || '');
     setMostGoalsTeamId(prediction?.mostGoalsTeamId || '');
     setMostConcededTeamId(prediction?.mostConcededTeamId || '');
   }, [prediction]);
 
-  // Hydrate display names from db.players when IDs or player list changes
+  // Resolve display names from db.players whenever IDs or the player list changes.
+  // db.players is the fast cache; for any id missing from it (catalog still loading,
+  // or paged out) fall back to a targeted DB lookup so names never render blank.
   useEffect(() => {
-    if (tsPlayerId) {
-      const p = db.players.find((p) => p.id === tsPlayerId);
-      if (p) setTsPlayerName(p.name);
-    } else {
-      setTsPlayerName('');
-    }
-    if (bestPlayerId) {
-      const p = db.players.find((p) => p.id === bestPlayerId);
-      if (p) setBestPlayerName(p.name);
-    } else {
-      setBestPlayerName('');
-    }
-    if (bestGkId) {
-      const p = db.players.find((p) => p.id === bestGkId);
-      if (p) setBestGkName(p.name);
-    } else {
-      setBestGkName('');
-    }
+    setTsPlayerName(resolvePlayerName(tsPlayerId, prediction?.topScorer?.player));
+    setBestPlayerName(resolvePlayerName(bestPlayerId, prediction?.bestPlayer));
+    setBestGkName(resolvePlayerName(bestGkId, prediction?.bestGoalkeeper));
+
+    const missing = [tsPlayerId, bestPlayerId, bestGkId].filter(
+      (id) => id && !db.players.some((p) => p.id === id)
+    ) as string[];
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+    db.getPlayersByIds(missing).then((rows) => {
+      if (cancelled) return;
+      const nameById = new Map(rows.map((r) => [r.id, r.name]));
+      if (tsPlayerId && nameById.has(tsPlayerId)) setTsPlayerName(nameById.get(tsPlayerId)!);
+      if (bestPlayerId && nameById.has(bestPlayerId)) setBestPlayerName(nameById.get(bestPlayerId)!);
+      if (bestGkId && nameById.has(bestGkId)) setBestGkName(nameById.get(bestGkId)!);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tsPlayerId, bestPlayerId, bestGkId, db.players]);
 
   const hasSavedPredictions = !!(
@@ -540,6 +200,8 @@ const TopScorerCard: React.FC<TopScorerCardProps> = ({
       mostGoalsTeamId: ruleset === 'regulamento_2' ? mostGoalsTeamId || undefined : undefined,
       mostConcededTeamId: ruleset === 'regulamento_2' ? mostConcededTeamId || undefined : undefined,
     });
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 2500);
   };
 
   // Helper to check correctness for UI Highlights
@@ -745,7 +407,6 @@ const TopScorerCard: React.FC<TopScorerCardProps> = ({
                       setTsPlayerName('');
                     }}
                     competitionCode={competitionCode}
-                    db={db}
                   />
                 </div>
                 {ruleset !== 'regulamento_2' && (
@@ -938,7 +599,6 @@ const TopScorerCard: React.FC<TopScorerCardProps> = ({
                       setBestPlayerName('');
                     }}
                     competitionCode={competitionCode}
-                    db={db}
                   />
                   {isBestPlayerCorrect && (
                     <div className="text-blue-400 text-xs font-bold mt-1 text-right">
@@ -974,7 +634,6 @@ const TopScorerCard: React.FC<TopScorerCardProps> = ({
                     }}
                     filterPosition="Goalkeeper"
                     competitionCode={competitionCode}
-                    db={db}
                   />
                   {isBestGkCorrect && (
                     <div className="text-teal-400 text-xs font-bold mt-1 text-right">
@@ -1005,10 +664,25 @@ const TopScorerCard: React.FC<TopScorerCardProps> = ({
             {!isLocked && (
               <button
                 onClick={handleSave}
-                className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-white text-sm font-bold transition-colors shadow-lg ${hasSavedPredictions ? 'bg-slate-600 hover:bg-slate-500 shadow-slate-900/20' : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-900/20'}`}
+                disabled={isSaved}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-white text-sm font-bold transition-all shadow-lg ${isSaved ? 'bg-green-600 shadow-green-900/20 scale-[0.98]' : hasSavedPredictions ? 'bg-slate-600 hover:bg-slate-500 shadow-slate-900/20' : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-900/20'}`}
               >
-                {hasSavedPredictions ? <Edit2 size={16} /> : <Save size={16} />}
-                {hasSavedPredictions ? 'Editar Palpites Especiais' : 'Salvar Palpites Especiais'}
+                {isSaved ? (
+                  <>
+                    <Check size={16} />
+                    Palpites salvos!
+                  </>
+                ) : hasSavedPredictions ? (
+                  <>
+                    <Edit2 size={16} />
+                    Editar Palpites Especiais
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} />
+                    Salvar Palpites Especiais
+                  </>
+                )}
               </button>
             )}
           </div>
@@ -1016,12 +690,10 @@ const TopScorerCard: React.FC<TopScorerCardProps> = ({
           {/* Other Users' Predictions - Always visible, data hidden until lock */}
           {currentGroupId && (
             <OtherUsersPredictions
-              db={db}
               currentUserId={currentUserId}
               currentGroupId={currentGroupId}
               ruleset={ruleset}
               isLocked={isLocked}
-              players={db.players}
             />
           )}
         </div>
@@ -1030,4 +702,4 @@ const TopScorerCard: React.FC<TopScorerCardProps> = ({
   );
 };
 
-export default TopScorerCard;
+export default TournamentPredictionsCard;

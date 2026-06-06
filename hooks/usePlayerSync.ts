@@ -14,48 +14,81 @@ export const usePlayerSync = () => {
     void fetchPlayers();
   }, []);
 
+  // Supabase caps a single select at 1000 rows. WC squads alone are ~1248 players,
+  // so the catalog MUST be paged or names silently fail to resolve for the overflow.
+  const PAGE_SIZE = 1000;
+  const fetchAllRows = async (
+    build: () => any // returns a fresh PostgREST query builder (without range)
+  ): Promise<any[]> => {
+    const all: any[] = [];
+    let from = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { data, error } = await build().range(from, from + PAGE_SIZE - 1);
+      if (error || !data) break;
+      all.push(...data);
+      if (data.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
+    return all;
+  };
+
   const fetchPlayers = async () => {
     if (!isSupabaseEnabled() || !supabase) return;
 
-    const { data: tpRows } = await supabase
-      .from('tournament_players')
-      .select(
-        'id, playerId, competitionCode, externalTeamId, teamName, teamCrest, goals, assists, penalties, playedMatches, lastUpdated'
-      )
-      .order('goals', { ascending: false });
+    const [playerRows, tpRows] = await Promise.all([
+      fetchAllRows(() => supabase!.from('players').select('*')),
+      fetchAllRows(() =>
+        supabase!
+          .from('tournament_players')
+          .select(
+            'id, playerId, competitionCode, externalTeamId, teamName, teamCrest, goals, assists, penalties, playedMatches, lastUpdated'
+          )
+          .order('goals', { ascending: false })
+      ),
+    ]);
 
-    if (!tpRows || tpRows.length === 0) return;
+    if (!playerRows || playerRows.length === 0) return;
 
-    const playerIds = [...new Set(tpRows.map((r: any) => r.playerId))];
-    const { data: playerRows } = await supabase.from('players').select('*').in('id', playerIds);
-
-    if (!playerRows) return;
-
-    const playerMap = new Map<string, any>(playerRows.map((p: any) => [p.id, p]));
+    // Best tournament entry per player (highest goals)
+    const tpMap = new Map<string, any>();
+    for (const row of tpRows || []) {
+      const existing = tpMap.get(row.playerId);
+      if (!existing || row.goals > existing.goals) tpMap.set(row.playerId, row);
+    }
 
     setPlayers(
-      tpRows
-        .map((row: any) => {
-          const player = playerMap.get(row.playerId);
-          if (!player) return null;
-          return {
-            ...player,
-            tournamentEntry: {
-              id: row.id,
-              playerId: row.playerId,
-              competitionCode: row.competitionCode,
-              externalTeamId: row.externalTeamId,
-              teamName: row.teamName,
-              teamCrest: row.teamCrest,
-              goals: row.goals,
-              assists: row.assists,
-              penalties: row.penalties,
-              playedMatches: row.playedMatches,
-              lastUpdated: row.lastUpdated,
-            } satisfies TournamentPlayerDB,
-          } as PlayerWithContextDB;
-        })
-        .filter(Boolean) as PlayerWithContextDB[]
+      playerRows.map((player: any) => {
+        const tp = tpMap.get(player.id);
+        return {
+          ...player,
+          tournamentEntry: tp
+            ? ({
+                id: tp.id,
+                playerId: tp.playerId,
+                competitionCode: tp.competitionCode,
+                externalTeamId: tp.externalTeamId,
+                teamName: tp.teamName,
+                teamCrest: tp.teamCrest,
+                goals: tp.goals,
+                assists: tp.assists,
+                penalties: tp.penalties,
+                playedMatches: tp.playedMatches,
+                lastUpdated: tp.lastUpdated,
+              } satisfies TournamentPlayerDB)
+            : ({
+                id: '',
+                playerId: player.id,
+                competitionCode: '',
+                externalTeamId: 0,
+                teamName: '',
+                goals: 0,
+                assists: 0,
+                penalties: 0,
+                playedMatches: 0,
+              } satisfies TournamentPlayerDB),
+        } as PlayerWithContextDB;
+      })
     );
   };
 
@@ -298,5 +331,16 @@ export const usePlayerSync = () => {
       .filter(Boolean) as PlayerWithContextDB[];
   };
 
-  return { players, isSyncingPlayers, syncSquads, syncScorers, searchPlayers };
+  // Targeted resolver: fetch player identities by their UUIDs directly from the DB,
+  // independent of the in-memory `players` cache. Used to display saved prediction
+  // names reliably even if the catalog is still loading or incomplete.
+  const getPlayersByIds = async (ids: string[]): Promise<PlayerDB[]> => {
+    if (!isSupabaseEnabled() || !supabase) return [];
+    const unique = [...new Set(ids.filter(Boolean))];
+    if (unique.length === 0) return [];
+    const { data } = await supabase.from('players').select('*').in('id', unique);
+    return (data as PlayerDB[]) || [];
+  };
+
+  return { players, isSyncingPlayers, syncSquads, syncScorers, searchPlayers, getPlayersByIds };
 };

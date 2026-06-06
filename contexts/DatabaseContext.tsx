@@ -23,6 +23,7 @@ import {
   CompetitionDB,
   TeamStandingsDB,
   PlayerWithContextDB,
+  PlayerDB,
 } from "../types";
 import { usePlayerSync } from "../hooks/usePlayerSync";
 import { INITIAL_DB } from "../data/initialData";
@@ -153,6 +154,7 @@ interface DatabaseContextType {
   syncSquads: (competitionCodes: string[]) => Promise<{ synced: number; errors: string[] }>;
   syncScorers: (competitionCodes: string[]) => Promise<{ synced: number; errors: string[] }>;
   searchPlayers: (query: string, competitionCode?: string) => Promise<PlayerWithContextDB[]>;
+  getPlayersByIds: (ids: string[]) => Promise<PlayerDB[]>;
 }
 
 const DatabaseContext = createContext<DatabaseContextType | undefined>(
@@ -352,7 +354,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   const [systemConfig, setSystemConfig] =
     useState<SystemConfigDB>(DEFAULT_CONFIG);
 
-  const { players, isSyncingPlayers, syncSquads, syncScorers, searchPlayers } = usePlayerSync();
+  const { players, isSyncingPlayers, syncSquads, syncScorers, searchPlayers, getPlayersByIds } = usePlayerSync();
 
   // --- Supabase Realtime & Sync Effect ---
   useEffect(() => {
@@ -1554,6 +1556,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         syncSquads,
         syncScorers,
         searchPlayers,
+        getPlayersByIds,
       }), [
         competitions,
         users,
@@ -1594,6 +1597,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         syncSquads,
         syncScorers,
         searchPlayers,
+        getPlayersByIds,
       ])}
     >
       {children}

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Match, MatchDB, User, TournamentPredictions } from "../../types";
-import TopScorerCard from "../TopScorerCard";
+import TournamentPredictionsCard from "../specials/TournamentPredictionsCard";
 import { ExtraPhasePredictionsCard } from "../ExtraPhasePredictionsCard";
 import { GroupClassificationsCard } from "../GroupClassificationsCard";
 import { KnockoutClassificationsCard } from "../KnockoutClassificationsCard";
@@ -122,7 +122,7 @@ const SpecialsPage: React.FC<SpecialsPageProps> = ({
         </div>
       </div>
 
-      <TopScorerCard
+      <TournamentPredictionsCard
         prediction={currentUser.tournamentPredictions}
         onPredict={onPredictTournament}
         lockDate={lockDate ? new Date(lockDate) : new Date(0)}

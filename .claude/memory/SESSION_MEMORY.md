@@ -18,7 +18,8 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 
 | Priority | Item | Plan | Status |
 |----------|------|------|--------|
-| **Next** | Players & Top Scorers | `.claude/plans/players-and-top-scorers.md` | IN PROGRESS — Phases 1–4 done; Phase 5 (Top Scores tab + BottomNav entry) remaining |
+| **Next** | Players & Top Scorers — Phase 5 | `.claude/plans/players-and-top-scorers.md` | IN PROGRESS — Phases 1–4 committed (`122f6ed`) + combobox bug fix & specials/ extraction (uncommitted); Phase 5 (TopScoresPage + BottomNav tab) remaining |
+| Proposed | Specials components refactor | `.claude/plans/specials-components-refactor.md` | PROPOSED — Phase A (consolidate specials/ folder) recommended first; awaiting approval |
 | Deferred | Large file refactor (5 phases) | `.claude/plans/large-file-refactors.md` | Planned, not started — branch `chore/structural-refactor` |
 | Ongoing | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Open |
 
@@ -80,26 +81,27 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 
 ---
 
+## Completed — Combobox bug fix + specials/ extraction (2026-06-06, uncommitted)
+
+- **Bug fix:** `PlayerCombobox` display "ran away" on focus — `inputValue = isSearching ? query : displayName` + `handleFocus` set `isSearching=true`, so clicking the field showed empty `query`. Fixed with an `isEditing` model that seeds `query` with the current `displayName` on focus, so the selection stays visible while editable. Added out-of-order response guard (`reqIdRef`).
+- **Goalkeeper filter fix:** was exact `position === "Goalkeeper"`; now `position.toLowerCase().includes('goalkeeper')` (defensive against coarse/detailed API position values).
+- **Extraction:** created `components/specials/` — `PlayerCombobox.tsx`, `OtherUsersPredictions.tsx` (now uses `useDatabase` internally), and renamed `TopScorerCard` → `specials/TournamentPredictionsCard.tsx`. Old `components/TopScorerCard.tsx` deleted. `SpecialsPage.tsx` import updated.
+- Code queries `players`/`tournament_players` (not `v2_*`) — this is CORRECT: `services/supabase.ts` has a Proxy on `.from()` that applies `VITE_DB_TABLE_PREFIX=v2_`. Do NOT "fix" this to `v2_*`; the prefix is automatic.
+- **Saved-prediction names showing blank — FIXED:** root cause = `fetchPlayers` loaded the whole catalog with `.select('*')` and no pagination; Supabase caps at 1000 rows but WC squads = 48×26 = 1248, so ~250 players were dropped from `db.players` → name resolution failed for those. Fix: (a) `fetchAllRows` pager (1000/page) in `usePlayerSync` for both `players` + `tournament_players`; (b) new `getPlayersByIds(ids)` targeted resolver exposed via context; (c) `TournamentPredictionsCard` gap-fills its 3 names via `db.getPlayersByIds` when an id is absent from `db.players`. NOTE: autocomplete worked throughout because `searchPlayers` is a name-filtered query that never hit the 1000 cap.
+- ⚠️ If names are still blank after this, the stored `topScorerPlayerId`/etc. are orphaned UUIDs from a `v2_players` re-creation (migration 0022 DROP+recreate regenerates UUIDs) — user must re-select. `getPlayersByIds` returns nothing for ids not in the current table.
+
 ## Next Action
 
 Phase 5: create `components/pages/TopScoresPage.tsx` (scorers list ordered by goals) + add tab to `BottomNav.tsx` + wire routing in `App.tsx`.
+Optionally start specials refactor Phase A (`.claude/plans/specials-components-refactor.md`).
 
-## Autocomplete — Fixed & Working (2026-06-05)
+## Completed — Players & Top Scorer Phases 1–4 (2026-06-06, commit `122f6ed`)
 
-- `overflow-hidden` removed from outer card div (moved to header button) in [components/TopScorerCard.tsx](components/TopScorerCard.tsx).
-- Player search scoped to `competitionCode` — threaded from `App.tsx` `activeCompetitionCode` → `SpecialsPage` → `TopScorerCard` → `PlayerCombobox` → `db.searchPlayers(val, competitionCode)`.
-- **`fetchPlayers` fixed** in [hooks/usePlayerSync.ts](hooks/usePlayerSync.ts): was using a broken PostgREST FK join (`player:v2_players(*)`) that silently returned null, leaving `db.players` empty and preventing name hydration on load. Replaced with two separate queries.
-- **`competitionCode` filter reverted**: added filter to `searchPlayers` at user request but it broke search because stored codes didn't match `activeCompetitionCode`. Fully removed — `competitionCode` prop stripped from `PlayerCombobox`, `TopScorerCard`, `SpecialsPage`, and `App.tsx`. `searchPlayers` signature now takes only `query: string`.
-
-## Autocomplete — Two follow-up bugs fixed (2026-06-05)
-
-- **Saved player names blank on load**: `tsPlayerName`/`bestPlayerName`/`bestGkName` were always initialized to `''` and only hydrated from `db.players`. The prediction prop already stores names (`topScorer.player`, `bestPlayer`, `bestGoalkeeper`). Fix: initialize states and the prediction-sync `useEffect` from those saved names. `db.players` hydration still overrides when available.
-- **Search returning "Nenhum jogador encontrado"**: `searchPlayers` required a player to have an entry in both `v2_players` AND `v2_tournament_players`. Players synced only to `v2_players` (no tournament stats yet) were silently excluded. Fix: fetch full rows from `v2_players` first, then do a best-effort `v2_tournament_players` lookup; players with no tournament entry are still returned with an empty stub entry.
-
-## Search scoped to competition (2026-06-06)
-
-- Players still not appearing — threaded `competitionCode` through the full prop chain: `App.tsx` `activeCompetitionCode` → `SpecialsPage` → `TopScorerCard` → `PlayerCombobox` → `db.searchPlayers(val, competitionCode)`.
-- `searchPlayers` updated to 3-step strategy: (1) find player IDs by name in `v2_players`, (2) filter `v2_tournament_players` by those IDs + `.ilike("competitionCode", competitionCode)` (case-insensitive — previous attempt used `.eq()` which broke on case mismatch), (3) fetch full player rows. Only returns players with a tournament entry for the active competition.
-- Previous attempt to thread competition code was reverted because `.eq()` was case-sensitive vs `.toUpperCase()` in `activeCompetitionCode`. Fixed with `.ilike()`.
+- **Migrations 0020–0022**: `v2_players` table (PK = UUID), FK from `tournament_predictions` → `v2_players`, `topScorerPlayerId`/`bestPlayerId`/`bestGoalkeeperId` columns replacing text fields.
+- **`usePlayerSync`**: syncs squads from Football Data API into `v2_players` + `v2_tournament_players`; admin trigger in `AdminDashboard`.
+- **`TopScorerCard` / `SpecialsPage`**: player autocomplete (`PlayerCombobox`) with 3-step search (name → IDs → tournament filter with `.ilike` for case-insensitive competition code).
+- **`useUserSystem` / `usePointsProcessor`**: resolves player UUIDs → names at runtime for scoring; `db.players` loaded into context for client-side resolution.
+- **`competitionCode` prop**: threaded from `App.tsx` `activeCompetitionCode` → `SpecialsPage` → `TopScorerCard` so search is scoped to the active competition.
+- **Key bugs fixed**: `fetchPlayers` broken PostgREST FK join replaced with two separate queries; saved player names initialized from prediction prop (not just `db.players`); search fallback for players without tournament stats.
 
 _Last updated: 2026-06-06_
