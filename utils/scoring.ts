@@ -4,6 +4,7 @@ export const POINTS_EXACT = 10;
 export const POINTS_GOAL_DIFF = 7;
 export const POINTS_OUTCOME = 5;
 export const POINTS_WRONG = 0;
+export const POINTS_PENALTY_WINNER_BONUS = 3;
 
 const UNDERDOG_BONUS_FACTOR = 0.03;
 const MAX_UNDERDOG_BONUS = 5;
@@ -79,13 +80,15 @@ export const calculatePoints = (
   realAway: number,
   homeRank?: number,
   awayRank?: number,
-  minRankDiff = FALLBACK_MIN_RANK_DIFF
+  minRankDiff = FALLBACK_MIN_RANK_DIFF,
+  predTieWinnerId?: string,
+  realTieWinnerId?: string
 ): number => {
-  const cat = getScoreCategoryRegulamento1(predHome, predAway, realHome, realAway, homeRank, awayRank, minRankDiff);
+  const cat = getScoreCategoryRegulamento1(predHome, predAway, realHome, realAway, homeRank, awayRank, minRankDiff, predTieWinnerId, realTieWinnerId);
 
-  if (cat.type === 'exact') return POINTS_EXACT + cat.underdogBonus;
-  if (cat.type === 'diff') return POINTS_GOAL_DIFF + cat.underdogBonus;
-  if (cat.type === 'outcome') return POINTS_OUTCOME + cat.underdogBonus;
+  if (cat.type === 'exact') return POINTS_EXACT + cat.underdogBonus + cat.penaltyWinnerBonus;
+  if (cat.type === 'diff') return POINTS_GOAL_DIFF + cat.underdogBonus + cat.penaltyWinnerBonus;
+  if (cat.type === 'outcome') return POINTS_OUTCOME + cat.underdogBonus + cat.penaltyWinnerBonus;
   return POINTS_WRONG;
 };
 
@@ -98,6 +101,7 @@ export interface MatchPredictionContext {
 export interface ScoreCategoryR1 {
   type: 'exact' | 'diff' | 'outcome' | 'wrong';
   underdogBonus: number;
+  penaltyWinnerBonus: number;
 }
 
 export interface ScoreCategoryR2 {
@@ -107,6 +111,11 @@ export interface ScoreCategoryR2 {
 
 /**
  * REGULAMENTO 1: Returns the score category and underdog bonus without computing total points.
+ * predTieWinnerId / realTieWinnerId: team IDs for the penalty shootout winner (Reg. 1, knockout).
+ * penaltyWinnerBonus (+3) is only applied when:
+ *   - The predicted score is a draw (predHome === predAway)
+ *   - The real result resolves via PENALTY_SHOOTOUT (realTieWinnerId is provided)
+ *   - The user's predicted winner matches the real winner
  */
 export const getScoreCategoryRegulamento1 = (
   predHome: number,
@@ -115,7 +124,9 @@ export const getScoreCategoryRegulamento1 = (
   realAway: number,
   homeRank?: number,
   awayRank?: number,
-  minRankDiff = FALLBACK_MIN_RANK_DIFF
+  minRankDiff = FALLBACK_MIN_RANK_DIFF,
+  predTieWinnerId?: string,
+  realTieWinnerId?: string
 ): ScoreCategoryR1 => {
   const isExact = predHome === realHome && predAway === realAway;
 
@@ -129,20 +140,30 @@ export const getScoreCategoryRegulamento1 = (
     underdogBonus = calculateUnderdogBonus(winnerRank, loserRank, minRankDiff);
   }
 
+  // Penalty winner bonus: only when pred is draw AND real game went to shootout
+  const predIsDraw = predHome === predAway;
+  const penaltyWinnerBonus =
+    predIsDraw &&
+    !!predTieWinnerId &&
+    !!realTieWinnerId &&
+    predTieWinnerId === realTieWinnerId
+      ? POINTS_PENALTY_WINNER_BONUS
+      : 0;
+
   if (isExact) {
-    return { type: 'exact', underdogBonus };
+    return { type: 'exact', underdogBonus, penaltyWinnerBonus };
   }
 
   if (predOutcome === realOutcome) {
     const predDiff = predHome - predAway;
     const realDiff = realHome - realAway;
     if (predDiff === realDiff) {
-      return { type: 'diff', underdogBonus };
+      return { type: 'diff', underdogBonus, penaltyWinnerBonus };
     }
-    return { type: 'outcome', underdogBonus };
+    return { type: 'outcome', underdogBonus, penaltyWinnerBonus };
   }
 
-  return { type: 'wrong', underdogBonus: 0 };
+  return { type: 'wrong', underdogBonus: 0, penaltyWinnerBonus: 0 };
 };
 
 /**

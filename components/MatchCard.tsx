@@ -14,6 +14,7 @@ import {
   POINTS_EXACT,
   POINTS_GOAL_DIFF,
   POINTS_OUTCOME,
+  POINTS_PENALTY_WINNER_BONUS,
 } from "../utils/scoring";
 import {
   Users,
@@ -44,6 +45,7 @@ interface MatchCardProps {
     home: number,
     away: number,
     targetGroupIds?: string[],
+    tieWinnerTeamId?: string,
   ) => Promise<void> | void;
   isAdmin?: boolean;
   onAdminSaveMatch?: (
@@ -83,6 +85,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     Boolean(userPrediction),
   );
   const [isReplicateModalOpen, setIsReplicateModalOpen] = useState(false);
+  const [tieWinnerTeamId, setTieWinnerTeamId] = useState<string | null>(
+    userPrediction?.tieWinnerTeamId ?? null
+  );
 
   // Initialize inputs
   useEffect(() => {
@@ -105,6 +110,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       if (userPrediction) {
         setHomeInput(userPrediction.homeScore.toString());
         setAwayInput(userPrediction.awayScore.toString());
+        setTieWinnerTeamId(userPrediction.tieWinnerTeamId ?? null);
       }
     }
   }, [userPrediction, match.result, isAdmin, match.id, match.status]);
@@ -118,7 +124,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       try {
         setPredictionError(null);
         setIsSavingPrediction(true);
-        await onPredict(match.id, h, a);
+        const effectiveTieWinner = isKnockoutMatch && h === a ? (tieWinnerTeamId ?? undefined) : undefined;
+        await onPredict(match.id, h, a, undefined, effectiveTieWinner);
         setHasSavedPrediction(true);
       } catch (error: any) {
         setPredictionError(error?.message || "Erro ao salvar palpite.");
@@ -142,6 +149,10 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const isFinished = match.status === MatchStatus.FINISHED;
   const isPhaseLocked = ruleset === "regulamento_2" && phaseLockSet?.has(getMatchPhase(match.stage, match.group));
   const isPredictionDisabled = !isAdmin && (isFinished || isLive || isLocked || !!isPhaseLocked);
+  const isKnockoutMatch = ruleset === "regulamento_1" && getMatchPhase(match.stage, match.group) !== "groups";
+  const homeInputNum = parseInt(homeInput);
+  const awayInputNum = parseInt(awayInput);
+  const isPredictingDraw = !isPredictionDisabled && isKnockoutMatch && !isNaN(homeInputNum) && !isNaN(awayInputNum) && homeInputNum === awayInputNum;
 
   const underdogTeam = (match.homeTeam?.ranking ?? 0) > (match.awayTeam?.ranking ?? 0)
     ? match.homeTeam
@@ -188,13 +199,22 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       return { points, bonus: 0 };
     }
 
+    const isShootout = match.score?.duration === "PENALTY_SHOOTOUT";
+    const realTieWinnerId = isShootout
+      ? (match.score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
+      : undefined;
+    const predTieWinnerId = userPrediction?.tieWinnerTeamId;
+
     const points = calculatePoints(
       home,
       away,
       match.result.home,
       match.result.away,
       match.homeTeam?.ranking,
-      match.awayTeam?.ranking
+      match.awayTeam?.ranking,
+      minRankDiff ?? 0,
+      home === away ? predTieWinnerId : undefined,
+      realTieWinnerId
     );
 
     let bonus = 0;
@@ -342,10 +362,52 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     </span>
                   </div>
                   <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">Seu Palpite</span>
+                  {/* Tie winner selected by user (Reg.1, knockout) */}
+                  {userPrediction?.tieWinnerTeamId && (() => {
+                    const tieTeam = userPrediction.tieWinnerTeamId === match.homeTeam.id ? match.homeTeam : match.awayTeam;
+                    return (
+                      <div className="flex items-center gap-1.5 mt-1 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                        {tieTeam.flag && <img src={tieTeam.flag} alt={tieTeam.name} className="w-4 h-4 rounded-sm object-contain" />}
+                        <span className="text-[9px] font-bold text-amber-300">{tieTeam.name}</span>
+                        <span className="text-[8px] text-amber-400/70">nos pênaltis</span>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-2">
+                {/* Tie winner selector — only for Reg.1 knockout draws */}
+                {isPredictingDraw && (
+                  <div className="flex flex-col items-center gap-1.5 w-full px-2 py-2 rounded-xl bg-amber-500/8 border border-amber-500/25 animate-fadeIn">
+                    <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest">Quem vence nos pênaltis?</span>
+                    <div className="flex gap-2 w-full justify-center">
+                      <button
+                        onClick={() => setTieWinnerTeamId(prev => prev === match.homeTeam.id ? null : match.homeTeam.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-black transition-all ${
+                          tieWinnerTeamId === match.homeTeam.id
+                            ? "bg-amber-500/20 border-amber-500/60 text-amber-300"
+                            : "bg-slate-800 border-slate-700 text-slate-400 hover:border-amber-500/40"
+                        }`}
+                      >
+                        {match.homeTeam.flag && <img src={match.homeTeam.flag} alt={match.homeTeam.name} className="w-4 h-4 rounded-sm object-contain" />}
+                        {match.homeTeam.name}
+                      </button>
+                      <button
+                        onClick={() => setTieWinnerTeamId(prev => prev === match.awayTeam.id ? null : match.awayTeam.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-black transition-all ${
+                          tieWinnerTeamId === match.awayTeam.id
+                            ? "bg-amber-500/20 border-amber-500/60 text-amber-300"
+                            : "bg-slate-800 border-slate-700 text-slate-400 hover:border-amber-500/40"
+                        }`}
+                      >
+                        {match.awayTeam.flag && <img src={match.awayTeam.flag} alt={match.awayTeam.name} className="w-4 h-4 rounded-sm object-contain" />}
+                        {match.awayTeam.name}
+                      </button>
+                    </div>
+                    <span className="text-[8px] text-amber-400/60">Opcional · +{POINTS_PENALTY_WINNER_BONUS} pts se acertar</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-2 sm:gap-3">
                   {/* Home score stepper */}
                   <div className="flex flex-col items-center gap-1">
@@ -482,6 +544,15 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                                <Zap size={8} fill="currentColor" /> +{userScoring.bonus} zebra
                             </span>
                          )}
+                         {userPrediction?.tieWinnerTeamId && match.score?.duration === "PENALTY_SHOOTOUT" && (() => {
+                            const realWinner = match.score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id;
+                            const hit = userPrediction.tieWinnerTeamId === realWinner;
+                            return hit ? (
+                               <span className="text-[8px] font-black uppercase tracking-tighter text-amber-300 flex items-center gap-0.5">
+                                 <Zap size={8} fill="currentColor" /> +{POINTS_PENALTY_WINNER_BONUS} pênaltis
+                               </span>
+                            ) : null;
+                         })()}
                       </div>
                    </div>
                 ) : isPredictionDisabled ? (
@@ -603,7 +674,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           onConfirm={async (targetGroupIds) => {
             const h = parseInt(homeInput);
             const a = parseInt(awayInput);
-            await onPredict(match.id, h, a, targetGroupIds);
+            const effectiveTieWinner = isKnockoutMatch && h === a ? (tieWinnerTeamId ?? undefined) : undefined;
+            await onPredict(match.id, h, a, targetGroupIds, effectiveTieWinner);
             setHasSavedPrediction(true);
           }}
         />

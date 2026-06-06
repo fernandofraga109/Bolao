@@ -124,6 +124,7 @@ export const usePointsProcessor = (dbRef: any) => {
           homeScore: number;
           awayScore: number;
           points: number;
+          tieWinnerTeamId?: string;
         }> = [];
 
         // Build group matches context map for placar isolado checks
@@ -157,6 +158,12 @@ export const usePointsProcessor = (dbRef: any) => {
                 p.userId
               );
             } else {
+              const isShootout = (match as any).score?.duration === "PENALTY_SHOOTOUT";
+              const realTieWinnerId = isShootout
+                ? ((match as any).score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
+                : undefined;
+              const predTieWinnerId = (p as any).tieWinnerTeamId as string | undefined;
+
               pts = calculatePoints(
                 p.homeScore,
                 p.awayScore,
@@ -164,7 +171,9 @@ export const usePointsProcessor = (dbRef: any) => {
                 match.result?.away ?? 0,
                 match.homeTeam?.ranking,
                 match.awayTeam?.ranking,
-                effectiveMinRankDiff
+                effectiveMinRankDiff,
+                predTieWinnerId,
+                realTieWinnerId
               );
             }
 
@@ -177,6 +186,7 @@ export const usePointsProcessor = (dbRef: any) => {
                 homeScore: p.homeScore,
                 awayScore: p.awayScore,
                 points: pts,
+                tieWinnerTeamId: (p as any).tieWinnerTeamId,
               });
             }
           }

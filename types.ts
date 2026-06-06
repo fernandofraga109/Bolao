@@ -106,6 +106,7 @@ export interface PredictionDB {
   awayScore: number;
   timestamp: string;
   points?: number;
+  tieWinnerTeamId?: string; // ID da seleção vencedora nos pênaltis (Reg. 1, mata-mata)
 }
 
 export interface PlayerDB {
@@ -223,6 +224,7 @@ export interface Prediction {
   homeScore: number;
   awayScore: number;
   points?: number;
+  tieWinnerTeamId?: string; // ID da seleção vencedora nos pênaltis (Reg. 1, mata-mata)
 }
 
 export interface ScoreBreakdown {
@@ -263,7 +265,7 @@ export interface User {
   status: UserStatus;
   groupIds: string[];
   activeGroupId?: string;
-  predictions: Record<string, { home: number; away: number; points?: number }>; // matchId -> score
+  predictions: Record<string, { home: number; away: number; points?: number; tieWinnerTeamId?: string }>; // matchId -> score
   tournamentPredictions?: TournamentPredictions;
   totalPoints: number;
   predictionsCount?: number;

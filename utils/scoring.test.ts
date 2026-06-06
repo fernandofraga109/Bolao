@@ -411,6 +411,35 @@ describe("getScoreCategoryRegulamento1", () => {
     expect(cat.type).toBe("exact");
     expect(cat.underdogBonus).toBeGreaterThan(0);
   });
+
+  it("penaltyWinnerBonus = 0 quando jogo não foi para pênaltis (realTieWinnerId ausente)", () => {
+    const cat = getScoreCategoryRegulamento1(1, 1, 1, 1, undefined, undefined, 0, "team-a", undefined);
+    expect(cat.type).toBe("exact");
+    expect(cat.penaltyWinnerBonus).toBe(0);
+  });
+
+  it("penaltyWinnerBonus = +3 quando palpite é empate, jogo foi para pênaltis e vencedor correto", () => {
+    const cat = getScoreCategoryRegulamento1(1, 1, 1, 1, undefined, undefined, 0, "team-a", "team-a");
+    expect(cat.type).toBe("exact");
+    expect(cat.penaltyWinnerBonus).toBe(3);
+  });
+
+  it("penaltyWinnerBonus = 0 quando vencedor errado nos pênaltis", () => {
+    const cat = getScoreCategoryRegulamento1(1, 1, 1, 1, undefined, undefined, 0, "team-a", "team-b");
+    expect(cat.type).toBe("exact");
+    expect(cat.penaltyWinnerBonus).toBe(0);
+  });
+
+  it("penaltyWinnerBonus = 0 quando palpite não é empate (mesmo que jogo vá para pênaltis)", () => {
+    const cat = getScoreCategoryRegulamento1(2, 1, 2, 1, undefined, undefined, 0, "team-a", "team-a");
+    expect(cat.type).toBe("exact");
+    expect(cat.penaltyWinnerBonus).toBe(0);
+  });
+
+  it("calculatePoints inclui penaltyWinnerBonus no total de pontos", () => {
+    const pts = calculatePoints(1, 1, 1, 1, undefined, undefined, 0, "team-a", "team-a");
+    expect(pts).toBe(10 + 3); // POINTS_EXACT + POINTS_PENALTY_WINNER_BONUS
+  });
 });
 
 describe("getScoreCategoryRegulamento2", () => {

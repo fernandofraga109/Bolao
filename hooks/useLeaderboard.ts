@@ -110,6 +110,12 @@ export const useLeaderboard = (
                 user.id
               );
             } else {
+              const isShootout = match.score?.duration === "PENALTY_SHOOTOUT";
+              const realTieWinnerId = isShootout
+                ? (match.score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
+                : undefined;
+              const predTieWinnerId = pred.tieWinnerTeamId;
+
               const cat = getScoreCategoryRegulamento1(
                 pred.home,
                 pred.away,
@@ -118,6 +124,8 @@ export const useLeaderboard = (
                 match.homeTeam.ranking,
                 match.awayTeam.ranking,
                 activeMinRankDiff,
+                predTieWinnerId,
+                realTieWinnerId,
               );
 
               if (cat.type === "exact") breakdown.exactCount++;
@@ -130,19 +138,17 @@ export const useLeaderboard = (
                 breakdown.underdogBonusTotal += cat.underdogBonus;
               }
 
-              if (isFinished && typeof pred.points === "number") {
-                total += pred.points;
-              } else {
-                total += calculatePoints(
-                  pred.home,
-                  pred.away,
-                  match.result.home,
-                  match.result.away,
-                  match.homeTeam.ranking,
-                  match.awayTeam.ranking,
-                  activeMinRankDiff,
-                );
-              }
+              total += calculatePoints(
+                pred.home,
+                pred.away,
+                match.result.home,
+                match.result.away,
+                match.homeTeam.ranking,
+                match.awayTeam.ranking,
+                activeMinRankDiff,
+                predTieWinnerId,
+                realTieWinnerId,
+              );
             }
           }
         });
