@@ -146,18 +146,20 @@ export const useUserSystem = () => {
           tp.userId === user.id &&
           tp.groupId === resolvedActiveGroupId,
       );
+      const resolvePlayerName = (uuid?: string) =>
+        uuid ? db.players.find((p) => p.id === uuid)?.name : undefined;
+
       const tp: TournamentPredictions | undefined = tpDb
         ? {
             championTeamId: resolveChampionIdForUi(tpDb.championTeamId),
-            topScorer:
-              tpDb.topScorerPlayer || tpDb.topScorerGoals
-                ? {
-                    player: tpDb.topScorerPlayer || "",
-                    goals: tpDb.topScorerGoals || 0,
-                  }
-                : undefined,
-            bestPlayer: tpDb.bestPlayer,
-            bestGoalkeeper: tpDb.bestGoalkeeper,
+            topScorerPlayerId: tpDb.topScorerPlayerId,
+            topScorer: tpDb.topScorerPlayerId
+              ? { player: resolvePlayerName(tpDb.topScorerPlayerId) || '', goals: tpDb.topScorerGoals || 0 }
+              : undefined,
+            bestPlayerId: tpDb.bestPlayerId,
+            bestPlayer: resolvePlayerName(tpDb.bestPlayerId),
+            bestGoalkeeperId: tpDb.bestGoalkeeperId,
+            bestGoalkeeper: resolvePlayerName(tpDb.bestGoalkeeperId),
             mostGoalsTeamId: tpDb.mostGoalsTeamId,
             mostConcededTeamId: tpDb.mostConcededTeamId,
             groupClassifications: tpDb.groupClassifications,
@@ -177,6 +179,7 @@ export const useUserSystem = () => {
     db.userGroups,
     db.predictions,
     db.tournamentPredictions,
+    db.players,
     resolveChampionIdForUi,
     currentUserId,
     viewerActiveGroupId,
@@ -661,10 +664,10 @@ export const useUserSystem = () => {
       userId: currentUser.id,
       groupId: activeGroupId,
       championTeamId: resolveChampionIdForDb(data.championTeamId),
-      topScorerPlayer: data.topScorer?.player,
+      topScorerPlayerId: data.topScorerPlayerId,
       topScorerGoals: data.topScorer?.goals,
-      bestPlayer: data.bestPlayer,
-      bestGoalkeeper: data.bestGoalkeeper,
+      bestPlayerId: data.bestPlayerId,
+      bestGoalkeeperId: data.bestGoalkeeperId,
       mostGoalsTeamId: data.mostGoalsTeamId,
       mostConcededTeamId: data.mostConcededTeamId,
       groupClassifications: data.groupClassifications,

@@ -300,6 +300,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
           userId: u.id,
           championTeamId: u.tournamentPredictions?.championTeamId,
           topScorerPlayer: u.tournamentPredictions?.topScorer?.player,
+          topScorerPlayerId: u.tournamentPredictions?.topScorerPlayerId,
         }));
 
       // Champion
@@ -327,9 +328,11 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
           const actualPlayer = actual.topScorer.player.trim().toLowerCase();
           if (predPlayer === actualPlayer) {
             const count = allGroupPredictions.filter(
-              (p) =>
-                p.topScorerPlayer &&
-                p.topScorerPlayer.trim().toLowerCase() === actualPlayer
+              (p) => {
+                if (p.topScorerPlayerId && pred.topScorerPlayerId)
+                  return p.topScorerPlayerId === pred.topScorerPlayerId;
+                return p.topScorerPlayer && p.topScorerPlayer.trim().toLowerCase() === actualPlayer;
+              }
             ).length;
             pts = count === 1 ? 60 : count === 2 ? 40 : count === 3 ? 30 : 25;
           }

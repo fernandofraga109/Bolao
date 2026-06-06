@@ -7,12 +7,21 @@ import { DEFAULT_COMPETITION_CODE } from "../data/competitions";
 
 // --- TEAMS ---
 
+export interface ExternalSquadPlayer {
+  id: number;
+  name: string;
+  position: string;
+  dateOfBirth: string;
+  nationality: string;
+}
+
 export interface ExternalTeam {
   id: number;
   name: string;
   shortName?: string;
   tla: string;
   crest?: string;
+  squad?: ExternalSquadPlayer[];
 }
 
 export const fetchCompetitionTeams = async (
@@ -333,6 +342,11 @@ export const fetchExternalStandings = async (
 export interface ExternalScorerPlayer {
   id: number;
   name: string;
+  firstName?: string;
+  lastName?: string;
+  dateOfBirth?: string;
+  nationality?: string;
+  section?: string;
 }
 
 export interface ExternalScorerTeam {
@@ -345,6 +359,7 @@ export interface ExternalScorer {
   team: ExternalScorerTeam;
   goals: number;
   assists?: number;
+  penalties?: number;
 }
 
 export interface ExternalScorersResponse {

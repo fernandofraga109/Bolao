@@ -100,6 +100,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     string | null
   >(null);
   const [isSyncingCatalog, setIsSyncingCatalog] = useState(false);
+  const [playerSyncResult, setPlayerSyncResult] = useState<{ synced: number; errors: string[] } | null>(null);
 
   // Tournament Awards States
   const [selectedCompetitionCode, setSelectedCompetitionCode] = useState<string | null>(null);
@@ -418,6 +419,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const handleSyncPlayers = async () => {
+    setPlayerSyncResult(null);
+    const result = await db.syncSquads(activeCompetitions);
+    setPlayerSyncResult(result);
+  };
+
   const handleSyncTeamRankings = () => {
     setShowSyncRankingsModal(true);
   };
@@ -640,6 +647,71 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
                         )}
                     </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* SYNC PLAYERS SECTION */}
+        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 mb-6">
+          <h3 className="font-bold text-white mb-2 flex items-center gap-2">
+            <Users className="text-green-400" />
+            Sincronizar Jogadores (Squads)
+          </h3>
+          <p className="text-sm text-slate-400 mb-4">
+            Importa todos os jogadores de cada seleção para a tabela{" "}
+            <span className="font-mono text-slate-300">players</span>. Execute
+            antes de rodar a migração 0021 para maximizar o match de nomes nas
+            previsões existentes.
+          </p>
+
+          <button
+            onClick={() => void handleSyncPlayers()}
+            disabled={db.isSyncingPlayers || !isConnected}
+            className={`font-bold px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${isConnected ? "bg-green-700 hover:bg-green-600 text-white" : "bg-slate-700 text-slate-500 cursor-not-allowed"}`}
+          >
+            {db.isSyncingPlayers ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Sincronizando jogadores...
+              </>
+            ) : (
+              <>
+                <Download size={18} />
+                Sincronizar Jogadores
+              </>
+            )}
+          </button>
+
+          {playerSyncResult && (
+            <div
+              className={`mt-4 p-4 rounded-lg border ${playerSyncResult.errors.length === 0 ? "bg-green-900/20 border-green-500/30" : "bg-yellow-900/20 border-yellow-500/30"}`}
+            >
+              <div className="flex items-start gap-3">
+                {playerSyncResult.errors.length === 0 ? (
+                  <Check className="text-green-400 mt-1" size={20} />
+                ) : (
+                  <AlertTriangle className="text-yellow-400 mt-1" size={20} />
+                )}
+                <div className="flex-1">
+                  <p className={`font-bold ${playerSyncResult.errors.length === 0 ? "text-green-300" : "text-yellow-300"}`}>
+                    {playerSyncResult.errors.length === 0
+                      ? `${playerSyncResult.synced} jogadores sincronizados com sucesso.`
+                      : `${playerSyncResult.synced} sincronizados, ${playerSyncResult.errors.length} erro(s).`}
+                  </p>
+                  {playerSyncResult.errors.length > 0 && (
+                    <ul className="mt-2 text-[10px] text-slate-400 space-y-1">
+                      {playerSyncResult.errors.slice(0, 5).map((err, i) => (
+                        <li key={i} className="ml-4">• {err}</li>
+                      ))}
+                      {playerSyncResult.errors.length > 5 && (
+                        <li className="ml-4 text-slate-500 italic">
+                          ... e mais {playerSyncResult.errors.length - 5}
+                        </li>
+                      )}
+                    </ul>
                   )}
                 </div>
               </div>

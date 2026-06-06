@@ -57,15 +57,8 @@ export const INITIAL_USERS: User[] = DB_USERS.map((user) => {
   if (userTournPred) {
     tournamentPredictions = {
       championTeamId: userTournPred.championTeamId,
-      topScorer:
-        userTournPred.topScorerPlayer || userTournPred.topScorerGoals
-          ? {
-              player: userTournPred.topScorerPlayer || "",
-              goals: userTournPred.topScorerGoals || 0,
-            }
-          : undefined,
-      bestPlayer: userTournPred.bestPlayer,
-      bestGoalkeeper: userTournPred.bestGoalkeeper,
+      bestPlayer: undefined,
+      bestGoalkeeper: undefined,
     };
   }
 

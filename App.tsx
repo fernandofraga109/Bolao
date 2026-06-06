@@ -640,6 +640,7 @@ const App: React.FC = () => {
             onPredictTournament={predictTournament}
             allowedChampionTeamIds={currentGroupTeamIds}
             ruleset={currentGroup?.ruleset}
+            competitionCode={activeCompetitionCode}
           />
         )}
 

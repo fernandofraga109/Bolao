@@ -108,14 +108,43 @@ export interface PredictionDB {
   points?: number;
 }
 
+export interface PlayerDB {
+  id: string;
+  externalPlayerId: number;
+  name: string;
+  firstName?: string;
+  lastName?: string;
+  position?: string;
+  dateOfBirth?: string;
+  nationality?: string;
+}
+
+export interface TournamentPlayerDB {
+  id: string;
+  playerId: string;
+  competitionCode: string;
+  externalTeamId: number;
+  teamName: string;
+  teamCrest?: string;
+  goals: number;
+  assists: number;
+  penalties: number;
+  playedMatches: number;
+  lastUpdated?: string;
+}
+
+export interface PlayerWithContextDB extends PlayerDB {
+  tournamentEntry: TournamentPlayerDB;
+}
+
 export interface TournamentPredictionDB {
   userId: string;
   groupId: string;
   championTeamId?: string;
-  topScorerPlayer?: string;
-  topScorerGoals?: number;
-  bestPlayer?: string;
-  bestGoalkeeper?: string;
+  topScorerPlayerId?: string; // UUID FK → v2_players.id
+  topScorerGoals?: number;   // user's predicted goal count for the top scorer
+  bestPlayerId?: string;
+  bestGoalkeeperId?: string;
   mostGoalsTeamId?: string;
   mostConcededTeamId?: string;
   groupClassifications?: Record<string, string[]>;
@@ -210,11 +239,14 @@ export interface ScoreBreakdown {
 export interface TournamentPredictions {
   championTeamId?: string;
   topScorer?: {
-    player: string;
+    player: string; // display name, derived from topScorerPlayerId
     goals: number;
   };
-  bestPlayer?: string;
-  bestGoalkeeper?: string;
+  topScorerPlayerId?: string;   // UUID FK → v2_players.id
+  bestPlayer?: string;          // display name, derived from bestPlayerId
+  bestPlayerId?: string;        // UUID FK → v2_players.id
+  bestGoalkeeper?: string;      // display name, derived from bestGoalkeeperId
+  bestGoalkeeperId?: string;    // UUID FK → v2_players.id
   mostGoalsTeamId?: string;
   mostConcededTeamId?: string;
   groupClassifications?: Record<string, string[]>;

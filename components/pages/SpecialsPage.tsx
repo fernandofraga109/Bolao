@@ -14,6 +14,7 @@ interface SpecialsPageProps {
   onPredictTournament: (predictions: TournamentPredictions) => void;
   allowedChampionTeamIds: string[];
   ruleset?: "regulamento_1" | "regulamento_2";
+  competitionCode?: string;
 }
 
 const SpecialsPage: React.FC<SpecialsPageProps> = ({
@@ -24,6 +25,7 @@ const SpecialsPage: React.FC<SpecialsPageProps> = ({
   onPredictTournament,
   allowedChampionTeamIds,
   ruleset = "regulamento_1",
+  competitionCode,
 }) => {
   const [showSpecialsRules, setShowSpecialsRules] = useState(false);
 
@@ -130,6 +132,7 @@ const SpecialsPage: React.FC<SpecialsPageProps> = ({
         currentUserId={currentUser.id}
         currentGroupId={currentUser.activeGroupId}
         defaultExpanded={ruleset === "regulamento_1"}
+        competitionCode={competitionCode}
       />
 
       {ruleset === "regulamento_2" && (

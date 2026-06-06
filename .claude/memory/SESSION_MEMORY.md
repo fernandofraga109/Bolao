@@ -18,6 +18,7 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 
 | Priority | Item | Plan | Status |
 |----------|------|------|--------|
+| **Next** | Players & Top Scorers | `.claude/plans/players-and-top-scorers.md` | IN PROGRESS — Phases 1–4 done; Phase 5 (Top Scores tab + BottomNav entry) remaining |
 | Deferred | Large file refactor (5 phases) | `.claude/plans/large-file-refactors.md` | Planned, not started — branch `chore/structural-refactor` |
 | Ongoing | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Open |
 
@@ -70,8 +71,35 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 
 ---
 
+## Specced — Players & Top Scorers (2026-06-05)
+
+- Created `docs/features/players-and-top-scorers.md` — full spec for player squad ingestion and Top Scorers tab
+- API verified via live calls: squad fields are `externalPlayerId/name/position/dateOfBirth/nationality`; scorers add `goals/assists/penalties/playedMatches`
+- Proposed: new `players` table (PK = `externalPlayerId`), two-phase sync (squad on-demand + scorer periodic), autocomplete on `topScorerPlayer`, new "Artilharia" tab
+- 5 open questions left for user review before implementation (column type for topScorerPlayer, tab name, sync frequency, competitions scope, scorers limit)
+
+---
+
 ## Next Action
 
-Merge `fix/data-sync-and-ptr` → `main` when ready.
+Phase 5: create `components/pages/TopScoresPage.tsx` (scorers list ordered by goals) + add tab to `BottomNav.tsx` + wire routing in `App.tsx`.
 
-_Last updated: 2026-05-16_
+## Autocomplete — Fixed & Working (2026-06-05)
+
+- `overflow-hidden` removed from outer card div (moved to header button) in [components/TopScorerCard.tsx](components/TopScorerCard.tsx).
+- Player search scoped to `competitionCode` — threaded from `App.tsx` `activeCompetitionCode` → `SpecialsPage` → `TopScorerCard` → `PlayerCombobox` → `db.searchPlayers(val, competitionCode)`.
+- **`fetchPlayers` fixed** in [hooks/usePlayerSync.ts](hooks/usePlayerSync.ts): was using a broken PostgREST FK join (`player:v2_players(*)`) that silently returned null, leaving `db.players` empty and preventing name hydration on load. Replaced with two separate queries.
+- **`competitionCode` filter reverted**: added filter to `searchPlayers` at user request but it broke search because stored codes didn't match `activeCompetitionCode`. Fully removed — `competitionCode` prop stripped from `PlayerCombobox`, `TopScorerCard`, `SpecialsPage`, and `App.tsx`. `searchPlayers` signature now takes only `query: string`.
+
+## Autocomplete — Two follow-up bugs fixed (2026-06-05)
+
+- **Saved player names blank on load**: `tsPlayerName`/`bestPlayerName`/`bestGkName` were always initialized to `''` and only hydrated from `db.players`. The prediction prop already stores names (`topScorer.player`, `bestPlayer`, `bestGoalkeeper`). Fix: initialize states and the prediction-sync `useEffect` from those saved names. `db.players` hydration still overrides when available.
+- **Search returning "Nenhum jogador encontrado"**: `searchPlayers` required a player to have an entry in both `v2_players` AND `v2_tournament_players`. Players synced only to `v2_players` (no tournament stats yet) were silently excluded. Fix: fetch full rows from `v2_players` first, then do a best-effort `v2_tournament_players` lookup; players with no tournament entry are still returned with an empty stub entry.
+
+## Search scoped to competition (2026-06-06)
+
+- Players still not appearing — threaded `competitionCode` through the full prop chain: `App.tsx` `activeCompetitionCode` → `SpecialsPage` → `TopScorerCard` → `PlayerCombobox` → `db.searchPlayers(val, competitionCode)`.
+- `searchPlayers` updated to 3-step strategy: (1) find player IDs by name in `v2_players`, (2) filter `v2_tournament_players` by those IDs + `.ilike("competitionCode", competitionCode)` (case-insensitive — previous attempt used `.eq()` which broke on case mismatch), (3) fetch full player rows. Only returns players with a tournament entry for the active competition.
+- Previous attempt to thread competition code was reverted because `.eq()` was case-sensitive vs `.toUpperCase()` in `activeCompetitionCode`. Fixed with `.ilike()`.
+
+_Last updated: 2026-06-06_

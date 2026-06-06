@@ -22,7 +22,9 @@ import {
   SystemConfigDB,
   CompetitionDB,
   TeamStandingsDB,
+  PlayerWithContextDB,
 } from "../types";
+import { usePlayerSync } from "../hooks/usePlayerSync";
 import { INITIAL_DB } from "../data/initialData";
 import { supabase, isSupabaseEnabled, SUPABASE_SCHEMA } from "../services/supabase";
 
@@ -146,6 +148,11 @@ interface DatabaseContextType {
   refetchTeamStandings: () => Promise<void>;
   refetchPredictions: () => Promise<void>;
   refetchUserGroups: () => Promise<void>;
+  players: PlayerWithContextDB[];
+  isSyncingPlayers: boolean;
+  syncSquads: (competitionCodes: string[]) => Promise<{ synced: number; errors: string[] }>;
+  syncScorers: (competitionCodes: string[]) => Promise<{ synced: number; errors: string[] }>;
+  searchPlayers: (query: string, competitionCode?: string) => Promise<PlayerWithContextDB[]>;
 }
 
 const DatabaseContext = createContext<DatabaseContextType | undefined>(
@@ -344,6 +351,8 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   // System Config
   const [systemConfig, setSystemConfig] =
     useState<SystemConfigDB>(DEFAULT_CONFIG);
+
+  const { players, isSyncingPlayers, syncSquads, syncScorers, searchPlayers } = usePlayerSync();
 
   // --- Supabase Realtime & Sync Effect ---
   useEffect(() => {
@@ -1540,6 +1549,11 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         refetchTeamStandings,
         refetchPredictions,
         refetchUserGroups,
+        players,
+        isSyncingPlayers,
+        syncSquads,
+        syncScorers,
+        searchPlayers,
       }), [
         competitions,
         users,
@@ -1575,6 +1589,11 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         refetchTeamStandings,
         refetchPredictions,
         refetchUserGroups,
+        players,
+        isSyncingPlayers,
+        syncSquads,
+        syncScorers,
+        searchPlayers,
       ])}
     >
       {children}

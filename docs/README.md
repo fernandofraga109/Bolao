@@ -25,6 +25,7 @@ Esta estrutura permite carregar apenas o contexto relevante para cada tarefa, re
 - `sync-system.md` - Sistema de sync (limitação conhecida)
 - `scoring.md` - Sistema de pontuação (Regulamento 1 e 2)
 - `leaderboard.md` - Leaderboard e ranking
+- `players-and-top-scorers.md` - Tabela de jogadores, autocomplete de artilheiro e aba Top Scores
 
 ### 🛠️ Setup (`docs/setup/`)
 - `environment.md` - Variáveis de ambiente

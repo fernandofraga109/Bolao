@@ -167,22 +167,42 @@ export const usePointsProcessor = (dbRef: any) => {
 
       // 6. Calculate and add tournament predictions points
       if (tournamentResults) {
+        // Resolve player names from UUIDs for scoring comparisons
+        const playerUuids = (tournPreds || [])
+          .flatMap((tp) => [tp.topScorerPlayerId, tp.bestPlayerId, tp.bestGoalkeeperId])
+          .filter(Boolean) as string[];
+
+        const playerNameById = new Map<string, string>();
+        if (playerUuids.length > 0) {
+          const { data: playersData } = await supabase
+            .from("v2_players")
+            .select("id, name")
+            .in("id", playerUuids);
+          (playersData || []).forEach((p: any) => playerNameById.set(p.id, p.name));
+        }
+
         if (isRegulamento2) {
           const groupTournPreds = (tournPreds || []).map((tp) => ({
             userId: tp.userId,
             championTeamId: tp.championTeamId || undefined,
-            topScorerPlayer: tp.topScorerPlayer || undefined,
+            topScorerPlayer: tp.topScorerPlayerId
+              ? (playerNameById.get(tp.topScorerPlayerId) || undefined)
+              : undefined,
           }));
 
           (tournPreds || []).forEach((tp) => {
             if (!pointsByUser[tp.userId]) pointsByUser[tp.userId] = 0;
+            const tsName = tp.topScorerPlayerId ? playerNameById.get(tp.topScorerPlayerId) : undefined;
             const predTourn: TournamentPredictions = {
               championTeamId: tp.championTeamId || undefined,
-              topScorer: tp.topScorerPlayer
-                ? { player: tp.topScorerPlayer, goals: tp.topScorerGoals || 0 }
+              topScorer: tsName
+                ? { player: tsName, goals: tp.topScorerGoals || 0 }
                 : undefined,
-              bestPlayer: tp.bestPlayer || undefined,
-              bestGoalkeeper: tp.bestGoalkeeper || undefined,
+              topScorerPlayerId: tp.topScorerPlayerId || undefined,
+              bestPlayer: tp.bestPlayerId ? playerNameById.get(tp.bestPlayerId) : undefined,
+              bestPlayerId: tp.bestPlayerId || undefined,
+              bestGoalkeeper: tp.bestGoalkeeperId ? playerNameById.get(tp.bestGoalkeeperId) : undefined,
+              bestGoalkeeperId: tp.bestGoalkeeperId || undefined,
               mostGoalsTeamId: tp.mostGoalsTeamId || undefined,
               mostConcededTeamId: tp.mostConcededTeamId || undefined,
               groupClassifications: tp.groupClassifications || undefined,
@@ -203,13 +223,14 @@ export const usePointsProcessor = (dbRef: any) => {
           // Regulamento 1: Stateless tournament points
           (tournPreds || []).forEach((tp) => {
             if (!pointsByUser[tp.userId]) pointsByUser[tp.userId] = 0;
+            const tsName = tp.topScorerPlayerId ? playerNameById.get(tp.topScorerPlayerId) : undefined;
             const predTourn: TournamentPredictions = {
               championTeamId: tp.championTeamId || undefined,
-              topScorer: tp.topScorerPlayer
-                ? { player: tp.topScorerPlayer, goals: tp.topScorerGoals || 0 }
+              topScorer: tsName
+                ? { player: tsName, goals: tp.topScorerGoals || 0 }
                 : undefined,
-              bestPlayer: tp.bestPlayer || undefined,
-              bestGoalkeeper: tp.bestGoalkeeper || undefined,
+              bestPlayer: tp.bestPlayerId ? playerNameById.get(tp.bestPlayerId) : undefined,
+              bestGoalkeeper: tp.bestGoalkeeperId ? playerNameById.get(tp.bestGoalkeeperId) : undefined,
             };
 
             const pts = calculateTournamentPoints(predTourn, tournamentResults);

@@ -6,7 +6,7 @@
           {
             "type": "command",
             "shell": "powershell",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"Stop\",\"additionalContext\":\"CHECKPOINT: If significant work was done this session, update docs/SESSION_MEMORY.md before finishing (status, last task, next step, decisions).\"}}'",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"Stop\",\"additionalContext\":\"CHECKPOINT: If significant work was done this session, update .claude/memory/SESSION_MEMORY.md before finishing (status, last task, next step, decisions).\"}}'",
             "timeout": 5
           }
         ]

@@ -166,14 +166,14 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
 
       if (ruleset === "regulamento_1") {
         if (!tp.championTeamId) labels.push("Campeão");
-        if (!tp.topScorer?.player) labels.push("Artilheiro (nome)");
+        if (!tp.topScorerPlayerId) labels.push("Artilheiro (nome)");
         if (!tp.topScorer?.goals) labels.push("Artilheiro (gols)");
-        if (!tp.bestPlayer) labels.push("Melhor Jogador");
-        if (!tp.bestGoalkeeper) labels.push("Melhor Goleiro");
+        if (!tp.bestPlayerId) labels.push("Melhor Jogador");
+        if (!tp.bestGoalkeeperId) labels.push("Melhor Goleiro");
       } else {
         // R2 — Pré-Copa (artilheiro só tem nome, não gols)
         if (!tp.championTeamId) labels.push("Campeão");
-        if (!tp.topScorer?.player) labels.push("Artilheiro");
+        if (!tp.topScorerPlayerId) labels.push("Artilheiro");
         if (!tp.mostGoalsTeamId) labels.push("Maior Goleadora");
         if (!tp.mostConcededTeamId) labels.push("Maior Sofredora");
 
