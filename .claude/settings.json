@@ -6,7 +6,7 @@
           {
             "type": "command",
             "shell": "powershell",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"Stop\",\"additionalContext\":\"CHECKPOINT: If significant work was done this session, update .claude/memory/SESSION_MEMORY.md before finishing (status, last task, next step, decisions).\"}}'",
+            "command": "Write-Host '===[ CHECKPOINT: Update .claude/memory/SESSION_MEMORY.md if significant work was done ]===' -ForegroundColor Yellow",
             "timeout": 5
           }
         ]
