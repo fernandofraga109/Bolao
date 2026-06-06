@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tab, UserRole } from '../types';
-import { Calendar, Trophy, ShieldCheck, Table2, Activity, Sparkles, Goal } from 'lucide-react';
+import { Calendar, Trophy, ShieldCheck, Table2, Activity, Sparkles } from 'lucide-react';
 
 interface BottomNavProps {
   activeTab: Tab;
@@ -52,13 +52,6 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, userRole
           onClick={() => setActiveTab('tournament')}
           icon={<Table2 size={20} strokeWidth={activeTab === 'tournament' ? 3 : 2} />}
           label="Tabela"
-        />
-        <NavButton
-          tab="topscores"
-          activeTab={activeTab}
-          onClick={() => setActiveTab('topscores')}
-          icon={<Goal size={20} strokeWidth={activeTab === 'topscores' ? 3 : 2} />}
-          label="Artilharia"
         />
         {userRole !== 'ADMIN' && (
           <NavButton

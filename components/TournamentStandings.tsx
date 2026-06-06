@@ -7,6 +7,7 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
+  Goal,
 } from "lucide-react";
 import { useDatabase } from "../contexts/DatabaseContext";
 import {
@@ -15,6 +16,7 @@ import {
   getCurrentSeason,
 } from "../services/liveScoreService";
 import { translateGroupName } from "../utils/translations";
+import TopScoresPage from "./topscores/TopScoresPage";
 
 interface TournamentStandingsProps {
   matches: Match[];
@@ -69,7 +71,7 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
   canPersistToDatabase = false,
 }) => {
   const db = useDatabase();
-  const [view, setView] = useState<"groups" | "knockout">("groups");
+  const [view, setView] = useState<"groups" | "knockout" | "scorers">("groups");
   const [isLoadingStandings, setIsLoadingStandings] = useState(false);
   const [standingsError, setStandingsError] = useState<string | null>(null);
   const [apiStandings, setApiStandings] = useState<Record<
@@ -489,7 +491,7 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
 
   // Se for temporada regular, garantimos a visualização de grupos (tabela)
   useEffect(() => {
-    if (isRegularSeason && view !== "groups") {
+    if (isRegularSeason && (view === "knockout")) {
       setView("groups");
     }
   }, [isRegularSeason, view]);
@@ -506,32 +508,70 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
       </div>
 
       {/* Toggle View */}
-      {!isRegularSeason && (
-        <div className="flex bg-slate-800 p-1 rounded-xl mb-6 border border-slate-700">
-          <button
-            onClick={() => setView("groups")}
-            className={`flex-1 py-2 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${
-              view === "groups"
-                ? "bg-slate-600 text-white shadow-md"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Table2 size={16} />
-            Fase de Grupos
-          </button>
-          <button
-            onClick={() => setView("knockout")}
-            className={`flex-1 py-2 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${
-              view === "knockout"
-                ? "bg-slate-600 text-white shadow-md"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <GitMerge size={16} />
-            Mata-Mata
-          </button>
-        </div>
-      )}
+      <div className="flex bg-slate-800 p-1 rounded-xl mb-6 border border-slate-700">
+        {isRegularSeason ? (
+          <>
+            <button
+              onClick={() => setView("groups")}
+              className={`flex-1 py-2 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${
+                view === "groups"
+                  ? "bg-slate-600 text-white shadow-md"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <Table2 size={16} />
+              Classificação
+            </button>
+            <button
+              onClick={() => setView("scorers")}
+              className={`flex-1 py-2 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${
+                view === "scorers"
+                  ? "bg-slate-600 text-white shadow-md"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <Goal size={16} />
+              Artilharia
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => setView("groups")}
+              className={`flex-1 py-2 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${
+                view === "groups"
+                  ? "bg-slate-600 text-white shadow-md"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <Table2 size={16} />
+              Grupos
+            </button>
+            <button
+              onClick={() => setView("knockout")}
+              className={`flex-1 py-2 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${
+                view === "knockout"
+                  ? "bg-slate-600 text-white shadow-md"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <GitMerge size={16} />
+              Mata-Mata
+            </button>
+            <button
+              onClick={() => setView("scorers")}
+              className={`flex-1 py-2 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${
+                view === "scorers"
+                  ? "bg-slate-600 text-white shadow-md"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <Goal size={16} />
+              Artilharia
+            </button>
+          </>
+        )}
+      </div>
 
       {/* Groups View */}
       {view === "groups" && (
@@ -781,6 +821,11 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
             </div>
           )}
         </div>
+      )}
+
+      {/* Scorers View */}
+      {view === "scorers" && (
+        <TopScoresPage competitionCode={competitionCode} />
       )}
     </div>
   );
