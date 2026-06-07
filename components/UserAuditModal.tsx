@@ -704,6 +704,11 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
                         <div className="mt-2 flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] text-slate-500">{row.resultLabel}</span>
+                            {row.pred.tieWinnerTeamId && (
+                              <span className="text-[9px] text-slate-400">
+                                Vencedor: {formatTeamName(row.pred.tieWinnerTeamId)}
+                              </span>
+                            )}
                             {row.penaltyBonus > 0 && (
                               <span className="text-[9px] font-black text-amber-300 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full">
                                 +{row.penaltyBonus} pênaltis
