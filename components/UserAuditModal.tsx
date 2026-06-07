@@ -25,6 +25,7 @@ interface UserAuditModalProps {
   currentUserId: string;
   rawPredictions: PredictionDB[];
   viewingGroupId: string;
+  lockDate: string | null;
   onClose: () => void;
 }
 
@@ -51,6 +52,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
   currentUserId,
   rawPredictions,
   viewingGroupId,
+  lockDate,
   onClose,
 }) => {
   const [auditTab, setAuditTab] = useState<AuditTab>("jogos");
@@ -311,7 +313,16 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
     return Math.min(...phaseMatches.map((match) => new Date(match.date).getTime())) <= now;
   };
 
-  const isPreCupSpecialVisible = phaseStarted("groups");
+  // Special predictions should only be visible after lock date (same rule as OtherUsersPredictions)
+  const isLocked = lockDate ? new Date() >= new Date(lockDate) : false;
+  const isPreCupSpecialVisible = isLocked;
+
+  // Reset to jogos tab if specials tab is active but competition hasn't started
+  useEffect(() => {
+    if (auditTab === "especiais" && !isPreCupSpecialVisible) {
+      setAuditTab("jogos");
+    }
+  }, [auditTab, isPreCupSpecialVisible]);
 
   const tournamentAudit = useMemo(() => {
     if (!tournamentResults || !user.tournamentPredictions) return null;
@@ -603,16 +614,18 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
           >
             Jogos ({matchAudit.length})
           </button>
-          <button
-            onClick={() => setAuditTab("especiais")}
-            className={`flex-1 py-3 text-xs font-bold uppercase tracking-widest transition-colors ${
-              auditTab === "especiais"
-                ? "text-brand-green border-b-2 border-brand-green"
-                : "text-slate-500 hover:text-slate-300"
-            }`}
-          >
-            Palpites Especiais
-          </button>
+          {isPreCupSpecialVisible && (
+            <button
+              onClick={() => setAuditTab("especiais")}
+              className={`flex-1 py-3 text-xs font-bold uppercase tracking-widest transition-colors ${
+                auditTab === "especiais"
+                  ? "text-brand-green border-b-2 border-brand-green"
+                  : "text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              Palpites Especiais
+            </button>
+          )}
         </div>
 
         {/* Body */}

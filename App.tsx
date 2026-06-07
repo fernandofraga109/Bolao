@@ -666,6 +666,7 @@ const App: React.FC = () => {
             tournamentResults={tournamentResults}
             currentUserId={currentUser.id}
             rawPredictions={db.predictions}
+            lockDate={lockDate}
           />
         )}
 

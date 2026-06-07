@@ -19,6 +19,7 @@ interface LeaderboardPageProps {
   tournamentResults: TournamentPredictions | null;
   currentUserId: string;
   rawPredictions: PredictionDB[];
+  lockDate: string | null;
 }
 
 const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
@@ -29,6 +30,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   tournamentResults,
   currentUserId,
   rawPredictions,
+  lockDate,
 }) => {
   const [auditUser, setAuditUser] = useState<User | null>(null);
   const db = useDatabase();
@@ -58,6 +60,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           currentUserId={currentUserId}
           rawPredictions={rawPredictions}
           viewingGroupId={viewingGroupId}
+          lockDate={lockDate}
           onClose={() => setAuditUser(null)}
         />
       )}
