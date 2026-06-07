@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.21.0";
+export const CURRENT_VERSION = "1.22.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,17 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.22.0",
+    date: "2026-06-07",
+    changes: [
+      "Otimização do mecanismo de sync para respeitar rate limit da API (20 req/min)",
+      "Jitter no boot: checagens se espalham entre abas para evitar corridas",
+      "Cooldown local reduzido de 5min para 1min (mais responsivo)",
+      "Intervalo de checagem dinâmico: proporcional ao tempo configurado pelo admin",
+      "Default de sync_interval_ms atualizado para 20s (otimizado para versão premium)",
+    ],
+  },
   {
     version: "1.21.0",
     date: "2026-06-04",

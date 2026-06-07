@@ -1,13 +1,16 @@
 import { useEffect, useRef } from "react";
 import { CompetitionDB, GroupDB } from "../types";
 
-// Com que frequência o hook verifica se o intervalo expirou.
-// Não é a frequência do sync em si — é apenas a frequência da checagem.
-const CHECK_INTERVAL_MS = 3 * 60 * 1000; // 3 minutos
-
 // Cooldown mínimo entre tentativas DESTE cliente, independente do DB.
 // Protege contra loops causados por re-renders, remounts ou falhas de sync.
-const CLIENT_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutos
+const CLIENT_COOLDOWN_MS = 60 * 1000; // 1 minuto
+
+// Calcula o intervalo de checagem proporcional ao syncIntervalMs configurado pelo admin.
+// Checa com frequência suficiente para não perder o momento do sync, mas não gasta ciclos.
+const getCheckInterval = (syncIntervalMs: number): number => {
+  const half = Math.floor(syncIntervalMs / 2);
+  return Math.max(Math.min(half, 60_000), 5_000); // entre 5s e 60s
+};
 
 interface UseBackgroundSyncOptions {
   /** Lista de competições disponíveis (com campo lastSync). */
@@ -30,7 +33,8 @@ interface UseBackgroundSyncOptions {
  * useBackgroundSync
  *
  * Hook passivo que roda para QUALQUER usuário autenticado.
- * A cada CHECK_INTERVAL_MS, verifica duas condições antes de sincronizar:
+ * A cada intervalo de checagem (proporcional ao syncIntervalMs do admin), verifica
+ * duas condições antes de sincronizar:
  *
  * 1. Cooldown local (CLIENT_COOLDOWN_MS): este cliente já tentou recentemente?
  *    Protege contra re-renders/remounts freqüentes e loops após falhas.
@@ -80,7 +84,8 @@ export const useBackgroundSync = ({
       return;
     }
 
-    console.log(`⏰ Background Sync: ativo. Checando a cada ${CHECK_INTERVAL_MS / 60000} min.`);
+    const checkInterval = getCheckInterval(syncIntervalMsRef.current);
+    console.log(`⏰ Background Sync: ativo. Checando a cada ${Math.round(checkInterval / 1000)}s.`);
 
     const tick = async () => {
       const now = Date.now();
@@ -164,14 +169,13 @@ export const useBackgroundSync = ({
       }
     };
 
-    // Dispara um tick inicial com delay curto para cobrir o caso de o app
-    // acabar de abrir com dados desatualizados.
-    // O delay de 20s dá tempo ao Supabase auth + Realtime estabilizarem antes
-    // de checar — evita o loop de requests observado durante o boot.
-    // Os guards em tick() (cooldown local + DB lastSync) garantem que a API
-    // não é chamada desnecessariamente se o dado já estiver fresco.
-    const initialId = setTimeout(() => void tick(), 20_000);
-    const id = setInterval(() => void tick(), CHECK_INTERVAL_MS);
+    // Dispara um tick inicial com jitter para espalhar checagens entre
+    // múltiplas abas abertas simultaneamente. Isso reduz corridas onde N
+    // usuários checam o lastSync ao mesmo tempo e todos decidem syncar.
+    const initialDelay = 20_000 + Math.random() * 30_000; // 20-50s
+    const initialId = setTimeout(() => void tick(), initialDelay);
+
+    const id = setInterval(() => void tick(), checkInterval);
 
     return () => {
       clearTimeout(initialId);

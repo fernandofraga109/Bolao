@@ -239,7 +239,6 @@ export const useSyncSystem = (
   });
 
   const petitionsRef = useRef<Set<string>>(new Set());
-  const nextAllowedSyncAtRef = useRef(0);
   const syncingCompetitionsRef = useRef<Set<string>>(new Set());
   const adminOverridesRef = useRef<Map<string, number>>(new Map());
 
@@ -305,14 +304,6 @@ export const useSyncSystem = (
 
       if (isBackgroundSync) {
         console.log(`🌐 [BackgroundSync] Iniciando sync passivo para ${normalizedCode}...`);
-      }
-
-      const now = Date.now();
-      if (!isManual && now < nextAllowedSyncAtRef.current) {
-        return {
-          success: false,
-          message: "Aguardando intervalo entre sincronizações.",
-        };
       }
 
       if (syncingCompetitionsRef.current.has(normalizedCode)) {
@@ -994,7 +985,6 @@ export const useSyncSystem = (
         }
 
         const combinedMessage = `${matchesMessage} ${standingsMessage}`;
-        nextAllowedSyncAtRef.current = Date.now() + 30000;
 
         updateSyncStatus(normalizedCode, {
           isSyncing: false,

@@ -4,5 +4,5 @@
 SET search_path TO public;
 
 INSERT INTO system_config (id, is_auto_sync_enabled, sync_interval_ms)
-VALUES ('00000000-0000-0000-0000-000000000001'::uuid, false, 60000)
+VALUES ('00000000-0000-0000-0000-000000000001'::uuid, false, 20000)
 ON CONFLICT (id) DO NOTHING;
