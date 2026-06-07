@@ -138,6 +138,10 @@ const RulesSection: React.FC<RulesSectionProps> = ({ minRankDiff = 10, ruleset =
                       <span className="bg-yellow-400/80 text-black font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[36px] text-center">+1-5</span>
                       <span><b>Bônus Zebra:</b> Bônus extra quando um time zebra vence. Quanto maior a diferença de ranking FIFA entre os times, maior o bônus (+1pt a +5pts).</span>
                   </li>
+                  <li className="flex items-start gap-2">
+                      <span className="bg-amber-500/80 text-black font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[36px] text-center">+3</span>
+                      <span><b>Vencedor nos Pênaltis:</b> Em jogos de mata-mata, se palpar empate e o jogo for para pênaltis, você pode indicar o vencedor. Acertar dá +3 pts extras.</span>
+                  </li>
 
                   <li className="pt-2 font-bold text-indigo-300">Bônus Especiais (100pts cada):</li>
                   
