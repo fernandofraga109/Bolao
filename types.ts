@@ -36,6 +36,7 @@ export interface CompetitionDB {
   groupClassifications?: Record<string, string[]>;
   knockoutClassifications?: Record<string, string[]>;
   biggestGoalDiffMatches?: Record<string, string>;
+  syncLockedAt?: string;
 }
 
 export interface StadiumDB {

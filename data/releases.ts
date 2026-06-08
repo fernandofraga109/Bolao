@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.22.0";
+export const CURRENT_VERSION = "1.23.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,20 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.23.0",
+    date: "2026-06-07",
+    changes: [
+      "Lock atômico no banco de dados para evitar race conditions entre múltiplas instâncias",
+      "Sync agora usa PostgreSQL RPC para exclusão mútua garantida",
+      "Toast azul 'SINCRONIZANDO' só aparece após lock adquirido com sucesso",
+      "Sync bloqueado por outra instância agora é silencioso (sem toast de erro)",
+      "Cooldown local usa valor configurado pelo admin (sync_interval_ms)",
+      "Jitter inicial removido (não necessário com lock atômico)",
+      "Correção: lock usa tabelas v2_ com prefixo correto",
+      "Migrações 0025 e 0026 para sync_locked_at e função RPC acquire_sync_lock",
+    ],
+  },
   {
     version: "1.22.0",
     date: "2026-06-07",

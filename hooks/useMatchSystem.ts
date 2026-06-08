@@ -248,7 +248,10 @@ export const useMatchSystem = (
     groups: db.groups,
     syncIntervalMs: syncInterval || 5 * 60 * 1000,
     syncFn: (code) =>
-      syncMatchesAndStandings(code, false, { isBackgroundSync: true }),
+      syncMatchesAndStandings(code, false, { 
+        isBackgroundSync: true,
+        onSyncStart: onBackgroundSyncStart 
+      }),
     enabled: isAutoSyncEnabled,
     onSyncStart: onBackgroundSyncStart,
     onSyncEnd: onBackgroundSyncEnd,

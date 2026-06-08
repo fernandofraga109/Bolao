@@ -123,6 +123,8 @@ interface DatabaseContextType {
   upsertCompetitions: (competitionsList: CompetitionDB[]) => Promise<void>;
   updateCompetitionSync: (code: string, timestamp: string) => Promise<void>;
   updateCompetitionAutoSync: (code: string, enabled: boolean) => Promise<void>;
+  acquireSyncLock: (code: string) => Promise<boolean>;
+  releaseSyncLock: (code: string) => Promise<void>;
   updateCompetitionAwards: (code: string, awards: { 
     championTeamId?: string | null;
     topScorerName?: string | null;
@@ -1236,6 +1238,45 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
+  const acquireSyncLock = async (code: string): Promise<boolean> => {
+    const prefix = import.meta.env.VITE_DB_TABLE_PREFIX || "";
+    const rpcName = prefix ? `${prefix}acquire_sync_lock` : 'acquire_sync_lock';
+    console.log(`[acquireSyncLock] Tentando adquirir lock para ${code} (schema: ${SUPABASE_SCHEMA}, RPC: ${rpcName})`);
+    
+    // Chama função PostgreSQL que faz UPDATE atômico
+    // Só atualiza se lock está NULL ou expirado (>60s)
+    const { data, error } = await supabase.rpc(rpcName, {
+      p_competition_code: code,
+      p_timeout_seconds: 60
+    });
+
+    if (error) {
+      console.error(`[acquireSyncLock] ERRO ao chamar RPC:`, error);
+      return false;
+    }
+
+    const lockAcquired = data === true;
+    console.log(`[acquireSyncLock] Lock ${lockAcquired ? '✅ ADQUIRIDO' : '🔒 BLOQUEADO'} para ${code}`);
+    return lockAcquired;
+  };
+
+  const releaseSyncLock = async (code: string): Promise<void> => {
+    console.log(`[releaseSyncLock] Liberando lock para ${code}`);
+    const { data, error } = await supabase
+      .from("competitions")
+      .update({ sync_locked_at: null })
+      .eq("code", code)
+      .select();
+    
+    if (error) {
+      console.error(`[releaseSyncLock] ERRO ao liberar lock:`, error);
+    } else if (!data || data.length === 0) {
+      console.warn(`[releaseSyncLock] AVISO: Nenhuma linha atualizada para ${code}. Competição não existe?`);
+    } else {
+      console.log(`[releaseSyncLock] ✅ Lock liberado com sucesso para ${code}`, data);
+    }
+  };
+
   const updateCompetitionAwards = async (
     code: string,
     awards: { 
@@ -1548,6 +1589,8 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         upsertCompetitions,
         updateCompetitionSync,
         updateCompetitionAutoSync,
+        acquireSyncLock,
+        releaseSyncLock,
         updateCompetitionAwards,
         upsertTeam,
         upsertMatch,
@@ -1590,6 +1633,8 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         upsertCompetitions,
         updateCompetitionSync,
         updateCompetitionAutoSync,
+        acquireSyncLock,
+        releaseSyncLock,
         updateCompetitionAwards,
         upsertTeam,
         upsertMatch,

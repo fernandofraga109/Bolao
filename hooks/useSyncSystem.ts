@@ -286,7 +286,7 @@ export const useSyncSystem = (
     async (
       competitionCode: string,
       isManualRequest: boolean = false,
-      options?: { isBackgroundSync?: boolean }
+      options?: { isBackgroundSync?: boolean; onSyncStart?: (code: string) => void }
     ) => {
       const normalizedCode = normalizeCompetitionCode(competitionCode);
       const isManual = isManualRequest || normalizedCode === normalizeCompetitionCode(activeCompetitionCode);
@@ -308,6 +308,20 @@ export const useSyncSystem = (
 
       if (syncingCompetitionsRef.current.has(normalizedCode)) {
         return { success: false, message: "Sincronização já em andamento." };
+      }
+
+      // Tenta adquirir o lock distribuído no banco
+      // useBackgroundSync já verificou lastSync antes de chamar esta função
+      const lockAcquired = await dbRef.current.acquireSyncLock(normalizedCode);
+      if (!lockAcquired) {
+        console.log(`🔒 [SYNC] Sync bloqueado por outra instância para ${normalizedCode}`);
+        // Retorna sucesso silencioso - outra instância está sincronizando
+        return { success: true, message: "" };
+      }
+
+      // Lock adquirido! Notifica que o sync iniciou (para mostrar toast azul)
+      if (options?.onSyncStart) {
+        options.onSyncStart(normalizedCode);
       }
 
       syncingCompetitionsRef.current.add(normalizedCode);
@@ -1005,6 +1019,8 @@ export const useSyncSystem = (
       } finally {
         syncingCompetitionsRef.current.delete(normalizedCode);
         setIsSyncing(false);
+        // Libera o lock distribuído no banco
+        await dbRef.current.releaseSyncLock(normalizedCode);
       }
     },
     [

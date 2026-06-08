@@ -1,10 +1,6 @@
 import { useEffect, useRef } from "react";
 import { CompetitionDB, GroupDB } from "../types";
 
-// Cooldown mínimo entre tentativas DESTE cliente, independente do DB.
-// Protege contra loops causados por re-renders, remounts ou falhas de sync.
-const CLIENT_COOLDOWN_MS = 60 * 1000; // 1 minuto
-
 // Calcula o intervalo de checagem proporcional ao syncIntervalMs configurado pelo admin.
 // Checa com frequência suficiente para não perder o momento do sync, mas não gasta ciclos.
 const getCheckInterval = (syncIntervalMs: number): number => {
@@ -57,11 +53,6 @@ export const useBackgroundSync = ({
   // Lock por código para evitar syncs concorrentes dentro do mesmo hook
   const syncLockRef = useRef<Set<string>>(new Set());
 
-  // Registra o timestamp da última TENTATIVA (sucesso ou falha) por código.
-  // Persiste entre re-renders, mas não entre remounts do hook.
-  // Garante que falhas não causem um loop de retentativas imediatas.
-  const lastAttemptedAtRef = useRef<Map<string, number>>(new Map());
-
   // Refs das props para o setInterval ler sempre o valor atual
   // sem precisar ser recriado a cada render.
   const competitionsRef = useRef(competitions);
@@ -109,18 +100,7 @@ export const useBackgroundSync = ({
           continue;
         }
 
-        // Guarda 2: cooldown local — este cliente tentou recentemente?
-        const lastAttempted = lastAttemptedAtRef.current.get(code) ?? 0;
-        const timeSinceAttempt = now - lastAttempted;
-        if (timeSinceAttempt < CLIENT_COOLDOWN_MS) {
-          const remainingCooldown = Math.round((CLIENT_COOLDOWN_MS - timeSinceAttempt) / 1000);
-          console.log(
-            `🛡️ [BackgroundSync] ${code}: cooldown local ativo. Próxima tentativa em ~${remainingCooldown}s.`
-          );
-          continue;
-        }
-
-        // Guarda 3: auto-sync por competição — admin desativou esta competição?
+        // Guarda 2: auto-sync por competição — admin desativou esta competição?
         const comp = competitionsRef.current.find(
           (c) => c.code.toUpperCase() === code
         );
@@ -131,16 +111,16 @@ export const useBackgroundSync = ({
           continue;
         }
 
-        // Guarda 4: DB lastSync — algum cliente já sincronizou recentemente?
+        // Guarda 3: DB lastSync — algum cliente já sincronizou recentemente?
         const lastSyncTs = comp?.lastSync
           ? new Date(comp.lastSync).getTime()
           : 0;
         const elapsed = now - lastSyncTs;
 
-        if (elapsed <= dbInterval) {
+        if (elapsed < dbInterval) {
           const remaining = Math.round((dbInterval - elapsed) / 1000);
           console.log(
-            `✅ [BackgroundSync] ${code}: DB atualizado há ${Math.round(elapsed / 1000)}s. Próximo sync em ~${remaining}s.`
+            `✅ [BackgroundSync] ${code}: DB atualizado há ${Math.round(elapsed / 1000)}s. Próximo sync em ~${remaining}s (intervalo: ${Math.round(dbInterval / 1000)}s).`
           );
           continue;
         }
@@ -150,16 +130,15 @@ export const useBackgroundSync = ({
           `🔄 [BackgroundSync] ${code}: ${Math.round(elapsed / 1000)}s desde o último sync (limite: ${Math.round(dbInterval / 1000)}s). Iniciando...`
         );
 
-        // Registra a tentativa ANTES de iniciar (mesmo que falhe, o cooldown local se aplica)
-        lastAttemptedAtRef.current.set(code, now);
         syncLockRef.current.add(code);
 
-        // Notifica o pai que o sync iniciou (para mostrar toast de "sincronizando")
-        onSyncStartRef.current?.(code);
-
         try {
+          // syncFn irá chamar onSyncStart apenas se conseguir o lock
           const result = await syncFnRef.current(code);
-          onSyncEndRef.current?.(code, result.success, result.message);
+          // Só exibe toast se houver mensagem (skip silencioso retorna "")
+          if (result.message) {
+            onSyncEndRef.current?.(code, result.success, result.message);
+          }
         } catch (err: any) {
           console.warn(`[BackgroundSync] Erro ao sincronizar ${code}:`, err);
           onSyncEndRef.current?.(code, false, err?.message || "Erro desconhecido");
@@ -169,16 +148,13 @@ export const useBackgroundSync = ({
       }
     };
 
-    // Dispara um tick inicial com jitter para espalhar checagens entre
-    // múltiplas abas abertas simultaneamente. Isso reduz corridas onde N
-    // usuários checam o lastSync ao mesmo tempo e todos decidem syncar.
-    const initialDelay = 20_000 + Math.random() * 30_000; // 20-50s
-    const initialId = setTimeout(() => void tick(), initialDelay);
+    // Dispara primeiro tick imediatamente
+    // O lock atômico garante que apenas uma instância sincroniza por vez
+    void tick();
 
     const id = setInterval(() => void tick(), checkInterval);
 
     return () => {
-      clearTimeout(initialId);
       clearInterval(id);
     };
   }, [enabled]); // só recria o interval se `enabled` mudar — props são lidas via refs
