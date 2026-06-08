@@ -564,18 +564,20 @@ const App: React.FC = () => {
             </div>
           )}
 
-          <PendingPredictionsBanner
-            matches={matches}
-            predictions={myPredictionsMap}
-            ruleset={currentGroup?.ruleset}
-            phaseLockSet={phaseLockSet}
-            isAdmin={currentUser.role === "ADMIN"}
-            tournamentPredictions={currentUser.tournamentPredictions}
-            extraPhasePredictions={db.extraPhasePredictions}
-            lockDate={lockDate}
-            groupId={currentUser.activeGroupId}
-            userId={currentUser.id}
-          />
+          {db.isInitialFetchComplete && (
+            <PendingPredictionsBanner
+              matches={matches}
+              predictions={myPredictionsMap}
+              ruleset={currentGroup?.ruleset}
+              phaseLockSet={phaseLockSet}
+              isAdmin={currentUser.role === "ADMIN"}
+              tournamentPredictions={currentUser.tournamentPredictions}
+              extraPhasePredictions={db.extraPhasePredictions}
+              lockDate={lockDate}
+              groupId={currentUser.activeGroupId}
+              userId={currentUser.id}
+            />
+          )}
         </div>
       )}
 

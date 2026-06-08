@@ -158,6 +158,7 @@ interface DatabaseContextType {
   searchPlayers: (query: string, competitionCode?: string) => Promise<PlayerWithContextDB[]>;
   getTopScorers: (competitionCode: string, limit?: number) => Promise<PlayerWithContextDB[]>;
   getPlayersByIds: (ids: string[]) => Promise<PlayerDB[]>;
+  isInitialFetchComplete: boolean;
 }
 
 const DatabaseContext = createContext<DatabaseContextType | undefined>(
@@ -357,6 +358,9 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   const [systemConfig, setSystemConfig] =
     useState<SystemConfigDB>(DEFAULT_CONFIG);
 
+  // Initial fetch state to prevent showing stale data during sync
+  const [isInitialFetchComplete, setIsInitialFetchComplete] = useState(false);
+
   const {
     players,
     isSyncingPlayers,
@@ -533,6 +537,10 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         setPredictions([]);
         setTournamentPredictions([]);
         setExtraPhasePredictions([]);
+      }
+
+      if (isMounted) {
+        setIsInitialFetchComplete(true);
       }
     };
 
@@ -1610,6 +1618,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         searchPlayers,
         getTopScorers,
         getPlayersByIds,
+        isInitialFetchComplete,
       }), [
         competitions,
         users,
@@ -1654,6 +1663,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         searchPlayers,
         getTopScorers,
         getPlayersByIds,
+        isInitialFetchComplete,
       ])}
     >
       {children}
