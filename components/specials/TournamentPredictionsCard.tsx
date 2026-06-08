@@ -397,7 +397,7 @@ const TournamentPredictionsCard: React.FC<TournamentPredictionsCardProps> = ({
                     displayName={tsPlayerName}
                     placeholder="Artilheiro"
                     disabled={isLocked}
-                    accentClass={isTsNameCorrect ? 'border-brand-green' : 'border-amber-500'}
+                    accentClass={isTsNameCorrect ? 'border-brand-green' : 'border-slate-600'}
                     onSelect={(id, name) => {
                       setTsPlayerId(id);
                       setTsPlayerName(name);
