@@ -927,7 +927,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         onChange={handleUpdateInterval}
                         className="w-full bg-slate-900 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-brand-green"
                       >
-                        <option value={15000}>15 segundos (Rápido)</option>
+                        <option value={5000}>5 segundos (Muito Rápido)</option>
+                        <option value={10000}>10 segundos</option>
+                        <option value={15000}>15 segundos</option>
+                        <option value={20000}>20 segundos</option>
+                        <option value={25000}>25 segundos</option>
                         <option value={30000}>30 segundos</option>
                         <option value={60000}>1 minuto (Recomendado)</option>
                         <option value={180000}>3 minutos</option>
