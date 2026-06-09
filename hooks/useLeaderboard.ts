@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { User, Match, MatchStatus, TournamentPredictions, Group } from "../types";
-import { calculatePoints, calculateTournamentPoints, calculatePointsRegulamento2, getMatchPhase, calculateTournamentPointsRegulamento2, getScoreCategoryRegulamento1, getScoreCategoryRegulamento2 } from "../utils/scoring";
+import { calculatePoints, calculateTournamentPoints, calculatePointsRegulamento2, getMatchPhase, calculateTournamentPointsRegulamento2, getScoreCategoryRegulamento1, getScoreCategoryRegulamento2, getR1MatchScoringResult } from "../utils/scoring";
 import { DEFAULT_COMPETITION_CODE } from "../data/competitions";
 
 interface UserGroupDB {
@@ -111,21 +111,26 @@ export const useLeaderboard = (
               );
             } else {
               const isShootout = match.score?.duration === "PENALTY_SHOOTOUT";
-              const realTieWinnerId = isShootout
+              const realWhoClassifiesId = isShootout
                 ? (match.score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
                 : undefined;
-              const predTieWinnerId = pred.tieWinnerTeamId;
+              const predWhoClassifiesId = pred.whoClassifiesTeamId;
+              const r1Result = getR1MatchScoringResult(
+                match.score,
+                match.result.home,
+                match.result.away
+              );
 
               const cat = getScoreCategoryRegulamento1(
                 pred.home,
                 pred.away,
-                match.result.home,
-                match.result.away,
+                r1Result.home,
+                r1Result.away,
                 match.homeTeam.ranking,
                 match.awayTeam.ranking,
                 activeMinRankDiff,
-                predTieWinnerId,
-                realTieWinnerId,
+                predWhoClassifiesId,
+                realWhoClassifiesId,
               );
 
               if (cat.type === "exact") breakdown.exactCount++;
@@ -141,13 +146,13 @@ export const useLeaderboard = (
               total += calculatePoints(
                 pred.home,
                 pred.away,
-                match.result.home,
-                match.result.away,
+                r1Result.home,
+                r1Result.away,
                 match.homeTeam.ranking,
                 match.awayTeam.ranking,
                 activeMinRankDiff,
-                predTieWinnerId,
-                realTieWinnerId,
+                predWhoClassifiesId,
+                realWhoClassifiesId,
               );
             }
           }

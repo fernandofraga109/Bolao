@@ -11,7 +11,8 @@ import {
   POINTS_TOP_SCORER_GOALS,
   POINTS_BEST_PLAYER,
   POINTS_BEST_GOALKEEPER,
-  POINTS_PENALTY_WINNER_BONUS,
+  POINTS_CLASSIFIES_BONUS,
+  getR1MatchScoringResult,
 } from "../utils/scoring";
 import { translateGroupName } from "../utils/translations";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
@@ -33,14 +34,14 @@ type AuditTab = "jogos" | "especiais";
 
 interface MatchAuditRow {
   match: Match;
-  pred: { home: number; away: number; points?: number; tieWinnerTeamId?: string };
+  pred: { home: number; away: number; points?: number; whoClassifiesTeamId?: string };
   pts: number;
   pointsSource: "db" | "calc";
   isExact: boolean;
   isOutcomeCorrect: boolean;
   isDiffCorrect: boolean;
   resultLabel: string;
-  penaltyBonus: number;
+  classifiesBonus: number;
 }
 
 const UserAuditModal: React.FC<UserAuditModalProps> = ({
@@ -126,14 +127,14 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
   // user.predictions was hydrated using viewerActiveGroupId (bug in useUserSystem for other users),
   // so we must rebuild from raw DB predictions to get the correct scoped data.
   const userPredictions = useMemo(() => {
-    const map: Record<string, { home: number; away: number; points?: number; tieWinnerTeamId?: string }> = {};
+    const map: Record<string, { home: number; away: number; points?: number; whoClassifiesTeamId?: string }> = {};
     rawPredictions
       .filter((p) => p.userId === user.id && (activeGroupId ? p.groupId === activeGroupId : true))
       .forEach((p) => {
         // If multiple entries exist (legacy + group-scoped), group-scoped wins
         const existing = map[p.matchId];
         if (!existing || p.groupId === activeGroupId) {
-          map[p.matchId] = { home: p.homeScore, away: p.awayScore, points: p.points, tieWinnerTeamId: p.tieWinnerTeamId };
+          map[p.matchId] = { home: p.homeScore, away: p.awayScore, points: p.points, whoClassifiesTeamId: p.tieWinnerTeamId };
         }
       });
     return map;
@@ -187,21 +188,26 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
         );
       } else {
         const isShootout = (match as any).score?.duration === "PENALTY_SHOOTOUT";
-        const realTieWinnerId = isShootout
+        const realWhoClassifiesId = isShootout
           ? ((match as any).score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
           : undefined;
-        const predTieWinnerId = pred.tieWinnerTeamId;
+        const predWhoClassifiesId = pred.whoClassifiesTeamId;
+        const r1Result = getR1MatchScoringResult(
+          (match as any).score,
+          match.result!.home,
+          match.result!.away
+        );
 
         pts = calculatePoints(
           pred.home,
           pred.away,
-          match.result!.home,
-          match.result!.away,
+          r1Result.home,
+          r1Result.away,
           match.homeTeam.ranking,
           match.awayTeam.ranking,
           minRankDiff,
-          predTieWinnerId,
-          realTieWinnerId
+          predWhoClassifiesId,
+          realWhoClassifiesId
         );
       }
 
@@ -209,8 +215,12 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
         pointsSource = "db";
       }
 
-      const realHome = match.result!.home;
-      const realAway = match.result!.away;
+      // For R1: compare against regularTime only; for display use the same base
+      const auditScore = ruleset === "regulamento_1"
+        ? getR1MatchScoringResult((match as any).score, match.result!.home, match.result!.away)
+        : { home: match.result!.home, away: match.result!.away };
+      const realHome = auditScore.home;
+      const realAway = auditScore.away;
       const isExact = pred.home === realHome && pred.away === realAway;
       const realOutcome =
         realHome > realAway ? "home" : realHome < realAway ? "away" : "draw";
@@ -229,20 +239,18 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
       else if (isOutcomeCorrect && isDiffCorrect) resultLabel = "Diferença certa";
       else if (isOutcomeCorrect) resultLabel = "Resultado certo";
 
-      // Calculate penalty bonus for display (Reg. 1 only, WC only)
-      const isWC = (match.competitionCode || "WC").toUpperCase() === "WC";
+      // Calculate classifiesBonus for display (Reg. 1 only)
       const isShootout = (match as any).score?.duration === "PENALTY_SHOOTOUT";
-      const realTieWinnerId = isShootout
+      const realWhoClassifiesIdDisplay = isShootout
         ? ((match as any).score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
         : undefined;
-      const penaltyBonus =
+      const classifiesBonus =
         ruleset === "regulamento_1" &&
-        isWC &&
         pred.home === pred.away &&
-        !!pred.tieWinnerTeamId &&
-        !!realTieWinnerId &&
-        pred.tieWinnerTeamId === realTieWinnerId
-          ? POINTS_PENALTY_WINNER_BONUS
+        !!pred.whoClassifiesTeamId &&
+        !!realWhoClassifiesIdDisplay &&
+        pred.whoClassifiesTeamId === realWhoClassifiesIdDisplay
+          ? POINTS_CLASSIFIES_BONUS
           : 0;
 
       rows.push({
@@ -254,7 +262,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
         isOutcomeCorrect,
         isDiffCorrect,
         resultLabel,
-        penaltyBonus,
+        classifiesBonus,
       });
     });
 
@@ -717,14 +725,14 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
                         <div className="mt-2 flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] text-slate-500">{row.resultLabel}</span>
-                            {row.pred.tieWinnerTeamId && (
+                            {row.pred.whoClassifiesTeamId && (
                               <span className="text-[9px] text-slate-400">
-                                Vencedor: {formatTeamName(row.pred.tieWinnerTeamId)}
+                                Classifica: {formatTeamName(row.pred.whoClassifiesTeamId)}
                               </span>
                             )}
-                            {row.penaltyBonus > 0 && (
+                            {row.classifiesBonus > 0 && (
                               <span className="text-[9px] font-black text-amber-300 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full">
-                                +{row.penaltyBonus} pênaltis
+                                +{row.classifiesBonus} classifica
                               </span>
                             )}
                           </div>

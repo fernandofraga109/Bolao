@@ -11,10 +11,11 @@ import {
   calculateUnderdogBonus,
   calculatePointsRegulamento2,
   getMatchPhase,
+  getR1MatchScoringResult,
   POINTS_EXACT,
   POINTS_GOAL_DIFF,
   POINTS_OUTCOME,
-  POINTS_PENALTY_WINNER_BONUS,
+  POINTS_CLASSIFIES_BONUS,
 } from "../utils/scoring";
 import {
   Users,
@@ -45,7 +46,7 @@ interface MatchCardProps {
     home: number,
     away: number,
     targetGroupIds?: string[],
-    tieWinnerTeamId?: string,
+    whoClassifiesTeamId?: string,
   ) => Promise<void> | void;
   isAdmin?: boolean;
   onAdminSaveMatch?: (
@@ -85,8 +86,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     Boolean(userPrediction),
   );
   const [isReplicateModalOpen, setIsReplicateModalOpen] = useState(false);
-  const [tieWinnerTeamId, setTieWinnerTeamId] = useState<string | null>(
-    userPrediction?.tieWinnerTeamId ?? null
+  const [whoClassifiesTeamId, setWhoClassifiesTeamId] = useState<string | null>(
+    userPrediction?.whoClassifiesTeamId ?? null
   );
 
   // Initialize inputs
@@ -110,7 +111,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       if (userPrediction) {
         setHomeInput(userPrediction.homeScore.toString());
         setAwayInput(userPrediction.awayScore.toString());
-        setTieWinnerTeamId(userPrediction.tieWinnerTeamId ?? null);
+        setWhoClassifiesTeamId(userPrediction.whoClassifiesTeamId ?? null);
       }
     }
   }, [userPrediction, match.result, isAdmin, match.id, match.status]);
@@ -124,7 +125,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       try {
         setPredictionError(null);
         setIsSavingPrediction(true);
-        const effectiveTieWinner = isKnockoutMatch && h === a ? (tieWinnerTeamId ?? undefined) : undefined;
+        const effectiveTieWinner = isKnockoutMatch && h === a ? (whoClassifiesTeamId ?? undefined) : undefined;
         await onPredict(match.id, h, a, undefined, effectiveTieWinner);
         setHasSavedPrediction(true);
       } catch (error: any) {
@@ -200,32 +201,43 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     }
 
     const isShootout = match.score?.duration === "PENALTY_SHOOTOUT";
-    const realTieWinnerId = isShootout
+    const realWhoClassifiesId = isShootout
       ? (match.score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
       : undefined;
-    const predTieWinnerId = userPrediction?.tieWinnerTeamId;
+    const predWhoClassifiesId = userPrediction?.whoClassifiesTeamId;
+    const r1Result = getR1MatchScoringResult(match.score, match.result.home, match.result.away);
 
     const points = calculatePoints(
       home,
       away,
-      match.result.home,
-      match.result.away,
+      r1Result.home,
+      r1Result.away,
       match.homeTeam?.ranking,
       match.awayTeam?.ranking,
       minRankDiff ?? 0,
-      home === away ? predTieWinnerId : undefined,
-      realTieWinnerId
+      home === away ? predWhoClassifiesId : undefined,
+      realWhoClassifiesId
     );
 
     let bonus = 0;
-    if (points > 0 && match.result.home !== match.result.away) {
-      const winnerRank = match.result.home > match.result.away ? match.homeTeam.ranking : match.awayTeam.ranking;
-      const loserRank = match.result.home > match.result.away ? match.awayTeam.ranking : match.homeTeam.ranking;
+    if (points > 0 && r1Result.home !== r1Result.away) {
+      const winnerRank = r1Result.home > r1Result.away ? match.homeTeam.ranking : match.awayTeam.ranking;
+      const loserRank = r1Result.home > r1Result.away ? match.awayTeam.ranking : match.homeTeam.ranking;
       bonus = calculateUnderdogBonus(winnerRank, loserRank, minRankDiff ?? 0);
     }
 
     return { points, bonus };
   };
+
+  // For R1 knockout matches that went to extra time/penalties, show regularTime score.
+  // For R2 (and all group matches), show the full result (regularTime + extraTime).
+  const displayResult = useMemo(() => {
+    if (!match.result) return null;
+    if (ruleset === "regulamento_1") {
+      return getR1MatchScoringResult(match.score, match.result.home, match.result.away);
+    }
+    return { home: match.result.home, away: match.result.away };
+  }, [match.result, match.score, ruleset]);
 
   const userScoring = useMemo(() => {
     if ((isFinished || isLive) && match.result && userPrediction) {
@@ -317,17 +329,33 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 <div className="flex flex-col items-center">
                   <div className="flex items-center gap-3">
                     <span className={`text-4xl font-black tracking-tighter ${isLive ? "text-brand-red" : "text-white"}`}>
-                      {match.result?.home ?? 0}
+                      {displayResult?.home ?? 0}
                     </span>
                     <span className="text-xl font-black text-slate-600">×</span>
                     <span className={`text-4xl font-black tracking-tighter ${isLive ? "text-brand-red" : "text-white"}`}>
-                      {match.result?.away ?? 0}
+                      {displayResult?.away ?? 0}
                     </span>
                   </div>
                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">
-                    {isLive ? (match.minute ? `Minuto ${match.minute}'` : "Ao Vivo") : "Resultado"}
+                    {isLive
+                      ? (match.minute ? `Minuto ${match.minute}'` : "Ao Vivo")
+                      : ruleset === "regulamento_1" && (match.score?.duration === "EXTRA_TIME" || match.score?.duration === "PENALTY_SHOOTOUT")
+                        ? "Tempo Regular"
+                        : "Resultado"}
                   </span>
                 </div>
+
+                {/* Prorrogação — R1 only, shows full score after extra time */}
+                {!isAdmin && ruleset === "regulamento_1" && (match.score?.duration === "EXTRA_TIME" || match.score?.duration === "PENALTY_SHOOTOUT") && match.result && (
+                  <div className="flex flex-col items-center mt-2 px-3 py-2 rounded-xl bg-slate-700/40 border border-slate-600/50">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Após Prorrogação</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-black text-white">{match.result.home}</span>
+                      <span className="text-xs font-bold text-slate-500">×</span>
+                      <span className="text-sm font-black text-white">{match.result.away}</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Detalhes de Pênaltis (apenas usuários normais) */}
                 {!isAdmin && (match.penaltiesHome != null || match.penaltiesAway != null) && (
@@ -362,14 +390,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     </span>
                   </div>
                   <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">Seu Palpite</span>
-                  {/* Tie winner selected by user (Reg.1, knockout) */}
-                  {userPrediction?.tieWinnerTeamId && (() => {
-                    const tieTeam = userPrediction.tieWinnerTeamId === match.homeTeam.id ? match.homeTeam : match.awayTeam;
+                  {/* Who classifies selected by user (Reg.1, knockout) */}
+                  {userPrediction?.whoClassifiesTeamId && (() => {
+                    const classifiesTeam = userPrediction.whoClassifiesTeamId === match.homeTeam.id ? match.homeTeam : match.awayTeam;
                     return (
                       <div className="flex items-center gap-1.5 mt-1 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                        {tieTeam.flag && <img src={tieTeam.flag} alt={tieTeam.name} className="w-4 h-4 rounded-sm object-contain" />}
-                        <span className="text-[9px] font-bold text-amber-300">{tieTeam.name}</span>
-                        <span className="text-[8px] text-amber-400/70">nos pênaltis</span>
+                        {classifiesTeam.flag && <img src={classifiesTeam.flag} alt={classifiesTeam.name} className="w-4 h-4 rounded-sm object-contain" />}
+                        <span className="text-[9px] font-bold text-amber-300">{classifiesTeam.name}</span>
+                        <span className="text-[8px] text-amber-400/70">se classifica</span>
                       </div>
                     );
                   })()}
@@ -377,15 +405,15 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               </div>
             ) : (
               <div className="flex flex-col items-center gap-2">
-                {/* Tie winner selector — only for Reg.1 knockout draws */}
+                {/* Who classifies selector — only for Reg.1 knockout draws */}
                 {isPredictingDraw && (
                   <div className="flex flex-col items-center gap-1.5 w-full px-2 py-2 rounded-xl bg-amber-500/8 border border-amber-500/25 animate-fadeIn">
-                    <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest">Quem vence nos pênaltis?</span>
+                    <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest">Quem se classifica?</span>
                     <div className="flex gap-2 w-full justify-center">
                       <button
-                        onClick={() => setTieWinnerTeamId(prev => prev === match.homeTeam.id ? null : match.homeTeam.id)}
+                        onClick={() => setWhoClassifiesTeamId(prev => prev === match.homeTeam.id ? null : match.homeTeam.id)}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-black transition-all ${
-                          tieWinnerTeamId === match.homeTeam.id
+                          whoClassifiesTeamId === match.homeTeam.id
                             ? "bg-amber-500/20 border-amber-500/60 text-amber-300"
                             : "bg-slate-800 border-slate-700 text-slate-400 hover:border-amber-500/40"
                         }`}
@@ -394,9 +422,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                         {match.homeTeam.name}
                       </button>
                       <button
-                        onClick={() => setTieWinnerTeamId(prev => prev === match.awayTeam.id ? null : match.awayTeam.id)}
+                        onClick={() => setWhoClassifiesTeamId(prev => prev === match.awayTeam.id ? null : match.awayTeam.id)}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-black transition-all ${
-                          tieWinnerTeamId === match.awayTeam.id
+                          whoClassifiesTeamId === match.awayTeam.id
                             ? "bg-amber-500/20 border-amber-500/60 text-amber-300"
                             : "bg-slate-800 border-slate-700 text-slate-400 hover:border-amber-500/40"
                         }`}
@@ -405,7 +433,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                         {match.awayTeam.name}
                       </button>
                     </div>
-                    <span className="text-[8px] text-amber-400/60">Opcional · +{POINTS_PENALTY_WINNER_BONUS} pts se acertar</span>
+                    <span className="text-[8px] text-amber-400/60">Opcional · +{POINTS_CLASSIFIES_BONUS} pts se acertar</span>
                   </div>
                 )}
                 <div className="flex items-center gap-2 sm:gap-3">
@@ -544,12 +572,12 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                                <Zap size={8} fill="currentColor" /> +{userScoring.bonus} zebra
                             </span>
                          )}
-                         {userPrediction?.tieWinnerTeamId && match.score?.duration === "PENALTY_SHOOTOUT" && (() => {
-                            const realWinner = match.score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id;
-                            const hit = userPrediction.tieWinnerTeamId === realWinner;
+                         {userPrediction?.whoClassifiesTeamId && match.score?.duration === "PENALTY_SHOOTOUT" && (() => {
+                            const realWhoClassifies = match.score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id;
+                            const hit = userPrediction.whoClassifiesTeamId === realWhoClassifies;
                             return hit ? (
                                <span className="text-[8px] font-black uppercase tracking-tighter text-amber-300 flex items-center gap-0.5">
-                                 <Zap size={8} fill="currentColor" /> +{POINTS_PENALTY_WINNER_BONUS} pênaltis
+                                 <Zap size={8} fill="currentColor" /> +{POINTS_CLASSIFIES_BONUS} classifica
                                </span>
                             ) : null;
                          })()}
@@ -674,7 +702,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           onConfirm={async (targetGroupIds) => {
             const h = parseInt(homeInput);
             const a = parseInt(awayInput);
-            const effectiveTieWinner = isKnockoutMatch && h === a ? (tieWinnerTeamId ?? undefined) : undefined;
+            const effectiveTieWinner = isKnockoutMatch && h === a ? (whoClassifiesTeamId ?? undefined) : undefined;
             await onPredict(match.id, h, a, targetGroupIds, effectiveTieWinner);
             setHasSavedPrediction(true);
           }}

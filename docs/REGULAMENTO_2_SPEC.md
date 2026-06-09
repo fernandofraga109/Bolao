@@ -58,7 +58,9 @@ Este regulamento introduz regras de pontuação estáticas e **dinâmicas** (dep
 - **Jogo com maior diferença de gols (Pré-Fase):** 20 pontos
 
 #### I) Regras Adicionais
-- O tempo de prorrogação é considerado no placar final para pontos.
+- **R2:** O tempo de prorrogação é considerado no placar final para pontos. A base de comparação é `regularTime + extraTime` (campo `matches.result`).
+- **R1 (Regulamento 1):** A base de comparação é **somente o Tempo Regular (90 min)**. Prorrogação e pênaltis não contam para o cálculo de pontos. O placar utilizado é `matches.score.regularTime`. Para jogos que vão à prorrogação, o MatchCard exibe primeiro o placar do Tempo Regular e depois o placar "Após Prorrogação" como informação separada.
+- **Regra 3 (ambos os regulamentos):** "Não haverá, em caso de empate, pontuação extra por (resultado + diferença de gols)." Ou seja, se o resultado real é empate, a categoria "Diferença de Gols" nunca se aplica — o máximo é "Resultado".
 
 ---
 

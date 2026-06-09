@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.24.0";
+export const CURRENT_VERSION = "1.25.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,16 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.25.0",
+    date: "2026-06-08",
+    changes: [
+      "Pontuação de mata-mata no R1 agora considera apenas o Tempo Regular (90 min) — prorrogação não afeta a pontuação",
+      "Correção na Regra 3 do R1: empate previsto corretamente dá 5 pts (resultado) e não mais 7 pts (diferença)",
+      "Seletor 'Quem avança nas penalidades' renomeado para 'Quem se classifica?' em toda a interface",
+      "Cards de partida no R1 exibem o placar do Tempo Regular como principal, com bloco 'Após Prorrogação' quando aplicável",
+    ],
+  },
   {
     version: "1.24.0",
     date: "2026-06-07",

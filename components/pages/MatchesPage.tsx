@@ -15,7 +15,7 @@ interface MatchGroupProps {
   userPredictions: Record<string, any>;
   leaderboardData: any[];
   currentUserId: string;
-  onPredict: (id: string, h: number, a: number, targetGroupIds?: string[], tieWinnerTeamId?: string) => Promise<void>;
+  onPredict: (id: string, h: number, a: number, targetGroupIds?: string[], whoClassifiesTeamId?: string) => Promise<void>;
   isAdmin: boolean;
   onAdminSaveMatch: (id: string, status: "started" | "live" | "ended", h: number, a: number) => void;
   onAdminToggleSyncLock?: (matchId: string, locked: boolean) => void;
@@ -89,7 +89,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
                     matchId: match.id,
                     homeScore: userPredictions[match.id].home,
                     awayScore: userPredictions[match.id].away,
-                    tieWinnerTeamId: userPredictions[match.id].tieWinnerTeamId,
+                    whoClassifiesTeamId: userPredictions[match.id].whoClassifiesTeamId,
                   }
                   : undefined
               }
@@ -115,13 +115,13 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
 interface MatchesPageProps {
   matches: Match[];
   userHasGroup: boolean;
-  userPredictions: Record<string, { home: number; away: number; points?: number; tieWinnerTeamId?: string }>;
+  userPredictions: Record<string, { home: number; away: number; points?: number; whoClassifiesTeamId?: string }>;
   leaderboardData: any[];
   currentUser: User;
   isSyncing: boolean;
   canWriteCompetitionData: boolean;
   onManualSync: () => void;
-  onPredict: (id: string, h: number, a: number, targetGroupIds?: string[], tieWinnerTeamId?: string) => Promise<void>;
+  onPredict: (id: string, h: number, a: number, targetGroupIds?: string[], whoClassifiesTeamId?: string) => Promise<void>;
   onAdminSaveMatch: (id: string, status: "started" | "live" | "ended", h: number, a: number) => void;
   onAdminToggleSyncLock?: (matchId: string, locked: boolean) => void;
   onOpenGroupSwitcher?: () => void;

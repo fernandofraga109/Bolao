@@ -4,7 +4,7 @@ export const POINTS_EXACT = 10;
 export const POINTS_GOAL_DIFF = 7;
 export const POINTS_OUTCOME = 5;
 export const POINTS_WRONG = 0;
-export const POINTS_PENALTY_WINNER_BONUS = 3;
+export const POINTS_CLASSIFIES_BONUS = 3;
 
 const UNDERDOG_BONUS_FACTOR = 0.03;
 const MAX_UNDERDOG_BONUS = 5;
@@ -81,14 +81,14 @@ export const calculatePoints = (
   homeRank?: number,
   awayRank?: number,
   minRankDiff = FALLBACK_MIN_RANK_DIFF,
-  predTieWinnerId?: string,
-  realTieWinnerId?: string
+  predWhoClassifiesId?: string,
+  realWhoClassifiesId?: string
 ): number => {
-  const cat = getScoreCategoryRegulamento1(predHome, predAway, realHome, realAway, homeRank, awayRank, minRankDiff, predTieWinnerId, realTieWinnerId);
+  const cat = getScoreCategoryRegulamento1(predHome, predAway, realHome, realAway, homeRank, awayRank, minRankDiff, predWhoClassifiesId, realWhoClassifiesId);
 
-  if (cat.type === 'exact') return POINTS_EXACT + cat.underdogBonus + cat.penaltyWinnerBonus;
-  if (cat.type === 'diff') return POINTS_GOAL_DIFF + cat.underdogBonus + cat.penaltyWinnerBonus;
-  if (cat.type === 'outcome') return POINTS_OUTCOME + cat.underdogBonus + cat.penaltyWinnerBonus;
+  if (cat.type === 'exact') return POINTS_EXACT + cat.underdogBonus + cat.classifiesBonus;
+  if (cat.type === 'diff') return POINTS_GOAL_DIFF + cat.underdogBonus + cat.classifiesBonus;
+  if (cat.type === 'outcome') return POINTS_OUTCOME + cat.underdogBonus + cat.classifiesBonus;
   return POINTS_WRONG;
 };
 
@@ -101,7 +101,7 @@ export interface MatchPredictionContext {
 export interface ScoreCategoryR1 {
   type: 'exact' | 'diff' | 'outcome' | 'wrong';
   underdogBonus: number;
-  penaltyWinnerBonus: number;
+  classifiesBonus: number;
 }
 
 export interface ScoreCategoryR2 {
@@ -111,11 +111,11 @@ export interface ScoreCategoryR2 {
 
 /**
  * REGULAMENTO 1: Returns the score category and underdog bonus without computing total points.
- * predTieWinnerId / realTieWinnerId: team IDs for the penalty shootout winner (Reg. 1, knockout).
- * penaltyWinnerBonus (+3) is only applied when:
+ * predWhoClassifiesId / realWhoClassifiesId: team IDs for who advances (R1, knockout draws).
+ * classifiesBonus (+3) is only applied when:
  *   - The predicted score is a draw (predHome === predAway)
- *   - The real result resolves via PENALTY_SHOOTOUT (realTieWinnerId is provided)
- *   - The user's predicted winner matches the real winner
+ *   - The real result resolves via PENALTY_SHOOTOUT (realWhoClassifiesId is provided)
+ *   - The user's predicted team to advance matches the real one
  */
 export const getScoreCategoryRegulamento1 = (
   predHome: number,
@@ -125,8 +125,8 @@ export const getScoreCategoryRegulamento1 = (
   homeRank?: number,
   awayRank?: number,
   minRankDiff = FALLBACK_MIN_RANK_DIFF,
-  predTieWinnerId?: string,
-  realTieWinnerId?: string
+  predWhoClassifiesId?: string,
+  realWhoClassifiesId?: string
 ): ScoreCategoryR1 => {
   const isExact = predHome === realHome && predAway === realAway;
 
@@ -140,30 +140,34 @@ export const getScoreCategoryRegulamento1 = (
     underdogBonus = calculateUnderdogBonus(winnerRank, loserRank, minRankDiff);
   }
 
-  // Penalty winner bonus: only when pred is draw AND real game went to shootout
+  // classifiesBonus: only when pred is draw AND real game went to shootout
   const predIsDraw = predHome === predAway;
-  const penaltyWinnerBonus =
+  const classifiesBonus =
     predIsDraw &&
-    !!predTieWinnerId &&
-    !!realTieWinnerId &&
-    predTieWinnerId === realTieWinnerId
-      ? POINTS_PENALTY_WINNER_BONUS
+    !!predWhoClassifiesId &&
+    !!realWhoClassifiesId &&
+    predWhoClassifiesId === realWhoClassifiesId
+      ? POINTS_CLASSIFIES_BONUS
       : 0;
 
   if (isExact) {
-    return { type: 'exact', underdogBonus, penaltyWinnerBonus };
+    return { type: 'exact', underdogBonus, classifiesBonus };
   }
 
   if (predOutcome === realOutcome) {
+    // Rule 3: no diff bonus when real result is a draw
+    if (realHome === realAway) {
+      return { type: 'outcome', underdogBonus, classifiesBonus };
+    }
     const predDiff = predHome - predAway;
     const realDiff = realHome - realAway;
     if (predDiff === realDiff) {
-      return { type: 'diff', underdogBonus, penaltyWinnerBonus };
+      return { type: 'diff', underdogBonus, classifiesBonus };
     }
-    return { type: 'outcome', underdogBonus, penaltyWinnerBonus };
+    return { type: 'outcome', underdogBonus, classifiesBonus };
   }
 
-  return { type: 'wrong', underdogBonus: 0, penaltyWinnerBonus: 0 };
+  return { type: 'wrong', underdogBonus: 0, classifiesBonus: 0 };
 };
 
 /**
@@ -384,6 +388,25 @@ export const calculateTournamentPointsRegulamento2 = (
   }
 
   return points;
+};
+
+/**
+ * R1 scoring base: regularTime only (not regularTime + extraTime).
+ * Falls back to the stored result if regularTime is missing.
+ */
+export const getR1MatchScoringResult = (
+  score: any,
+  fallbackHome: number,
+  fallbackAway: number
+): { home: number; away: number } => {
+  const duration = score?.duration;
+  if (duration === "EXTRA_TIME" || duration === "PENALTY_SHOOTOUT") {
+    return {
+      home: score?.regularTime?.home ?? fallbackHome,
+      away: score?.regularTime?.away ?? fallbackAway,
+    };
+  }
+  return { home: fallbackHome, away: fallbackAway };
 };
 
 export interface PhaseMatchContext {

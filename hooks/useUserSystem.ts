@@ -114,7 +114,7 @@ export const useUserSystem = () => {
         console.warn(`[useUserSystem] User ${user.id} (${user.name}) has no effectiveGroupId but belongs to ${myGroups.length} group(s). Predictions may be filtered incorrectly.`);
       }
 
-      const myPredictionsMap: Record<string, { home: number; away: number; points?: number; tieWinnerTeamId?: string }> =
+      const myPredictionsMap: Record<string, { home: number; away: number; points?: number; whoClassifiesTeamId?: string }> =
         {};
       db.predictions
         .filter((p) => p.userId === user.id)
@@ -137,7 +137,7 @@ export const useUserSystem = () => {
             home: p.homeScore,
             away: p.awayScore,
             points: p.points,
-            tieWinnerTeamId: p.tieWinnerTeamId,
+            whoClassifiesTeamId: p.tieWinnerTeamId, // DB column → app field
           };
         });
 
@@ -618,7 +618,7 @@ export const useUserSystem = () => {
     localStorage.setItem(`bolao_active_group_${userId}`, groupId);
   };
 
-  const predictMatch = async (matchId: string, home: number, away: number, targetGroupIds?: string[], tieWinnerTeamId?: string) => {
+  const predictMatch = async (matchId: string, home: number, away: number, targetGroupIds?: string[], whoClassifiesTeamId?: string) => {
     if (!currentUser) {
       throw new Error("Voce precisa estar logado para salvar palpites.");
     }
@@ -635,7 +635,7 @@ export const useUserSystem = () => {
         homeScore: home,
         awayScore: away,
         timestamp: new Date().toISOString(),
-        tieWinnerTeamId: tieWinnerTeamId ?? undefined,
+        tieWinnerTeamId: whoClassifiesTeamId ?? undefined, // app field → DB column
       },
     ];
 
@@ -649,7 +649,7 @@ export const useUserSystem = () => {
             homeScore: home,
             awayScore: away,
             timestamp: new Date().toISOString(),
-            tieWinnerTeamId: tieWinnerTeamId ?? undefined,
+            tieWinnerTeamId: whoClassifiesTeamId ?? undefined, // app field → DB column
           });
         }
       });

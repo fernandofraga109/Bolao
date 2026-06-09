@@ -9,7 +9,7 @@ _Read this first at the start of every session. Update after every significant t
 React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Supabase (PostgreSQL + Auth + Realtime) + Tailwind CSS.
 
 **Current version:** `1.5.0`
-**Test suite:** 109 tests passing (Vitest + RTL + happy-dom)
+**Test suite:** 112 tests passing / 2 pre-existing failures in `useLeaderboard.test.ts` (Vitest + RTL + happy-dom)
 **Feature memories:** `.claude/memory/features/sync-system.md`
 
 ---
@@ -22,6 +22,16 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 | Deferred | Specials components refactor | `.claude/plans/specials-components-refactor.md` | DEFERRED ("soon") — safety net DONE (chars. tests 67→109 green). Refactor not started. Phase A (specials/ folder) recommended first; Phase B (AdminDashboard split) only smoke-tested = highest residual risk. |
 | Deferred | Large file refactor (5 phases) | `.claude/plans/large-file-refactors.md` | Planned, not started — branch `chore/structural-refactor` |
 | Ongoing | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Open |
+
+---
+
+## Completed — R1 Scoring Fixes + "Quem se Classifica?" (2026-06-08)
+
+- **R1 regularTime-only scoring**: R1 knockout matches now compare predictions against `regularTime` only (not `regularTime + extraTime`). New helper `getR1MatchScoringResult` in `utils/scoring.ts` extracts regularTime when `duration === EXTRA_TIME || PENALTY_SHOOTOUT`. Applied in `usePointsProcessor` (3 sites), `useLeaderboard`, `UserAuditModal`.
+- **Rule 3 gap fixed (R1)**: `getScoreCategoryRegulamento1` was missing the draw guard present in R2. Added: when real result is a draw, category caps at `outcome` (5 pts) — no diff bonus even if predicted diff is 0. Fixes 7pts bug for draw predictions like 2-2 vs 1-1.
+- **"Quem se classifica?" rename**: TypeScript layer uses `whoClassifiesTeamId`; DB column stays `tieWinnerTeamId` (no migration). UI: "Quem se classifica?" selector, "se classifica" badge, "+3 classifica" bonus. `POINTS_CLASSIFIES_BONUS = 3`.
+- **MatchCard R1 display**: Added `displayResult` useMemo (R1→regularTime, R2→match.result). "Após Prorrogação" block shows full result for R1 knockout matches that went to extra time.
+- **Tests**: `scoring.test.ts` updated — `classifiesBonus` rename + two draw tests corrected from 7→5 pts per Rule 3.
 
 ---
 
@@ -108,6 +118,8 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 ## Next Action
 
 Await user verification of the Artilharia tab (now auto-populated by normal sync). On confirmation: move plan to `completed/`, invoke `changelog-updater`. Then optionally specials refactor Phase A (`.claude/plans/specials-components-refactor.md`).
+
+R1 scoring fixes are documented and complete. `changelog-updater` still needs to be invoked to bump version for R1 fix.
 
 ## Completed — Players & Top Scorer Phases 1–4 (2026-06-06, commit `122f6ed`)
 

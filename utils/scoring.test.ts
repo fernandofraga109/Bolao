@@ -34,8 +34,8 @@ describe("calculatePoints", () => {
       expect(calculatePoints(3, 1, 2, 0)).toBe(POINTS_GOAL_DIFF);
     });
 
-    it("retorna 7 pontos para empate com diferença correta (0-0 vs 1-1)", () => {
-      expect(calculatePoints(0, 0, 1, 1)).toBe(POINTS_GOAL_DIFF);
+    it("retorna 5 pontos para empate previsto vs empate real com diff=0 (0-0 vs 1-1) — empates nunca ganham bônus de diff", () => {
+      expect(calculatePoints(0, 0, 1, 1)).toBe(POINTS_OUTCOME);
     });
   });
 
@@ -44,9 +44,9 @@ describe("calculatePoints", () => {
       expect(calculatePoints(1, 0, 3, 1)).toBe(POINTS_OUTCOME);
     });
 
-    it("retorna 7 pontos para empate com diferença de gols zero (1-1 vs 2-2)", () => {
-      // Ambos empates têm diff=0, portanto acerta diff além do resultado → POINTS_GOAL_DIFF
-      expect(calculatePoints(1, 1, 2, 2)).toBe(POINTS_GOAL_DIFF);
+    it("retorna 5 pontos para empate previsto vs empate real com diff=0 (1-1 vs 2-2) — empates nunca ganham bônus de diff", () => {
+      // Resultado real é empate: regra 3 do regulamento nunca concede 'diff', apenas 'outcome'
+      expect(calculatePoints(1, 1, 2, 2)).toBe(POINTS_OUTCOME);
     });
 
     it("retorna 5 pontos para empate previsto mas placar com diff diferente (0-0 vs 2-1)", () => {
@@ -412,33 +412,33 @@ describe("getScoreCategoryRegulamento1", () => {
     expect(cat.underdogBonus).toBeGreaterThan(0);
   });
 
-  it("penaltyWinnerBonus = 0 quando jogo não foi para pênaltis (realTieWinnerId ausente)", () => {
+  it("classifiesBonus = 0 quando jogo não foi para pênaltis (realTieWinnerId ausente)", () => {
     const cat = getScoreCategoryRegulamento1(1, 1, 1, 1, undefined, undefined, 0, "team-a", undefined);
     expect(cat.type).toBe("exact");
-    expect(cat.penaltyWinnerBonus).toBe(0);
+    expect(cat.classifiesBonus).toBe(0);
   });
 
-  it("penaltyWinnerBonus = +3 quando palpite é empate, jogo foi para pênaltis e vencedor correto", () => {
+  it("classifiesBonus = +3 quando palpite é empate, jogo foi para pênaltis e vencedor correto", () => {
     const cat = getScoreCategoryRegulamento1(1, 1, 1, 1, undefined, undefined, 0, "team-a", "team-a");
     expect(cat.type).toBe("exact");
-    expect(cat.penaltyWinnerBonus).toBe(3);
+    expect(cat.classifiesBonus).toBe(3);
   });
 
-  it("penaltyWinnerBonus = 0 quando vencedor errado nos pênaltis", () => {
+  it("classifiesBonus = 0 quando vencedor errado nos pênaltis", () => {
     const cat = getScoreCategoryRegulamento1(1, 1, 1, 1, undefined, undefined, 0, "team-a", "team-b");
     expect(cat.type).toBe("exact");
-    expect(cat.penaltyWinnerBonus).toBe(0);
+    expect(cat.classifiesBonus).toBe(0);
   });
 
-  it("penaltyWinnerBonus = 0 quando palpite não é empate (mesmo que jogo vá para pênaltis)", () => {
+  it("classifiesBonus = 0 quando palpite não é empate (mesmo que jogo vá para pênaltis)", () => {
     const cat = getScoreCategoryRegulamento1(2, 1, 2, 1, undefined, undefined, 0, "team-a", "team-a");
     expect(cat.type).toBe("exact");
-    expect(cat.penaltyWinnerBonus).toBe(0);
+    expect(cat.classifiesBonus).toBe(0);
   });
 
-  it("calculatePoints inclui penaltyWinnerBonus no total de pontos", () => {
+  it("calculatePoints inclui classifiesBonus no total de pontos", () => {
     const pts = calculatePoints(1, 1, 1, 1, undefined, undefined, 0, "team-a", "team-a");
-    expect(pts).toBe(10 + 3); // POINTS_EXACT + POINTS_PENALTY_WINNER_BONUS
+    expect(pts).toBe(10 + 3); // POINTS_EXACT + POINTS_CLASSIFIES_BONUS
   });
 });
 

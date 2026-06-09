@@ -3,6 +3,7 @@ import { Match, MatchDB, MatchStatus, TournamentPredictions } from '../types';
 import {
   calculatePoints,
   calculatePointsRegulamento2,
+  getR1MatchScoringResult,
   calculateTournamentPoints,
   calculateTournamentPointsRegulamento2,
   calculateExtraPhasePoints,
@@ -159,21 +160,26 @@ export const usePointsProcessor = (dbRef: any) => {
               );
             } else {
               const isShootout = (match as any).score?.duration === "PENALTY_SHOOTOUT";
-              const realTieWinnerId = isShootout
+              const realWhoClassifiesId = isShootout
                 ? ((match as any).score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
                 : undefined;
-              const predTieWinnerId = (p as any).tieWinnerTeamId as string | undefined;
+              const predWhoClassifiesId = (p as any).tieWinnerTeamId as string | undefined;
+              const r1Result = getR1MatchScoringResult(
+                (match as any).score,
+                match.result?.home ?? 0,
+                match.result?.away ?? 0
+              );
 
               pts = calculatePoints(
                 p.homeScore,
                 p.awayScore,
-                match.result?.home ?? 0,
-                match.result?.away ?? 0,
+                r1Result.home,
+                r1Result.away,
                 match.homeTeam?.ranking,
                 match.awayTeam?.ranking,
                 effectiveMinRankDiff,
-                predTieWinnerId,
-                realTieWinnerId
+                predWhoClassifiesId,
+                realWhoClassifiesId
               );
             }
 
@@ -425,14 +431,27 @@ export const usePointsProcessor = (dbRef: any) => {
               pred.userId
             );
           } else {
+            const isShootout2 = (match as any).score?.duration === "PENALTY_SHOOTOUT";
+            const realWhoClassifiesId2 = isShootout2
+              ? ((match as any).score?.winner === "HOME_TEAM" ? (match as any).homeTeam?.id : (match as any).awayTeam?.id)
+              : undefined;
+            const predWhoClassifiesId2 = (pred as any).tieWinnerTeamId as string | undefined;
+            const r1Result2 = getR1MatchScoringResult(
+              (match as any).score,
+              match.result?.home || 0,
+              match.result?.away || 0
+            );
+
             pts = calculatePoints(
               pred.homeScore,
               pred.awayScore,
-              match.result?.home || 0,
-              match.result?.away || 0,
+              r1Result2.home,
+              r1Result2.away,
               match.homeTeam.ranking,
               match.awayTeam.ranking,
-              effectiveMinRankDiff
+              effectiveMinRankDiff,
+              predWhoClassifiesId2,
+              realWhoClassifiesId2
             );
           }
 
@@ -541,14 +560,27 @@ export const usePointsProcessor = (dbRef: any) => {
                     p.userId
                   );
                 } else {
+                  const isShootout3 = match.score?.duration === "PENALTY_SHOOTOUT";
+                  const realWhoClassifiesId3 = isShootout3
+                    ? (match.score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
+                    : undefined;
+                  const predWhoClassifiesId3 = (p as any).tieWinnerTeamId as string | undefined;
+                  const r1Result3 = getR1MatchScoringResult(
+                    match.score,
+                    match.resultHome ?? 0,
+                    match.resultAway ?? 0
+                  );
+
                   total += calculatePoints(
                     p.homeScore,
                     p.awayScore,
-                    match.resultHome ?? 0,
-                    match.resultAway ?? 0,
+                    r1Result3.home,
+                    r1Result3.away,
                     match.homeTeam?.ranking,
                     match.awayTeam?.ranking,
-                    effectiveMinRankDiff
+                    effectiveMinRankDiff,
+                    predWhoClassifiesId3,
+                    realWhoClassifiesId3
                   );
                 }
               }
