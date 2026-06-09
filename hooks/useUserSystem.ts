@@ -195,25 +195,34 @@ export const useUserSystem = () => {
     const pendingGroupId = localStorage.getItem(`bolao_pending_group_${userId}`);
     if (!pendingGroupId || !isSupabaseEnabled() || !supabase) return;
 
-    // Guard against duplicate joins (e.g. syncSession + onAuthStateChange both firing)
-    const { data: existing } = await supabase
-      .from("user_groups")
-      .select("userId")
-      .eq("userId", userId)
-      .eq("groupId", pendingGroupId)
-      .maybeSingle();
+    try {
+      // Guard against duplicate joins (e.g. syncSession + onAuthStateChange both firing)
+      const { data: existing, error: queryError } = await supabase
+        .from("user_groups")
+        .select("userId")
+        .eq("userId", userId)
+        .eq("groupId", pendingGroupId)
+        .maybeSingle();
 
-    if (!existing) {
-      await dbRef.current.addUserToGroup({
-        userId,
-        groupId: pendingGroupId,
-        joinedAt: new Date().toISOString(),
-      });
-      await dbRef.current.updateUser(userId, { activeGroupId: pendingGroupId });
-      localStorage.setItem(`bolao_active_group_${userId}`, pendingGroupId);
+      if (queryError) {
+        console.error("[resumePendingGroupJoin] Erro ao verificar grupo pendente:", queryError.message);
+        return;
+      }
+
+      if (!existing) {
+        await dbRef.current.addUserToGroup({
+          userId,
+          groupId: pendingGroupId,
+          joinedAt: new Date().toISOString(),
+        });
+        await dbRef.current.updateUser(userId, { activeGroupId: pendingGroupId });
+        localStorage.setItem(`bolao_active_group_${userId}`, pendingGroupId);
+      }
+
+      localStorage.removeItem(`bolao_pending_group_${userId}`);
+    } catch (err) {
+      console.error("[resumePendingGroupJoin] Falha ao concluir entrada no grupo pendente:", err);
     }
-
-    localStorage.removeItem(`bolao_pending_group_${userId}`);
   }, []);
 
   const ensureProfileForAuthUser = useCallback(
@@ -596,20 +605,22 @@ export const useUserSystem = () => {
 
   const logout = async () => {
     if (isSupabaseEnabled() && supabase) {
-      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("[logout] Erro ao deslogar do Supabase:", error.message);
+      }
     }
     setCurrentUserId(null);
     localStorage.removeItem("bolao_current_user_id");
   };
 
-  const joinGroup = (userId: string, groupId: string) => {
-    db.addUserToGroup({
+  const joinGroup = async (userId: string, groupId: string) => {
+    await db.addUserToGroup({
       userId,
       groupId,
       joinedAt: new Date().toISOString(),
     });
-    // Switch active group automatically
-    db.updateUser(userId, { activeGroupId: groupId });
+    await db.updateUser(userId, { activeGroupId: groupId });
     localStorage.setItem(`bolao_active_group_${userId}`, groupId);
   };
 
@@ -658,12 +669,16 @@ export const useUserSystem = () => {
     await db.upsertPrediction(predictionsToSave);
   };
 
-  const predictTournament = (data: TournamentPredictions) => {
-    if (!currentUser) return;
+  const predictTournament = async (data: TournamentPredictions) => {
+    if (!currentUser) {
+      throw new Error("Você precisa estar logado para salvar palpites do torneio.");
+    }
     const activeGroupId =
       currentUser.activeGroupId ?? currentUser.groupIds?.[0];
-    if (!activeGroupId) return;
-    db.upsertTournamentPrediction({
+    if (!activeGroupId) {
+      throw new Error("Entre em um grupo antes de salvar palpites do torneio.");
+    }
+    await db.upsertTournamentPrediction({
       userId: currentUser.id,
       groupId: activeGroupId,
       championTeamId: resolveChampionIdForDb(data.championTeamId),
