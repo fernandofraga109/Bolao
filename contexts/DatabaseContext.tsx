@@ -381,6 +381,8 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     const fetchData = async () => {
       console.log("🔄 Sincronizando dados com o Supabase...");
 
+      try {
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -541,6 +543,13 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
 
       if (isMounted) {
         setIsInitialFetchComplete(true);
+      }
+
+      } catch (err) {
+        console.error("❌ Falha crítica ao carregar dados iniciais do Supabase:", err);
+        if (isMounted) {
+          setIsInitialFetchComplete(true);
+        }
       }
     };
 
@@ -894,12 +903,18 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   // SYSTEM CONFIG
   const updateSystemConfig = async (data: Partial<SystemConfigDB>) => {
     // Optimistic
+    const previous = systemConfig;
     setSystemConfig((prev) => ({ ...prev, ...data }));
     if (isSupabaseEnabled() && supabase) {
-      await supabase
+      const { error } = await supabase
         .from("system_config")
         .update(data)
         .eq("id", SYSTEM_CONFIG_ID);
+      if (error) {
+        console.error("Erro ao atualizar system_config:", error.message);
+        setSystemConfig(previous);
+        throw new Error(`Erro ao atualizar configuração: ${error.message}`);
+      }
     }
   };
 
@@ -1015,14 +1030,25 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   const addGroup = async (group: GroupDB) => {
     setGroups((prev) => mergeGroupIntoList(prev, group));
     if (isSupabaseEnabled() && supabase) {
-      await supabase.from("groups").insert(group);
+      const { error } = await supabase.from("groups").insert(group);
+      if (error) {
+        setGroups((prev) => prev.filter((g) => g.id !== group.id));
+        throw new Error(`Erro ao criar grupo: ${error.message}`);
+      }
     }
   };
 
   const updateGroup = async (id: string, data: Partial<GroupDB>) => {
+    const previous = groups.find((g) => g.id === id);
     setGroups((prev) => prev.map((g) => (g.id === id ? { ...g, ...data } : g)));
     if (isSupabaseEnabled() && supabase) {
-      await supabase.from("groups").update(data).eq("id", id);
+      const { error } = await supabase.from("groups").update(data).eq("id", id);
+      if (error) {
+        if (previous) {
+          setGroups((prev) => prev.map((g) => (g.id === id ? previous : g)));
+        }
+        throw new Error(`Erro ao atualizar grupo: ${error.message}`);
+      }
     }
   };
 
@@ -1067,11 +1093,23 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   const addUserToGroup = async (relation: UserGroupDB) => {
     setUserGroups((prev) => mergeUserGroupIntoList(prev, relation));
     if (isSupabaseEnabled() && supabase) {
-      await supabase.from("user_groups").insert(relation);
+      const { error } = await supabase.from("user_groups").insert(relation);
+      if (error) {
+        setUserGroups((prev) =>
+          prev.filter(
+            (ug) => !(ug.userId === relation.userId && ug.groupId === relation.groupId),
+          ),
+        );
+        throw new Error(`Erro ao adicionar usuário ao grupo: ${error.message}`);
+      }
     }
   };
 
   const removeUserFromGroup = async (userId: string, groupId: string) => {
+    // Save previous state for rollback
+    const previousUserGroups = userGroups;
+    const previousUsers = users;
+
     // 1. Optimistic Local Update
     setUserGroups((prev) =>
       prev.filter((ug) => !(ug.userId === userId && ug.groupId === groupId)),
@@ -1088,11 +1126,12 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
 
     // 2. Database Update
     if (isSupabaseEnabled() && supabase) {
-      try {
-        // Delete relationship
-        await supabase.from("user_groups").delete().match({ userId, groupId });
-      } catch (err) {
-        console.error("Error removing user from group:", err);
+      const { error } = await supabase.from("user_groups").delete().match({ userId, groupId });
+      if (error) {
+        console.error("Error removing user from group:", error.message);
+        setUserGroups(previousUserGroups);
+        setUsers(previousUsers);
+        throw new Error(`Erro ao remover usuário do grupo: ${error.message}`);
       }
     }
   };
@@ -1518,7 +1557,11 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
 
   const refetchMatches = useCallback(async () => {
     if (!isSupabaseEnabled() || !supabase) return;
-    const { data } = await supabase.from("matches").select("*");
+    const { data, error } = await supabase.from("matches").select("*");
+    if (error) {
+      console.error("Erro ao refetch matches:", error.message);
+      throw new Error(`Erro ao buscar partidas: ${error.message}`);
+    }
     if (data) {
       const deduped = (data as MatchDB[]).reduce(
         (acc, item) => mergeMatchIntoList(acc, item),
@@ -1530,7 +1573,11 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
 
   const refetchTeamStandings = useCallback(async () => {
     if (!isSupabaseEnabled() || !supabase) return;
-    const { data } = await supabase.from("team_standings").select("*");
+    const { data, error } = await supabase.from("team_standings").select("*");
+    if (error) {
+      console.error("Erro ao refetch team_standings:", error.message);
+      throw new Error(`Erro ao buscar classificações: ${error.message}`);
+    }
     if (data) setTeamStandings(data as any[]);
   }, []);
 
@@ -1538,13 +1585,21 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     if (!isSupabaseEnabled() || !supabase) return;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return;
-    const { data } = await supabase.from("predictions").select("*");
+    const { data, error } = await supabase.from("predictions").select("*");
+    if (error) {
+      console.error("Erro ao refetch predictions:", error.message);
+      throw new Error(`Erro ao buscar palpites: ${error.message}`);
+    }
     if (data) setPredictions(data as PredictionDB[]);
   }, []);
 
   const refetchUserGroups = useCallback(async () => {
     if (!isSupabaseEnabled() || !supabase) return;
-    const { data } = await supabase.from("user_groups").select("*");
+    const { data, error } = await supabase.from("user_groups").select("*");
+    if (error) {
+      console.error("Erro ao refetch user_groups:", error.message);
+      throw new Error(`Erro ao buscar grupos do usuário: ${error.message}`);
+    }
     if (data) {
       const deduped = (data as UserGroupDB[]).reduce(
         (acc, item) => mergeUserGroupIntoList(acc, item),
