@@ -4,59 +4,96 @@ O sistema suporta dois regulamentos diferentes, configuráveis por grupo (`group
 
 ---
 
+## Sistema de Cores (UI)
+
+A pontuação é representada visualmente no app com cores consistentes em todos os componentes (`UserAuditModal`, `MatchCard`, `ScoringGuide`):
+
+| Categoria       | Cor                  | Classe Tailwind              | Medal |
+|---|---|---|---|
+| Placar Exato    | Dourado              | `text-brand-gold`            | 🥇    |
+| Diferença certa | Azul-ciano           | `text-sky-400`               | 🥈    |
+| Resultado certo | Verde                | `text-brand-green`           | 🥉    |
+| Errou           | Vermelho             | `text-red-400`               | ❌    |
+| Bônus / Especial| Âmbar                | `text-amber-300`             | ✨    |
+
+> `border-l-2 border-brand-gold/60` (exato), `border-brand-green/50` (acerto), `border-red-500/20` (erro) são as bordas laterais nos cards de auditoria.
+
+---
+
 ## Regulamento 1 (Padrão)
 
-Sistema de pontuação simples com bônus para underdogs.
+### Fluxo de Pontuação R1
 
-### Pontuação de Partida
+```
+Palpite vs Resultado Real
+          │
+          ▼
+   É exato (home==rHome && away==rAway)?
+   ├─ SIM → 10 pts base → + underdogBonus → + classifiesBonus
+   └─ NÃO
+          │
+          ▼
+   Resultado (vencedor/empate) correto?
+   ├─ NÃO → 0 pts
+   └─ SIM
+          │
+          ▼
+   Resultado real é empate?  [REGRA 3]
+   ├─ SIM → 5 pts (resultado certo) → + underdogBonus → + classifiesBonus
+   └─ NÃO
+          │
+          ▼
+   Diferença de gols igual? (predH-predA == realH-realA)?
+   ├─ SIM → 7 pts (diferença certa) → + underdogBonus → + classifiesBonus
+   └─ NÃO → 5 pts (resultado certo) → + underdogBonus → + classifiesBonus
+```
 
-| Categoria | Pontos |
-|---|---|
-| Placar Exato | 10 |
-| Diferença de Gols | 7 |
-| Resultado (vencedor/empate) | 5 |
-| Bônus Underdog | até +5 |
+### Tabela de Pontos R1
 
-**Regra 3 — Empates:** Quando o resultado real é empate, a categoria "Diferença de Gols" nunca se aplica — o máximo é "Resultado" (5 pts), independentemente de a diferença prevista ser 0. Assim, prever 2-2 num jogo que terminou 1-1 vale 5 pts, não 7.
+| Categoria | Base | + Underdog | + Classifica | Máximo |
+|---|---|---|---|---|
+| Placar Exato | 10 | até +5 | +3 | **18** |
+| Diferença certa | 7 | até +5 | +3 | **15** |
+| Resultado certo | 5 | até +5 | +3 | **13** |
+| Errou | 0 | — | — | **0** |
 
-### Jogos de Mata-Mata (Prorrogação e Pênaltis)
+**Regra 3 — Empates:** Quando o resultado real é empate, "Diferença certa" nunca se aplica — máximo é "Resultado certo" (5 pts). Exemplos: pred 2-2 num jogo 1-1 → 5 pts, não 7.
 
-**Base de comparação:** somente o placar do **Tempo Regular** (90 min). A prorrogação não conta para o cálculo de pontos no R1.
+### Jogos de Mata-Mata (R1)
+
+**Base de comparação:** somente o placar do **Tempo Regular** (90 min). A prorrogação NÃO conta.
 
 Exemplos com Brasil 1×1 Argentina 90' → 2×1 após prorrogação → Argentina vence 4-3 nos pênaltis:
 
-| Palpite | Pontos R1 |
-|---|---|
-| 1-1 | 10 (exato) |
-| 1-1 + Argentina classifica | 13 (+3 bônus classifica) |
-| 2-1 | 0 (errou) |
-| 0-0 | 5 (resultado — empate) |
+| Palpite | Placar Base (RT) | Categoria | Pts |
+|---|---|---|---|
+| 1-1 | 1×1 | Exato | **10** |
+| 1-1 + Argentina classifica | 1×1 | Exato + Classifica | **13** |
+| 0-0 | 1×1 | Resultado (empate) | **5** |
+| 2-1 | 1×1 | Errou | **0** |
 
-**Bônus "Quem se Classifica" (+3 pts):** Em jogos de mata-mata, quando o palpite é empate, o usuário pode opcionalmente indicar qual equipe avança. Se o jogo terminar nos pênaltis e a escolha estiver correta, recebe +3 pts. Opcional — não prejudica quem não preencher.
-
-- Campo no DB: `predictions.tieWinnerTeamId` (coluna), `whoClassifiesTeamId` (nome TypeScript)
-- Constante: `POINTS_CLASSIFIES_BONUS = 3`
-
-### Display no MatchCard (R1, mata-mata)
-
-Quando a partida vai à prorrogação ou pênaltis, o card exibe três seções empilhadas:
-1. **Placar principal** — resultado do Tempo Regular, label "Tempo Regular"
-2. **"Após Prorrogação"** — placar ao fim dos 120 min (`match.result`)
-3. **"Disputa de Pênaltis"** — resultado dos pênaltis + vencedor (se houver)
-
-O R2 exibe apenas o placar de `match.result` (regularTime + extraTime) como único resultado.
+**Bônus "Quem se Classifica" (+3 pts):**
+Somente quando TODAS as condições:
+1. Palpite é empate (`predHome === predAway`)
+2. Jogo foi a pênaltis (`score.duration === "PENALTY_SHOOTOUT"`)
+3. Usuário indicou o time correto que avançou (`predWhoClassifiesId === realWhoClassifiesId`)
 
 ### Bônus Underdog
 
-Até +5 pts quando equipe pior rankeada vence. Calculado via `calculateUnderdogBonus` com `UNDERDOG_BONUS_FACTOR = 0.03` e `MAX_UNDERDOG_BONUS = 5`. Configurável por grupo (`underdog_min_rank_diff`).
+Até +5 pts quando equipe pior rankeada vence. Calculado via `calculateUnderdogBonus`:
+- Só se aplica quando não é empate (`realHome !== realAway`)
+- `UNDERDOG_BONUS_FACTOR = 0.03`, `MAX_UNDERDOG_BONUS = 5`
+- Threshold configurável por grupo (`underdog_min_rank_diff`)
 
-### Pontuação de Torneio
+### Palpites Especiais R1
 
-- Campeão: 100 pts
-- Artilheiro (nome): 100 pts
-- Artilheiro (gols): 100 pts
-- Melhor Jogador: 100 pts
-- Melhor Goleiro: 100 pts
+| Categoria | Pontos |
+|---|---|
+| Campeão | 100 pts |
+| Artilheiro (nome) | 100 pts |
+| Artilheiro (gols) | 100 pts |
+| Melhor Jogador | 100 pts |
+| Melhor Goleiro | 100 pts |
 
 ---
 
@@ -64,13 +101,42 @@ Até +5 pts quando equipe pior rankeada vence. Calculado via `calculateUnderdogB
 
 Sistema de pontuação dinâmico — pontos dependem do contexto de todos os palpites do grupo.
 
-### Regra de Empate (Rule 3)
+### Fluxo de Pontuação R2
 
-Igual ao R1: quando o resultado real é empate, não há pontuação por "Resultado + Diferença". Palpite 2-2 num jogo 1-1 vale apenas 10 pts (Resultado), não 13.
+```
+Palpite vs Resultado Real
+          │
+          ▼
+   É exato (home==rHome && away==rAway)?
+   ├─ SIM → pointsExact (varia por fase)
+   │         → aloneBonus se único com esse palpite no grupo (+5)
+   └─ NÃO
+          │
+          ▼
+   Resultado (vencedor/empate) correto?
+   ├─ NÃO → 0 pts
+   └─ SIM
+          │
+          ▼
+   Resultado real é empate?  [REGRA 3]
+   ├─ SIM → pointsOutcome (varia por fase)
+   └─ NÃO
+          │
+          ▼
+   Diferença de gols igual? (predH-predA == realH-realA)?
+   ├─ SIM → pointsDiff (varia por fase)
+   └─ NÃO → pointsOutcome (varia por fase)
+```
 
-### Base de comparação (Mata-mata)
+### Tabela de Pontos R2 por Fase (resumo)
 
-R2 usa `regularTime + extraTime` (`match.result`). A prorrogação **conta** para pontuação no R2 (conforme regulamento item 2).
+| Categoria | Grupos | Oitavas/Quartas/Semi | 3º Lugar | Final |
+|---|---|---|---|---|
+| 🏆 Placar Exato | **15** | **15** | **17** | **22** |
+| 🥈 Diferença certa | **13** | **13** | **15** | **19** |
+| 🥉 Resultado certo | **10** | **10** | **12** | **16** |
+| ❌ Errou | 0 | 0 | 0 | 0 |
+| ✨ Placar Isolado | +5 | +5 | +5 | +5 |
 
 ### Fase de Grupos
 
@@ -84,15 +150,19 @@ R2 usa `regularTime + extraTime` (`match.result`). A prorrogação **conta** par
 
 ### Segunda Fase (Oitavas, Quartas, Semi)
 
+Stage API: `ROUND_OF_16`, `QUARTER_FINALS`, `SEMI_FINALS` → fase `ko`
+
 | Categoria | Pontos |
 |---|---|
 | Resultado | 10 |
 | Resultado + Diferença | 13 |
 | Placar Exato | 15 |
 | Placar Isolado | +5 |
-| Classificado | 5 |
+| Classificado | 5 por acerto |
 
 ### Disputa de 3º Lugar
+
+Stage API: `THIRD_PLACE` → fase `third_place`
 
 | Categoria | Pontos |
 |---|---|
@@ -103,6 +173,8 @@ R2 usa `regularTime + extraTime` (`match.result`). A prorrogação **conta** par
 
 ### Final
 
+Stage API: `FINAL` → fase `final`
+
 | Categoria | Pontos |
 |---|---|
 | Resultado | 16 |
@@ -110,15 +182,49 @@ R2 usa `regularTime + extraTime` (`match.result`). A prorrogação **conta** par
 | Placar Exato | 22 |
 | Placar Isolado | +5 |
 
-### Pontuação de Torneio (Dividida)
+### Base de comparação (Mata-Mata R2)
 
-**Campeão:**
-- 1 acerto: 100 pts | 2: 70 | 3: 50 | 4+: 40
+R2 usa `regularTime + extraTime` (`match.result`). A **prorrogação conta** para pontuação no R2.
 
-**Artilheiro:**
-- 1 acerto: 60 pts | 2: 40 | 3: 30 | 4+: 25
+**Regra 3:** Igual ao R1 — em empates reais, "Diferença certa" não se aplica (máx. Resultado).
 
-**Palpites Extras:** 20 pts cada (maior goleada, mais gols sofridos, jogo com maior diferença por fase)
+### Mapeamento de Fases
+
+| Stage API | Fase interna | Onde se aplica |
+|---|---|---|
+| `GROUP_STAGE`, `REGULAR_SEASON` | `groups` | Fase de grupos |
+| `ROUND_OF_16`, `QUARTER_FINALS`, `SEMI_FINALS` | `ko` | Oitavas, quartas, semi |
+| `THIRD_PLACE` | `third_place` | Disputa do 3º lugar |
+| `FINAL` | `final` | Grande final |
+
+Implementado em `getMatchPhase(stage, group)` — também aceita nomes de grupo em português (ex: `OITAVAS`, `QUARTAS`, `SEMI`).
+
+### Palpites Especiais R2
+
+**Campeão** (pontos divididos conforme número de acertos no grupo):
+| Acertos | Pts |
+|---|---|
+| 1 | 100 |
+| 2 | 70 |
+| 3 | 50 |
+| 4+ | 40 |
+
+**Artilheiro**:
+| Acertos | Pts |
+|---|---|
+| 1 | 60 |
+| 2 | 40 |
+| 3 | 30 |
+| 4+ | 25 |
+
+**Outros palpites especiais R2:**
+| Categoria | Pontos |
+|---|---|
+| Classificados (grupos) | 10 pts por time correto |
+| Classificados (oitavas+) | 5 pts por time correto |
+| Seleção com mais gols num jogo | 20 pts |
+| Seleção que tomou mais gols num jogo | 20 pts |
+| Jogo com maior diferença por fase | 20 pts |
 
 ---
 
@@ -131,7 +237,9 @@ R2 usa `regularTime + extraTime` (`match.result`). A prorrogação **conta** par
 | `utils/scoring.ts` | Funções puras de cálculo (ambos regulamentos) |
 | `hooks/usePointsProcessor.ts` | Processa e persiste pontos no DB |
 | `hooks/useLeaderboard.ts` | Calcula totais para exibição no leaderboard |
+| `components/MatchCard.tsx` | Badge de pontos + cor + label "Placar Isolado" |
 | `components/UserAuditModal.tsx` | Exibe breakdown de pontos por partida |
+| `components/ui/ScoringGuide.tsx` | Modal de guia visual (R1 e R2) + fonte de `SCORING_COLORS` |
 
 ### Funções Chave (`utils/scoring.ts`)
 
@@ -157,3 +265,39 @@ getR1MatchScoringResult(match.score, fallbackHome, fallbackAway)
 ### DB Boundary — `whoClassifiesTeamId`
 
 O campo TypeScript `whoClassifiesTeamId` (em `Prediction` e `User.predictions`) mapeia para a coluna DB `tieWinnerTeamId`. A conversão acontece em `useUserSystem.ts` na leitura e escrita. Nunca renomear a coluna DB sem uma migração explícita.
+
+### Cores Centralizadas (`ScoringGuide.tsx`)
+
+`SCORING_COLORS` exportado de `components/ui/ScoringGuide.tsx` é a fonte única de verdade para cores por categoria:
+
+```ts
+import { SCORING_COLORS, ScoringCategory } from "./ui/ScoringGuide";
+// exact → bg-brand-gold / text-brand-gold / border-brand-gold/60
+// diff  → bg-brand-blue / text-sky-400   / border-sky-400/50
+// outcome → bg-indigo-600 / text-brand-green / border-brand-green/50
+// wrong → bg-slate-700  / text-red-400   / border-red-500/20
+```
+
+`MatchCard` e `UserAuditModal` derivam a cor da **categoria retornada pelas funções de scoring** — nunca de thresholds fixos de pts (ex.: `pts >= POINTS_EXACT`). Isso garante que R2 outcome (10 pts ko) não fique gold por coincidir com o valor de R1 exact.
+
+### Feedback "Placar Isolado" no MatchCard
+
+Quando `getScoreCategoryRegulamento2` retorna `aloneBonus: true` (único com aquele placar no grupo), o badge do MatchCard exibe:
+
+```
+Placar Exato!
+✨ +5 Placar Isolado   ← em text-amber-300
+```
+
+### Consistência DB / UI
+
+| Contexto | `tieWinnerTeamId` incluído? | Classifica bônus funciona? |
+|---|---|---|
+| `recalculateUserGroupPoints` (select explícito) | ✅ sim (select inclui a coluna) | ✅ |
+| `batchProcessPointsForMatches` (usa `dbRef.current.predictions`) | ✅ select `*` via DatabaseContext | ✅ |
+| `updateLocalPointsWithLive` (usa `dbRef.current.predictions`) | ✅ select `*` via DatabaseContext | ✅ |
+| `UserAuditModal` (usa `rawPredictions` → `select *`) | ✅ | ✅ |
+
+**Upsert seguro:** `recalculateUserGroupPoints` usa `defaultToNull: false` no upsert — colunas ausentes do body (como `tieWinnerTeamId`) nunca são sobrescritas para NULL pelo PostgREST.
+
+**Regra 3 no UI:** `isDiffCorrect` é calculado via `getScoreCategoryRegulamento1/2` — nunca comparação raw independente — garantindo consistência entre pts e label/cor.

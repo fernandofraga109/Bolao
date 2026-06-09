@@ -59,7 +59,7 @@ export const usePointsProcessor = (dbRef: any) => {
         // 1. Fetch all predictions for the group from the DB (always fresh — never local state)
         const { data: preds, error } = await supabase
           .from('predictions')
-          .select('userId, matchId, groupId, homeScore, awayScore, points, timestamp')
+          .select('userId, matchId, groupId, homeScore, awayScore, points, timestamp, tieWinnerTeamId')
           .eq('groupId', groupId);
 
         if (error) {
@@ -371,7 +371,7 @@ export const usePointsProcessor = (dbRef: any) => {
         if (predPointsUpdates.length > 0) {
           const { error: predError } = await supabase
             .from('predictions')
-            .upsert(predPointsUpdates, { onConflict: '"userId", "matchId", "groupId"' });
+            .upsert(predPointsUpdates, { onConflict: '"userId", "matchId", "groupId"', defaultToNull: false });
           if (predError) {
             console.error(`❌ Error updating prediction points for group ${groupId}:`, predError);
           } else {
