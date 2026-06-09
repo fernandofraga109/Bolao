@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.26.0";
+export const CURRENT_VERSION = "1.27.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.27.0",
+    date: "2026-06-09",
+    changes: [
+      "Correção no carregamento de palpites em grandes bolões",
+      "Agora todos os palpites são carregados corretamente, mesmo com muitos participantes",
+      "Melhorias na sincronização de dados com o banco",
+    ],
+  },
   {
     version: "1.26.0",
     date: "2026-06-08",

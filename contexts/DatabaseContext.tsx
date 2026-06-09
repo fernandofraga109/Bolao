@@ -445,7 +445,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         isAuthenticated
           ? supabase.from("user_groups").select("*")
           : Promise.resolve({ data: null, error: null } as any),
-        supabase.from("matches").select("*"),
+        fetchAllRecords<MatchDB>("matches"),
         isAuthenticated
           ? fetchAllRecords<PredictionDB>("predictions")
           : Promise.resolve(null),
@@ -1557,9 +1557,9 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
 
   const refetchMatches = useCallback(async () => {
     if (!isSupabaseEnabled() || !supabase) return;
-    const { data } = await supabase.from("matches").select("*");
+    const data = await fetchAllRecords<MatchDB>("matches");
     if (data) {
-      const deduped = (data as MatchDB[]).reduce(
+      const deduped = data.reduce(
         (acc, item) => mergeMatchIntoList(acc, item),
         [] as MatchDB[],
       );
