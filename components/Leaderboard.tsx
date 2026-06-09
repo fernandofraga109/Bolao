@@ -3,6 +3,7 @@ import { Friend } from "../types";
 import { Trophy, Medal, TrendingUp, TrendingDown, Minus, Search, BarChart3 } from "lucide-react";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
 import LeaderboardDetails from "./LeaderboardDetails";
+import { rankLeaderboardSections } from "../utils/leaderboardUtils";
 
 interface LeaderboardProps {
   sections: {
@@ -17,21 +18,7 @@ interface LeaderboardProps {
 
 const Leaderboard: React.FC<LeaderboardProps> = ({ sections, ruleset = "regulamento_1", onUserClick }) => {
   const [activeView, setActiveView] = useState<"ranking" | "details">("ranking");
-  const sectionsWithSortedUsers = sections.map((section) => {
-    const sorted = [...section.users].sort((a, b) => b.totalPoints - a.totalPoints);
-    let currentRank = 0;
-    let lastPoints = -1;
-    
-    const usersWithRanks = sorted.map((user, index) => {
-      if (user.totalPoints !== lastPoints) {
-        currentRank = index + 1;
-        lastPoints = user.totalPoints;
-      }
-      return { ...user, rank: currentRank };
-    });
-    
-    return { ...section, users: usersWithRanks };
-  });
+  const sectionsWithSortedUsers = rankLeaderboardSections(sections);
 
   const getRankIcon = (rank: number) => {
     switch (rank) {

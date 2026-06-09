@@ -1,15 +1,14 @@
 import { useCallback } from 'react';
 import { Match, MatchDB, MatchStatus, TournamentPredictions } from '../types';
 import {
-  calculatePoints,
-  calculatePointsRegulamento2,
-  getR1MatchScoringResult,
   calculateTournamentPoints,
   calculateTournamentPointsRegulamento2,
   calculateExtraPhasePoints,
   getMatchPhase,
 } from '../utils/scoring';
 import { supabase } from '../services/supabase';
+import { resolveShootoutWinnerId } from '../utils/matchUtils';
+import { calculateMatchPoints } from '../utils/pointsUtils';
 
 export const usePointsProcessor = (dbRef: any) => {
   const recalculateUserGroupPoints = useCallback(
@@ -145,43 +144,17 @@ export const usePointsProcessor = (dbRef: any) => {
 
           const match = finishedMatchesMap.get(p.matchId);
           if (match) {
-            let pts = 0;
-            if (isRegulamento2) {
-              const phase = getMatchPhase(match.stage, match.group);
-              const matchPredictionsGroup = matchPredictionsMap.get(p.matchId) || [];
-              pts = calculatePointsRegulamento2(
-                p.homeScore,
-                p.awayScore,
-                match.result?.home ?? 0,
-                match.result?.away ?? 0,
-                phase,
-                matchPredictionsGroup,
-                p.userId
-              );
-            } else {
-              const isShootout = (match as any).score?.duration === "PENALTY_SHOOTOUT";
-              const realWhoClassifiesId = isShootout
-                ? ((match as any).score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
-                : undefined;
-              const predWhoClassifiesId = (p as any).tieWinnerTeamId as string | undefined;
-              const r1Result = getR1MatchScoringResult(
-                (match as any).score,
-                match.result?.home ?? 0,
-                match.result?.away ?? 0
-              );
-
-              pts = calculatePoints(
-                p.homeScore,
-                p.awayScore,
-                r1Result.home,
-                r1Result.away,
-                match.homeTeam?.ranking,
-                match.awayTeam?.ranking,
-                effectiveMinRankDiff,
-                predWhoClassifiesId,
-                realWhoClassifiesId
-              );
-            }
+            const matchPredictionsGroup = isRegulamento2
+              ? (matchPredictionsMap.get(p.matchId) || [])
+              : [];
+            const pts = calculateMatchPoints({
+              pred: { homeScore: p.homeScore, awayScore: p.awayScore, tieWinnerTeamId: (p as any).tieWinnerTeamId },
+              match,
+              ruleset: isRegulamento2 ? 'regulamento_2' : 'regulamento_1',
+              minRankDiff: effectiveMinRankDiff,
+              groupMatchPredictions: matchPredictionsGroup,
+              userId: p.userId,
+            });
 
             pointsByUser[p.userId] += pts;
             if (p.points !== pts) {
@@ -410,50 +383,19 @@ export const usePointsProcessor = (dbRef: any) => {
           const effectiveMinRankDiff: number =
             predGroup?.underdog_min_rank_diff ?? globalMinRankDiff;
 
-          let pts = 0;
-          if (isRegulamento2) {
-            const phase = getMatchPhase(match.stage, match.group);
-            const matchPredictionsGroup = matchPredictions
-              .filter((p: any) => p.groupId === pred.groupId)
-              .map((p: any) => ({
-                userId: p.userId,
-                homeScore: p.homeScore,
-                awayScore: p.awayScore,
-              }));
-
-            pts = calculatePointsRegulamento2(
-              pred.homeScore,
-              pred.awayScore,
-              match.result?.home || 0,
-              match.result?.away || 0,
-              phase,
-              matchPredictionsGroup,
-              pred.userId
-            );
-          } else {
-            const isShootout2 = (match as any).score?.duration === "PENALTY_SHOOTOUT";
-            const realWhoClassifiesId2 = isShootout2
-              ? ((match as any).score?.winner === "HOME_TEAM" ? (match as any).homeTeam?.id : (match as any).awayTeam?.id)
-              : undefined;
-            const predWhoClassifiesId2 = (pred as any).tieWinnerTeamId as string | undefined;
-            const r1Result2 = getR1MatchScoringResult(
-              (match as any).score,
-              match.result?.home || 0,
-              match.result?.away || 0
-            );
-
-            pts = calculatePoints(
-              pred.homeScore,
-              pred.awayScore,
-              r1Result2.home,
-              r1Result2.away,
-              match.homeTeam.ranking,
-              match.awayTeam.ranking,
-              effectiveMinRankDiff,
-              predWhoClassifiesId2,
-              realWhoClassifiesId2
-            );
-          }
+          const groupPreds = isRegulamento2
+            ? matchPredictions
+                .filter((p: any) => p.groupId === pred.groupId)
+                .map((p: any) => ({ userId: p.userId, homeScore: p.homeScore, awayScore: p.awayScore }))
+            : [];
+          const pts = calculateMatchPoints({
+            pred: { homeScore: pred.homeScore, awayScore: pred.awayScore, tieWinnerTeamId: (pred as any).tieWinnerTeamId },
+            match,
+            ruleset: isRegulamento2 ? 'regulamento_2' : 'regulamento_1',
+            minRankDiff: effectiveMinRankDiff,
+            groupMatchPredictions: groupPreds,
+            userId: pred.userId,
+          });
 
           if (pred.points !== pts) {
             updatesToUpsert.push({
@@ -545,43 +487,28 @@ export const usePointsProcessor = (dbRef: any) => {
             .forEach((p: any) => {
               const match = hydratedMatchesMap.get(p.matchId);
               if (match) {
+                const hydratedMatch: Match = {
+                  ...match,
+                  result: { home: match.resultHome ?? 0, away: match.resultAway ?? 0 },
+                } as Match;
                 if (isRegulamento2) {
-                  const phase = getMatchPhase(match.stage, match.group);
                   const predsForMatch = matchPredictionsGroup.filter(
                     (pg) => pg.matchId === p.matchId
                   );
-                  total += calculatePointsRegulamento2(
-                    p.homeScore,
-                    p.awayScore,
-                    match.resultHome ?? 0,
-                    match.resultAway ?? 0,
-                    phase,
-                    predsForMatch,
-                    p.userId
-                  );
+                  total += calculateMatchPoints({
+                    pred: { homeScore: p.homeScore, awayScore: p.awayScore },
+                    match: hydratedMatch,
+                    ruleset: 'regulamento_2',
+                    groupMatchPredictions: predsForMatch,
+                    userId: p.userId,
+                  });
                 } else {
-                  const isShootout3 = match.score?.duration === "PENALTY_SHOOTOUT";
-                  const realWhoClassifiesId3 = isShootout3
-                    ? (match.score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
-                    : undefined;
-                  const predWhoClassifiesId3 = (p as any).tieWinnerTeamId as string | undefined;
-                  const r1Result3 = getR1MatchScoringResult(
-                    match.score,
-                    match.resultHome ?? 0,
-                    match.resultAway ?? 0
-                  );
-
-                  total += calculatePoints(
-                    p.homeScore,
-                    p.awayScore,
-                    r1Result3.home,
-                    r1Result3.away,
-                    match.homeTeam?.ranking,
-                    match.awayTeam?.ranking,
-                    effectiveMinRankDiff,
-                    predWhoClassifiesId3,
-                    realWhoClassifiesId3
-                  );
+                  total += calculateMatchPoints({
+                    pred: { homeScore: p.homeScore, awayScore: p.awayScore, tieWinnerTeamId: (p as any).tieWinnerTeamId },
+                    match: hydratedMatch,
+                    ruleset: 'regulamento_1',
+                    minRankDiff: effectiveMinRankDiff,
+                  });
                 }
               }
             });

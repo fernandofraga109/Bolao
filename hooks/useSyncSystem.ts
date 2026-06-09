@@ -78,8 +78,7 @@ const getFlagUrl = (teamCode: string): string => {
   return '/favicon.ico';
 };
 
-const normalizeCompetitionCode = (value?: string) =>
-  (value || "WC").toUpperCase();
+import { normalizeCompetitionCode } from "../utils/matchUtils";
 
 /**
  * Extrai o resultado efetivo de um jogo do payload da football-data API.

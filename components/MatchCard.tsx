@@ -7,9 +7,7 @@ import {
   GroupDB,
 } from "../types";
 import {
-  calculatePoints,
   calculateUnderdogBonus,
-  calculatePointsRegulamento2,
   getScoreCategoryRegulamento1,
   getScoreCategoryRegulamento2,
   getMatchPhase,
@@ -19,6 +17,8 @@ import {
   POINTS_OUTCOME,
   POINTS_CLASSIFIES_BONUS,
 } from "../utils/scoring";
+import { isMatchLive, isMatchFinished, resolveShootoutWinnerId } from "../utils/matchUtils";
+import { calculateMatchPoints } from "../utils/pointsUtils";
 import { SCORING_COLORS, ScoringCategory } from "./ui/ScoringGuide";
 import {
   Users,
@@ -149,8 +149,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
   const matchDate = new Date(match.date);
   const isLocked = new Date() > matchDate || match.status !== MatchStatus.SCHEDULED;
-  const isLive = match.status === MatchStatus.LIVE;
-  const isFinished = match.status === MatchStatus.FINISHED;
+  const isLive = isMatchLive(match.status);
+  const isFinished = isMatchFinished(match.status);
   const isPhaseLocked = ruleset === "regulamento_2" && phaseLockSet?.has(getMatchPhase(match.stage, match.group));
   const isPredictionDisabled = !isAdmin && (isFinished || isLive || isLocked || !!isPhaseLocked);
   const isKnockoutMatch = ruleset === "regulamento_1" && getMatchPhase(match.stage, match.group) !== "groups";
@@ -191,24 +191,28 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       }
 
       const phase = getMatchPhase(match.stage, match.group);
-      const points = calculatePointsRegulamento2(home, away, match.result.home, match.result.away, phase, matchPredictions, currentUserId || "");
+      const points = calculateMatchPoints({
+        pred: { homeScore: home, awayScore: away },
+        match,
+        ruleset: "regulamento_2",
+        groupMatchPredictions: matchPredictions,
+        userId: currentUserId || "",
+      });
       const cat = getScoreCategoryRegulamento2(home, away, match.result.home, match.result.away, phase, matchPredictions, currentUserId || "");
 
       return { points, bonus: 0, category: cat.type, aloneBonus: cat.aloneBonus ?? false };
     }
 
-    const isShootout = match.score?.duration === "PENALTY_SHOOTOUT";
-    const realWhoClassifiesId = isShootout
-      ? (match.score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
-      : undefined;
+    const realWhoClassifiesId = resolveShootoutWinnerId(match.score, match.homeTeam?.id, match.awayTeam?.id);
     const predWhoClassifiesId = userPrediction?.whoClassifiesTeamId;
     const r1Result = getR1MatchScoringResult(match.score, match.result.home, match.result.away);
 
-    const points = calculatePoints(
-      home, away, r1Result.home, r1Result.away,
-      match.homeTeam?.ranking, match.awayTeam?.ranking, minRankDiff ?? 0,
-      home === away ? predWhoClassifiesId : undefined, realWhoClassifiesId
-    );
+    const points = calculateMatchPoints({
+      pred: { homeScore: home, awayScore: away, tieWinnerTeamId: home === away ? predWhoClassifiesId : undefined },
+      match,
+      ruleset: "regulamento_1",
+      minRankDiff: minRankDiff ?? 0,
+    });
     const cat = getScoreCategoryRegulamento1(
       home, away, r1Result.home, r1Result.away,
       match.homeTeam?.ranking, match.awayTeam?.ranking, minRankDiff ?? 0,
