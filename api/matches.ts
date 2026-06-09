@@ -32,8 +32,6 @@ export default async function handler(req: Request) {
 
   try {
     const data = await (async () => {
-      // Tentativa 1: Com Temporada (ano atual por padrão)
-      console.log(`[PROXY] Tentativa 1: ${targetUrl}`);
       const res1 = await fetch(targetUrl, {
         method: "GET",
         headers: {
@@ -44,10 +42,8 @@ export default async function handler(req: Request) {
 
       if (res1.ok) return res1.json();
 
-      // Se der 404 ou 403, tenta sem a temporada
       if (res1.status === 404 || res1.status === 403) {
         const fallbackUrl = `${BASE_URL}/competitions/${COMPETITION_CODE}/matches`;
-        console.log(`[PROXY] Tentativa 2 (Fallback): ${fallbackUrl}`);
         const res2 = await fetch(fallbackUrl, {
           method: "GET",
           headers: {
@@ -73,9 +69,8 @@ export default async function handler(req: Request) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    console.error(`[PROXY] Erro interno:`, error);
     return new Response(
-      JSON.stringify({ error: "Erro de conexão", message: error.message }),
+      JSON.stringify({ error: "Erro de conexão", message: "Falha ao buscar dados da API externa." }),
       { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }

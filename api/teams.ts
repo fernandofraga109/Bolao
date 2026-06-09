@@ -44,7 +44,6 @@ export default async function handler(req: Request) {
 
       // Fallback: sem temporada
       if (res1.status === 404 || res1.status === 403) {
-        console.warn(`[PROXY/teams] Season não encontrada para ${competitionCode}. Tentando sem season...`);
         const res2 = await fetch(buildUrl(false), {
           method: "GET",
           headers: { "X-Auth-Token": API_TOKEN, "Content-Type": "application/json" },
@@ -64,9 +63,8 @@ export default async function handler(req: Request) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    console.error("[PROXY/teams] Erro interno:", error);
     return new Response(
-      JSON.stringify({ error: "Erro de conexão", message: error.message }),
+      JSON.stringify({ error: "Erro de conexão", message: "Falha ao buscar times." }),
       { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }

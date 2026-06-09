@@ -62,6 +62,37 @@ export default async function handler(req: Request) {
     );
   }
 
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return new Response(
+      JSON.stringify({
+        error: "Email inválido",
+        message: "Formato de email inválido.",
+      }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  if (password.length < 6) {
+    return new Response(
+      JSON.stringify({
+        error: "Senha fraca",
+        message: "A senha deve ter pelo menos 6 caracteres.",
+      }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  if (name.length > 100 || email.length > 254) {
+    return new Response(
+      JSON.stringify({
+        error: "Entrada inválida",
+        message: "Nome ou email excede o tamanho máximo permitido.",
+      }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   try {
     const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
       method: "POST",
