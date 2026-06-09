@@ -9,6 +9,7 @@ import {
   Medal,
 } from "lucide-react";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
+import { rankLeaderboardSections } from "../utils/leaderboardUtils";
 
 interface LeaderboardDetailsProps {
   sections: {
@@ -46,21 +47,7 @@ const LeaderboardDetails: React.FC<LeaderboardDetailsProps> = ({
   ruleset = "regulamento_1",
   onUserClick,
 }) => {
-  const sectionsWithSortedUsers = sections.map((section) => {
-    const sorted = [...section.users].sort((a, b) => b.totalPoints - a.totalPoints);
-    let currentRank = 0;
-    let lastPoints = -1;
-
-    const usersWithRanks = sorted.map((user, index) => {
-      if (user.totalPoints !== lastPoints) {
-        currentRank = index + 1;
-        lastPoints = user.totalPoints;
-      }
-      return { ...user, rank: currentRank };
-    });
-
-    return { ...section, users: usersWithRanks };
-  });
+  const sectionsWithSortedUsers = rankLeaderboardSections(sections);
 
   const getRankIcon = (rank: number) => {
     switch (rank) {

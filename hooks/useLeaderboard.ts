@@ -1,7 +1,9 @@
 import { useMemo } from "react";
 import { User, Match, MatchStatus, TournamentPredictions, Group } from "../types";
-import { calculatePoints, calculateTournamentPoints, calculatePointsRegulamento2, getMatchPhase, calculateTournamentPointsRegulamento2, getScoreCategoryRegulamento1, getScoreCategoryRegulamento2, getR1MatchScoringResult } from "../utils/scoring";
+import { calculateTournamentPoints, calculateTournamentPointsRegulamento2, getScoreCategoryRegulamento1, getScoreCategoryRegulamento2, getMatchPhase, getR1MatchScoringResult } from "../utils/scoring";
 import { DEFAULT_COMPETITION_CODE } from "../data/competitions";
+import { normalizeCompetitionCode, isMatchLive, isMatchFinished, resolveShootoutWinnerId } from "../utils/matchUtils";
+import { calculateMatchPoints } from "../utils/pointsUtils";
 
 interface UserGroupDB {
   userId: string;
@@ -33,12 +35,12 @@ export const useLeaderboard = (
       currentUser?.activeGroupId || (currentUser?.groupIds && currentUser?.groupIds[0]);
     const activeGroup = groups.find((g) => g.id === activeGroupId);
     const activeRuleset = activeGroup?.ruleset || "regulamento_1";
-    const activeCompCode = (activeGroup?.competitionCode || "WC").toUpperCase();
+    const activeCompCode = normalizeCompetitionCode(activeGroup?.competitionCode);
     const activeMinRankDiff = activeGroup?.underdog_min_rank_diff ?? 0;
 
     // Only matches belonging to this group's competition
     const groupMatches = matches.filter(
-      (m) => (m.competitionCode || "WC").toUpperCase() === activeCompCode
+      (m) => normalizeCompetitionCode(m.competitionCode) === activeCompCode
     );
 
     const allGroupPredictions = users
@@ -65,12 +67,7 @@ export const useLeaderboard = (
         };
         groupMatches.forEach((match) => {
           const pred = user.predictions[match.id];
-          const isLive = match.status === MatchStatus.LIVE ||
-                         match.status === MatchStatus.IN_PLAY ||
-                         match.status === MatchStatus.PAUSED;
-          const isFinished = match.status === MatchStatus.FINISHED;
-
-          if ((isFinished || isLive) && match.result && pred) {
+          if ((isMatchFinished(match.status) || isMatchLive(match.status)) && match.result && pred) {
             if (activeRuleset === "regulamento_2") {
               const matchPredictions = users
                 .filter((u) => u.groupIds.includes(activeGroupId || "") && u.predictions && u.predictions[match.id])
@@ -100,20 +97,15 @@ export const useLeaderboard = (
                 breakdown.aloneBonusTotal += 5;
               }
 
-              total += calculatePointsRegulamento2(
-                pred.home,
-                pred.away,
-                match.result.home,
-                match.result.away,
-                getMatchPhase(match.stage, match.group),
-                matchPredictions,
-                user.id
-              );
+              total += calculateMatchPoints({
+                pred: { homeScore: pred.home, awayScore: pred.away },
+                match,
+                ruleset: "regulamento_2",
+                groupMatchPredictions: matchPredictions,
+                userId: user.id,
+              });
             } else {
-              const isShootout = match.score?.duration === "PENALTY_SHOOTOUT";
-              const realWhoClassifiesId = isShootout
-                ? (match.score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
-                : undefined;
+              const realWhoClassifiesId = resolveShootoutWinnerId(match.score, match.homeTeam?.id, match.awayTeam?.id);
               const predWhoClassifiesId = pred.whoClassifiesTeamId;
               const r1Result = getR1MatchScoringResult(
                 match.score,
@@ -143,17 +135,12 @@ export const useLeaderboard = (
                 breakdown.underdogBonusTotal += cat.underdogBonus;
               }
 
-              total += calculatePoints(
-                pred.home,
-                pred.away,
-                r1Result.home,
-                r1Result.away,
-                match.homeTeam.ranking,
-                match.awayTeam.ranking,
-                activeMinRankDiff,
-                predWhoClassifiesId,
-                realWhoClassifiesId,
-              );
+              total += calculateMatchPoints({
+                pred: { homeScore: pred.home, awayScore: pred.away, tieWinnerTeamId: predWhoClassifiesId },
+                match,
+                ruleset: "regulamento_1",
+                minRankDiff: activeMinRankDiff,
+              });
             }
           }
         });
@@ -199,7 +186,7 @@ export const useLeaderboard = (
       groupNameMap.set(group.id, group.name);
       groupCompetitionMap.set(
         group.id,
-        (group.competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase(),
+        normalizeCompetitionCode(group.competitionCode || DEFAULT_COMPETITION_CODE),
       );
     });
 

@@ -4,8 +4,6 @@ import ScoringGuide from "./ui/ScoringGuide";
 import { User, Match, MatchStatus, TournamentPredictions, Group, PredictionDB } from "../types";
 import { useDatabase } from "../contexts/DatabaseContext";
 import {
-  calculatePoints,
-  calculatePointsRegulamento2,
   getScoreCategoryRegulamento1,
   getScoreCategoryRegulamento2,
   getMatchPhase,
@@ -18,6 +16,8 @@ import {
   getR1MatchScoringResult,
 } from "../utils/scoring";
 import { translateGroupName } from "../utils/translations";
+import { hydrateMatchDB, resolveShootoutWinnerId, normalizeCompetitionCode } from "../utils/matchUtils";
+import { calculateMatchPoints } from "../utils/pointsUtils";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
 
 interface UserAuditModalProps {
@@ -75,24 +75,12 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
   const activeGroupId = viewingGroupId || user.activeGroupId || user.groupIds?.[0];
   const activeGroup = groups.find((g) => g.id === activeGroupId);
   const ruleset = activeGroup?.ruleset || "regulamento_1";
-  const activeCompCode = (activeGroup?.competitionCode || "WC").toUpperCase();
+  const activeCompCode = normalizeCompetitionCode(activeGroup?.competitionCode);
   const minRankDiff = activeGroup?.underdog_min_rank_diff ?? 0;
 
   const auditMatches = useMemo(() => {
     return db.matches
-      .map((m) => {
-        const homeTeam = db.teams.find((t) => t.id === m.homeTeamId);
-        const awayTeam = db.teams.find((t) => t.id === m.awayTeamId);
-        if (!homeTeam || !awayTeam) return null;
-
-        return {
-          ...m,
-          homeTeam,
-          awayTeam,
-          status: m.status as MatchStatus,
-          result: m.resultHome != null ? { home: m.resultHome, away: m.resultAway! } : undefined,
-        } as Match;
-      })
+      .map((m) => hydrateMatchDB(m, db.teams))
       .filter((m): m is Match => m !== null);
   }, [db.matches, db.teams]);
 
@@ -181,38 +169,20 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
             homeScore: preds[matchId].home,
             awayScore: preds[matchId].away,
           }));
-        pts = calculatePointsRegulamento2(
-          pred.home,
-          pred.away,
-          match.result!.home,
-          match.result!.away,
-          getMatchPhase(match.stage, match.group),
-          matchPredictions,
-          user.id
-        );
+        pts = calculateMatchPoints({
+          pred: { homeScore: pred.home, awayScore: pred.away },
+          match,
+          ruleset: "regulamento_2",
+          groupMatchPredictions: matchPredictions,
+          userId: user.id,
+        });
       } else {
-        const isShootout = (match as any).score?.duration === "PENALTY_SHOOTOUT";
-        const realWhoClassifiesId = isShootout
-          ? ((match as any).score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
-          : undefined;
-        const predWhoClassifiesId = pred.whoClassifiesTeamId;
-        const r1Result = getR1MatchScoringResult(
-          (match as any).score,
-          match.result!.home,
-          match.result!.away
-        );
-
-        pts = calculatePoints(
-          pred.home,
-          pred.away,
-          r1Result.home,
-          r1Result.away,
-          match.homeTeam.ranking,
-          match.awayTeam.ranking,
+        pts = calculateMatchPoints({
+          pred: { homeScore: pred.home, awayScore: pred.away, tieWinnerTeamId: pred.whoClassifiesTeamId },
+          match,
+          ruleset: "regulamento_1",
           minRankDiff,
-          predWhoClassifiesId,
-          realWhoClassifiesId
-        );
+        });
       }
 
       if (typeof pred.points === "number" && pred.points === pts) {
@@ -240,10 +210,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
         isOutcomeCorrect = r2Cat.type !== "wrong";
       } else {
         const auditScore = getR1MatchScoringResult((match as any).score, match.result!.home, match.result!.away);
-        const isShootoutForCat = (match as any).score?.duration === "PENALTY_SHOOTOUT";
-        const realWhoClassifiesIdForCat = isShootoutForCat
-          ? ((match as any).score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
-          : undefined;
+        const realWhoClassifiesIdForCat = resolveShootoutWinnerId((match as any).score, match.homeTeam?.id, match.awayTeam?.id);
         const r1Cat = getScoreCategoryRegulamento1(
           pred.home, pred.away,
           auditScore.home, auditScore.away,
@@ -263,10 +230,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
       else if (isOutcomeCorrect) resultLabel = "Resultado certo";
 
       // Calculate classifiesBonus for display (Reg. 1 only)
-      const isShootout = (match as any).score?.duration === "PENALTY_SHOOTOUT";
-      const realWhoClassifiesIdDisplay = isShootout
-        ? ((match as any).score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
-        : undefined;
+      const realWhoClassifiesIdDisplay = resolveShootoutWinnerId((match as any).score, match.homeTeam?.id, match.awayTeam?.id);
       const classifiesBonus =
         ruleset === "regulamento_1" &&
         pred.home === pred.away &&

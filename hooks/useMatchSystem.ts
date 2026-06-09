@@ -4,10 +4,8 @@ import { useDatabase } from "../contexts/DatabaseContext";
 import { usePointsProcessor } from "./usePointsProcessor";
 import { useSyncSystem, CompetitionSyncStatus } from "./useSyncSystem";
 import { useBackgroundSync } from "./useBackgroundSync";
+import { normalizeCompetitionCode, hydrateMatchDB, isMatchLive } from "../utils/matchUtils";
 export type { CompetitionSyncStatus };
-
-const normalizeCompetitionCode = (value?: string) =>
-  (value || "WC").toUpperCase();
 
 export const useMatchSystem = (
   activeCompetitionCode: string = "WC",
@@ -88,32 +86,14 @@ export const useMatchSystem = (
     const activeCode = normalizeCompetitionCode(activeCompetitionCode);
     return db.matches
       .filter((m) => normalizeCompetitionCode(m.competitionCode) === activeCode)
-      .map((m) => {
-        const homeTeam = db.teams.find((t) => t.id === m.homeTeamId);
-        const awayTeam = db.teams.find((t) => t.id === m.awayTeamId);
-
-        // Times ainda não carregados no estado local (ex: sync em andamento via Realtime).
-        // Retornar null e filtrar depois para evitar crash no render.
-        if (!homeTeam || !awayTeam) return null;
-
-        return {
-          ...m,
-          homeTeam,
-          awayTeam,
-          status: m.status as MatchStatus,
-          result: m.resultHome != null ? { home: m.resultHome, away: m.resultAway! } : undefined,
-          score: m.score,
-          penaltiesHome: m.penaltiesHome,
-          penaltiesAway: m.penaltiesAway,
-        } as Match;
-      })
+      .map((m) => hydrateMatchDB(m, db.teams))
       .filter((m): m is Match => m !== null)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [db.matches, db.teams, activeCompetitionCode]);
 
   useEffect(() => {
     const liveMatches = matches.filter(
-      m => m.status === MatchStatus.LIVE && m.result != null
+      m => isMatchLive(m.status) && m.result != null
     );
     if (liveMatches.length > 0) {
       updateLocalPointsWithLive(liveMatches.map(m => m.id));
