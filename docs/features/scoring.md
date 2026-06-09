@@ -249,18 +249,33 @@ Implementado em `getMatchPhase(stage, group)` — também aceita nomes de grupo 
 | `calculatePoints` | Total de pontos R1 |
 | `getScoreCategoryRegulamento2` | Retorna tipo + aloneBonus para R2 |
 | `calculatePointsRegulamento2` | Total de pontos R2 (context-aware) |
-| `getR1MatchScoringResult` | Extrai regularTime para comparação R1 em mata-mata |
+| `getR1MatchScoringResult` | Extrai regularTime para comparação R1 em mata-mata (usa campos planos, fallback JSONB) |
+| `getMatchDuration` | Infere 'REGULAR' / 'EXTRA_TIME' / 'PENALTY_SHOOTOUT' dos campos planos |
+| `getMatchWinnerId` | Retorna teamId do vencedor nos pênaltis, ou undefined |
 | `getMatchPhase` | Mapeia stage/group → MatchPhase |
 | `calculateUnderdogBonus` | Bônus por ranking para R1 |
 
 ### `getR1MatchScoringResult`
 
-Retorna o placar de comparação correto para R1. Para jogos com `duration = EXTRA_TIME` ou `PENALTY_SHOOTOUT`, retorna `score.regularTime`; para os demais, retorna o `match.result` normal.
+Retorna o placar de comparação correto para R1. Para jogos mata-mata usa `regularHome/regularAway` (tempo regular apenas). Fallback para `score.regularTime` JSONB em partidas antigas sem os campos planos.
 
 ```ts
-getR1MatchScoringResult(match.score, fallbackHome, fallbackAway)
+getR1MatchScoringResult(match, fallbackHome, fallbackAway)
 // → { home, away } — sempre regularTime para mata-mata R1
 ```
+
+**Fonte de dados:** lê `match.regularHome / match.regularAway` (colunas planas, migration 0027). Nunca ler `match.score?.regularTime` diretamente na lógica de pontuação.
+
+### `getMatchDuration` / `getMatchWinnerId`
+
+Helpers em `utils/scoring.ts` para inferir duração e vencedor a partir dos campos planos (sem ler o JSONB `score`):
+
+```ts
+getMatchDuration(match) // → 'REGULAR' | 'EXTRA_TIME' | 'PENALTY_SHOOTOUT'
+getMatchWinnerId(match) // → teamId do vencedor nos pênaltis, ou undefined
+```
+
+Regra de inferência: `penaltiesHome != null` → PENALTY_SHOOTOUT; `extraTimeHome != null` → EXTRA_TIME; senão REGULAR. Fallback para `score.duration` / `score.winner` para partidas sem as colunas planas ainda populadas.
 
 ### DB Boundary — `whoClassifiesTeamId`
 

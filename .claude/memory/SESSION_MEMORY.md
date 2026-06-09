@@ -18,6 +18,7 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 
 | Priority | Item | Plan | Status |
 |----------|------|------|--------|
+| **Next** | Knockout score flat columns + full display | `.claude/plans/knockout-score-columns.md` | PLANNING — awaiting user approval |
 | Deferred | Specials components refactor | `.claude/plans/specials-components-refactor.md` | DEFERRED ("soon") — safety net DONE (chars. tests 67→109 green). Refactor not started. Phase A (specials/ folder) recommended first; Phase B (AdminDashboard split) only smoke-tested = highest residual risk. |
 | Deferred | Large file refactor (5 phases) | `.claude/plans/large-file-refactors.md` | Planned, not started — branch `chore/structural-refactor` |
 | Ongoing | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Open |
