@@ -10,6 +10,8 @@ import {
   calculatePoints,
   calculateUnderdogBonus,
   calculatePointsRegulamento2,
+  getScoreCategoryRegulamento1,
+  getScoreCategoryRegulamento2,
   getMatchPhase,
   getR1MatchScoringResult,
   POINTS_EXACT,
@@ -17,6 +19,7 @@ import {
   POINTS_OUTCOME,
   POINTS_CLASSIFIES_BONUS,
 } from "../utils/scoring";
+import { SCORING_COLORS, ScoringCategory } from "./ui/ScoringGuide";
 import {
   Users,
   Save,
@@ -168,8 +171,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
   // --- CENTRALIZED SCORING HELPER ---
   const getScoringDetails = (home: number, away: number) => {
-    if (!match.result) return { points: 0, bonus: 0 };
-    
+    if (!match.result) return { points: 0, bonus: 0, category: 'wrong' as const };
+
     if (ruleset === "regulamento_2") {
       const matchPredictions = friends
         .filter((f) => f.predictions && f.predictions[match.id])
@@ -178,7 +181,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           homeScore: f.predictions[match.id].home,
           awayScore: f.predictions[match.id].away,
         }));
-      
+
       if (userPrediction && currentUserId && !matchPredictions.some(p => p.userId === currentUserId)) {
         matchPredictions.push({
           userId: currentUserId,
@@ -187,17 +190,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         });
       }
 
-      const points = calculatePointsRegulamento2(
-        home,
-        away,
-        match.result.home,
-        match.result.away,
-        getMatchPhase(match.stage, match.group),
-        matchPredictions,
-        currentUserId || ""
-      );
+      const phase = getMatchPhase(match.stage, match.group);
+      const points = calculatePointsRegulamento2(home, away, match.result.home, match.result.away, phase, matchPredictions, currentUserId || "");
+      const cat = getScoreCategoryRegulamento2(home, away, match.result.home, match.result.away, phase, matchPredictions, currentUserId || "");
 
-      return { points, bonus: 0 };
+      return { points, bonus: 0, category: cat.type, aloneBonus: cat.aloneBonus ?? false };
     }
 
     const isShootout = match.score?.duration === "PENALTY_SHOOTOUT";
@@ -208,15 +205,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     const r1Result = getR1MatchScoringResult(match.score, match.result.home, match.result.away);
 
     const points = calculatePoints(
-      home,
-      away,
-      r1Result.home,
-      r1Result.away,
-      match.homeTeam?.ranking,
-      match.awayTeam?.ranking,
-      minRankDiff ?? 0,
-      home === away ? predWhoClassifiesId : undefined,
-      realWhoClassifiesId
+      home, away, r1Result.home, r1Result.away,
+      match.homeTeam?.ranking, match.awayTeam?.ranking, minRankDiff ?? 0,
+      home === away ? predWhoClassifiesId : undefined, realWhoClassifiesId
+    );
+    const cat = getScoreCategoryRegulamento1(
+      home, away, r1Result.home, r1Result.away,
+      match.homeTeam?.ranking, match.awayTeam?.ranking, minRankDiff ?? 0,
+      home === away ? predWhoClassifiesId : undefined, realWhoClassifiesId
     );
 
     let bonus = 0;
@@ -226,7 +222,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       bonus = calculateUnderdogBonus(winnerRank, loserRank, minRankDiff ?? 0);
     }
 
-    return { points, bonus };
+    return { points, bonus, category: cat.type, aloneBonus: false };
   };
 
   // For R1 knockout matches that went to extra time/penalties, show regularTime score.
@@ -241,22 +237,16 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
   const userScoring = useMemo(() => {
     if ((isFinished || isLive) && match.result && userPrediction) {
+      const details = getScoringDetails(userPrediction.homeScore, userPrediction.awayScore);
       if (typeof userPrediction.points === 'number') {
-        // Find bonus for display purposes even if stored
-        const details = getScoringDetails(userPrediction.homeScore, userPrediction.awayScore);
-        return { points: userPrediction.points, bonus: details.bonus };
+        return { points: userPrediction.points, bonus: details.bonus, category: details.category, aloneBonus: details.aloneBonus };
       }
-      return getScoringDetails(userPrediction.homeScore, userPrediction.awayScore);
+      return details;
     }
-    return { points: 0, bonus: 0 };
+    return { points: 0, bonus: 0, category: "wrong" as ScoringCategory, aloneBonus: false };
   }, [isFinished, isLive, match.result, userPrediction]);
 
-  const getPointsStyle = (pts: number) => {
-    if (pts >= POINTS_EXACT) return "bg-brand-gold text-brand-dark shadow-brand-gold/30";
-    if (pts >= POINTS_GOAL_DIFF) return "bg-brand-blue text-white shadow-brand-blue/30";
-    if (pts >= POINTS_OUTCOME) return "bg-indigo-600 text-white shadow-indigo-500/30";
-    return "bg-slate-700 text-slate-400";
-  };
+  const getPointsStyle = (category: ScoringCategory) => SCORING_COLORS[category].bg + " shadow-lg";
 
   return (
     <div className={`group bg-slate-800 rounded-3xl shadow-xl border border-slate-700/50 overflow-hidden relative transition-all duration-300 hover:shadow-2xl hover:border-slate-600 ${isFinished ? "opacity-50" : ""}`}>
@@ -558,19 +548,24 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             {!isAdmin && (
               <div className="flex-1 flex justify-end pl-4">
                 {(isFinished || isLive) && match.result ? (
-                   <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl shadow-lg border border-white/5 ${getPointsStyle(userScoring.points)}`}>
-                      <Trophy size={16} className={userScoring.points >= POINTS_EXACT ? "fill-brand-dark/30" : ""} />
+                   <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl border border-white/5 ${getPointsStyle(userScoring.category)}`}>
+                      <Trophy size={16} className={userScoring.category === "exact" ? "fill-brand-dark/30" : ""} />
                       <div className="flex flex-col">
                          <span className="text-lg font-black leading-none">{userScoring.points} <span className="text-[10px]">PTS</span></span>
-                         {userScoring.points >= POINTS_EXACT && (
+                         {userScoring.category === "exact" && (
                             <span className="text-[8px] font-black uppercase tracking-tighter opacity-70">Placar Exato!</span>
                          )}
-                         {userScoring.bonus > 0 && userScoring.points < POINTS_EXACT && (
+                         {userScoring.aloneBonus && (
+                            <span className="text-[8px] font-black uppercase tracking-tighter text-amber-300 flex items-center gap-0.5">
+                               ✨ +5 Placar Isolado
+                            </span>
+                         )}
+                         {userScoring.bonus > 0 && userScoring.category !== "exact" && (
                             <span className="text-[8px] font-black uppercase tracking-tighter text-yellow-300 flex items-center gap-0.5">
                                <Zap size={8} fill="currentColor" /> BÔNUS ZEBRA +{userScoring.bonus}
                             </span>
                          )}
-                         {userScoring.bonus > 0 && userScoring.points >= POINTS_EXACT && (
+                         {userScoring.bonus > 0 && userScoring.category === "exact" && (
                             <span className="text-[8px] font-black uppercase tracking-tighter flex items-center gap-0.5 opacity-70">
                                <Zap size={8} fill="currentColor" /> +{userScoring.bonus} zebra
                             </span>

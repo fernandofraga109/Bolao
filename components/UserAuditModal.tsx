@@ -1,10 +1,13 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { X, Star, CheckCircle2, XCircle, Minus, ChevronDown, ChevronUp } from "lucide-react";
+import { X, Star, CheckCircle2, XCircle, Minus, ChevronDown, ChevronUp, Info } from "lucide-react";
+import ScoringGuide from "./ui/ScoringGuide";
 import { User, Match, MatchStatus, TournamentPredictions, Group, PredictionDB } from "../types";
 import { useDatabase } from "../contexts/DatabaseContext";
 import {
   calculatePoints,
   calculatePointsRegulamento2,
+  getScoreCategoryRegulamento1,
+  getScoreCategoryRegulamento2,
   getMatchPhase,
   POINTS_CHAMPION,
   POINTS_TOP_SCORER_NAME,
@@ -58,6 +61,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
 }) => {
   const [auditTab, setAuditTab] = useState<AuditTab>("jogos");
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
+  const [showScoringGuide, setShowScoringGuide] = useState(false);
   const db = useDatabase();
 
   // Refetch fresh data when modal opens to avoid stale results
@@ -215,23 +219,42 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
         pointsSource = "db";
       }
 
-      // For R1: compare against regularTime only; for display use the same base
-      const auditScore = ruleset === "regulamento_1"
-        ? getR1MatchScoringResult((match as any).score, match.result!.home, match.result!.away)
-        : { home: match.result!.home, away: match.result!.away };
-      const realHome = auditScore.home;
-      const realAway = auditScore.away;
-      const isExact = pred.home === realHome && pred.away === realAway;
-      const realOutcome =
-        realHome > realAway ? "home" : realHome < realAway ? "away" : "draw";
-      const predOutcome =
-        pred.home > pred.away
-          ? "home"
-          : pred.home < pred.away
-          ? "away"
-          : "draw";
-      const isOutcomeCorrect = predOutcome === realOutcome;
-      const isDiffCorrect = pred.home - pred.away === realHome - realAway;
+      // Derive display category from the same scoring functions used for pts,
+      // so label/color always matches the calculated points.
+      let isExact = false;
+      let isDiffCorrect = false;
+      let isOutcomeCorrect = false;
+
+      if (ruleset === "regulamento_2") {
+        const phase = getMatchPhase(match.stage, match.group);
+        const matchPredsForCat = Object.entries(groupUserPredictions)
+          .filter(([, preds]) => !!preds[matchId])
+          .map(([uid, preds]) => ({ userId: uid, homeScore: preds[matchId].home, awayScore: preds[matchId].away }));
+        const r2Cat = getScoreCategoryRegulamento2(
+          pred.home, pred.away,
+          match.result!.home, match.result!.away,
+          phase, matchPredsForCat, user.id
+        );
+        isExact = r2Cat.type === "exact";
+        isDiffCorrect = r2Cat.type === "diff";
+        isOutcomeCorrect = r2Cat.type !== "wrong";
+      } else {
+        const auditScore = getR1MatchScoringResult((match as any).score, match.result!.home, match.result!.away);
+        const isShootoutForCat = (match as any).score?.duration === "PENALTY_SHOOTOUT";
+        const realWhoClassifiesIdForCat = isShootoutForCat
+          ? ((match as any).score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
+          : undefined;
+        const r1Cat = getScoreCategoryRegulamento1(
+          pred.home, pred.away,
+          auditScore.home, auditScore.away,
+          match.homeTeam.ranking, match.awayTeam.ranking,
+          minRankDiff,
+          pred.whoClassifiesTeamId, realWhoClassifiesIdForCat
+        );
+        isExact = r1Cat.type === "exact";
+        isDiffCorrect = r1Cat.type === "diff";
+        isOutcomeCorrect = r1Cat.type !== "wrong";
+      }
 
       let resultLabel = "";
       if (pts === 0) resultLabel = "Errou";
@@ -602,6 +625,13 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
               <p className="text-[10px] text-slate-500">total</p>
             </div>
             <button
+              onClick={() => setShowScoringGuide(true)}
+              className="p-2 rounded-full hover:bg-slate-700 text-slate-500 hover:text-slate-300 transition-colors"
+              title="Guia de pontuação"
+            >
+              <Info size={15} />
+            </button>
+            <button
               onClick={onClose}
               className="p-2 rounded-full hover:bg-slate-700 text-slate-400 transition-colors"
             >
@@ -819,6 +849,12 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
           </div>
         </div>
       </div>
+      {showScoringGuide && (
+        <ScoringGuide
+          ruleset={ruleset as "regulamento_1" | "regulamento_2"}
+          onClose={() => setShowScoringGuide(false)}
+        />
+      )}
     </div>
   );
 };
