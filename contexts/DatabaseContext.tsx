@@ -270,6 +270,40 @@ const mergeUserGroupIntoList = (
 const predictionIdentityKey = (pred: PredictionDB): string =>
   `${pred.userId}:${pred.groupId || ""}:${pred.matchId}`;
 
+// Função de paginação para buscar todos os registros (Supabase limita a 1000 por query)
+const fetchAllRecords = async <T,>(
+  tableName: string,
+): Promise<T[]> => {
+  const PAGE_SIZE = 1000;
+  let allRecords: T[] = [];
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const to = from + PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from(tableName)
+      .select("*")
+      .range(from, to);
+
+    if (error) {
+      console.error(`❌ [${tableName}] erro na paginação:`, error);
+      throw error;
+    }
+
+    if (data && data.length > 0) {
+      allRecords = [...allRecords, ...data];
+      from += PAGE_SIZE;
+      hasMore = data.length === PAGE_SIZE;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  console.log(`✅ [${tableName}] carregada via paginação, total de registros:`, allRecords.length);
+  return allRecords;
+};
+
 export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
@@ -393,12 +427,12 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         groupsRes,
         userGroupsRes,
         matchesRes,
-        predsRes,
-        tournPredsRes,
+        predsData,
+        tournPredsData,
         configRes,
         competitionsRes,
         teamStandingsRes,
-        extraPhasePredsRes,
+        extraPhasePredsData,
       ] = await Promise.all([
         isAuthenticated
           ? supabase.from("user_roles").select("*")
@@ -413,18 +447,23 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
           : Promise.resolve({ data: null, error: null } as any),
         supabase.from("matches").select("*"),
         isAuthenticated
-          ? supabase.from("predictions").select("*")
-          : Promise.resolve({ data: null, error: null } as any),
+          ? fetchAllRecords<PredictionDB>("predictions")
+          : Promise.resolve(null),
         isAuthenticated
-          ? supabase.from("tournament_predictions").select("*")
-          : Promise.resolve({ data: null, error: null } as any),
+          ? fetchAllRecords<TournamentPredictionDB>("tournament_predictions")
+          : Promise.resolve(null),
         supabase.from("system_config").select("*").single(),
         supabase.from("competitions").select("*"),
         supabase.from("team_standings").select("*"),
         isAuthenticated
-          ? supabase.from("extra_phase_predictions").select("*")
-          : Promise.resolve({ data: null, error: null } as any),
+          ? fetchAllRecords<ExtraPhasePredictionDB>("extra_phase_predictions")
+          : Promise.resolve(null),
       ]);
+
+      // Converter dados de paginação para o formato esperado
+      const predsRes = { data: predsData, error: null };
+      const tournPredsRes = { data: tournPredsData, error: null };
+      const extraPhasePredsRes = { data: extraPhasePredsData, error: null };
       
       console.log("🔍 [Supabase Debug] Status das Tabelas no schema", SUPABASE_SCHEMA);
       if (rolesRes.error) console.error("❌ [user_roles] erro:", rolesRes.error);
@@ -1538,8 +1577,8 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     if (!isSupabaseEnabled() || !supabase) return;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return;
-    const { data } = await supabase.from("predictions").select("*");
-    if (data) setPredictions(data as PredictionDB[]);
+    const data = await fetchAllRecords<PredictionDB>("predictions");
+    if (data) setPredictions(data);
   }, []);
 
   const refetchUserGroups = useCallback(async () => {
