@@ -177,13 +177,17 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
         if (!tp.mostGoalsTeamId) labels.push("Maior Goleadora");
         if (!tp.mostConcededTeamId) labels.push("Maior Sofredora");
 
-        // Group classifications (pré-Copa)
+        // Group classifications (pré-Copa) - 12 grupos, cada um com 2 seleções (total 24 seleções)
         const gc = tp.groupClassifications || {};
-        const groupNames = Object.keys(gc).filter((k) => !["Oitavas", "Quartas", "Semis"].includes(k));
-        groupNames.forEach((g) => {
+        const expectedGroups = ["Grupo A", "Grupo B", "Grupo C", "Grupo D", "Grupo E", "Grupo F", "Grupo G", "Grupo H", "Grupo I", "Grupo J", "Grupo K", "Grupo L"];
+        const totalSelections = expectedGroups.reduce((count, g) => {
           const arr = gc[g];
-          if (!arr || arr.length < 2 || !arr[0] || !arr[1]) labels.push(`Classificação ${g}`);
-        });
+          if (!arr) return count;
+          return count + (arr[0] ? 1 : 0) + (arr[1] ? 1 : 0);
+        }, 0);
+        if (totalSelections < 24) {
+          labels.push(`Classificados por Grupos (${totalSelections}/24)`);
+        }
 
         // Knockout classifications — só na janela de 5 dias
         const oitavasStart = getPhaseStartMs(matches, "oitavas");
