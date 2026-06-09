@@ -301,7 +301,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       </div>
 
       <div className="p-4 sm:p-6">
-        <div className="flex items-center justify-between gap-2 sm:gap-4 mb-6">
+        <div className="flex items-center justify-between gap-2 sm:gap-4 mb-4">
           {/* Home Team */}
           <div className="flex-1 flex flex-col items-center gap-3">
             <div className="relative group/flag w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center bg-slate-900/50 rounded-2xl border border-slate-700 overflow-hidden transition-all group-hover/flag:border-slate-500 group-hover/flag:shadow-lg group-hover/flag:shadow-brand-green/10">
@@ -324,8 +324,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           {/* Inputs/Results Container */}
           <div className="flex flex-col items-center gap-4">
             {(isFinished || isLive) && !isAdmin ? (
-              <div className="flex flex-col items-center gap-3 animate-fadeIn">
-                {/* Placar atual (live) ou resultado final */}
+              <div className="flex flex-col items-center gap-2 animate-fadeIn">
+                {/* Score — regular time (or live) */}
                 <div className="flex flex-col items-center">
                   <div className="flex items-center gap-3">
                     <span className={`text-4xl font-black tracking-tighter ${isLive ? "text-brand-red" : "text-white"}`}>
@@ -345,40 +345,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   </span>
                 </div>
 
-                {/* Prorrogação — R1 only, shows full score after extra time */}
-                {!isAdmin && ruleset === "regulamento_1" && (match.score?.duration === "EXTRA_TIME" || match.score?.duration === "PENALTY_SHOOTOUT") && match.result && (
-                  <div className="flex flex-col items-center mt-2 px-3 py-2 rounded-xl bg-slate-700/40 border border-slate-600/50">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Após Prorrogação</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-black text-white">{match.result.home}</span>
-                      <span className="text-xs font-bold text-slate-500">×</span>
-                      <span className="text-sm font-black text-white">{match.result.away}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Detalhes de Pênaltis (apenas usuários normais) */}
-                {!isAdmin && (match.penaltiesHome != null || match.penaltiesAway != null) && (
-                  <div className="flex flex-col items-center mt-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30">
-                    <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest mb-1">Disputa de Pênaltis</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-black text-white">
-                        {match.penaltiesHome ?? 0}
-                      </span>
-                      <span className="text-xs font-bold text-slate-500">×</span>
-                      <span className="text-sm font-black text-white">
-                        {match.penaltiesAway ?? 0}
-                      </span>
-                    </div>
-                    {match.score?.winner && (
-                      <span className="text-[9px] font-bold text-amber-300 mt-1">
-                        Vencedor: {match.score.winner === "HOME_TEAM" ? match.homeTeam.name : match.awayTeam.name}
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Palpite do Usuário */}
+                {/* User prediction */}
                 <div className="flex flex-col items-center mt-1">
                   <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/50 border border-slate-700/50">
                     <span className="text-xl font-black text-brand-green tracking-tighter">
@@ -390,7 +357,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     </span>
                   </div>
                   <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">Seu Palpite</span>
-                  {/* Who classifies selected by user (Reg.1, knockout) */}
                   {userPrediction?.whoClassifiesTeamId && (() => {
                     const classifiesTeam = userPrediction.whoClassifiesTeamId === match.homeTeam.id ? match.homeTeam : match.awayTeam;
                     return (
@@ -514,6 +480,43 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             ) : null}
           </div>
         </div>
+
+        {/* Extra Time + Penalties row — shown below teams for finished R1 knockout matches */}
+        {!isAdmin && (isFinished || isLive) && ruleset === "regulamento_1" && (
+          (match.score?.duration === "EXTRA_TIME" || match.score?.duration === "PENALTY_SHOOTOUT") ||
+          (match.penaltiesHome != null || match.penaltiesAway != null)
+        ) && (
+          <div className="flex gap-3 mb-4 animate-fadeIn">
+            {/* Extra Time block */}
+            {(match.score?.duration === "EXTRA_TIME" || match.score?.duration === "PENALTY_SHOOTOUT") && match.result && (
+              <div className="flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-2xl bg-slate-700/30 border border-slate-600/40">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Após Prorrogação</span>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-lg font-black text-white">{match.result.home}</span>
+                  <span className="text-sm font-bold text-slate-500">×</span>
+                  <span className="text-lg font-black text-white">{match.result.away}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Penalties block */}
+            {(match.penaltiesHome != null || match.penaltiesAway != null) && (
+              <div className="flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/30">
+                <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest">Disputa de Pênaltis</span>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-lg font-black text-white">{match.penaltiesHome ?? 0}</span>
+                  <span className="text-sm font-bold text-slate-500">×</span>
+                  <span className="text-lg font-black text-white">{match.penaltiesAway ?? 0}</span>
+                </div>
+                {match.score?.winner && (
+                  <span className="text-[9px] font-bold text-amber-300 text-center leading-tight">
+                    Vencedor: {match.score.winner === "HOME_TEAM" ? match.homeTeam.name : match.awayTeam.name}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Footer Actions */}
         {predictionError && (

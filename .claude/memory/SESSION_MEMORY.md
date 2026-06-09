@@ -18,10 +18,20 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 
 | Priority | Item | Plan | Status |
 |----------|------|------|--------|
-| **Verify** | Players & Top Scorers — Phase 5 | `.claude/plans/players-and-top-scorers.md` | Phase 5 IMPLEMENTED (uncommitted) — Artilharia tab + `getTopScorers`; awaiting user verification. Phases 1–4 in `122f6ed`; combobox fix & specials/ extraction still uncommitted. |
 | Deferred | Specials components refactor | `.claude/plans/specials-components-refactor.md` | DEFERRED ("soon") — safety net DONE (chars. tests 67→109 green). Refactor not started. Phase A (specials/ folder) recommended first; Phase B (AdminDashboard split) only smoke-tested = highest residual risk. |
 | Deferred | Large file refactor (5 phases) | `.claude/plans/large-file-refactors.md` | Planned, not started — branch `chore/structural-refactor` |
 | Ongoing | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Open |
+
+---
+
+## Completed — Players & Top Scorers / Artilharia Tab (2026-06-08)
+
+- **`v2_players` + `v2_tournament_players` tables** (migrations 0020–0022): UUID PKs, FK from `tournament_predictions`
+- **`usePlayerSync`**: `syncSquads`, `syncScorers`, `getTopScorers`, `fetchAllRows` pager (fixes Supabase 1000-row cap on 1248-player WC squads), `getPlayersByIds` gap-filler
+- **`PlayerCombobox`**: debounced autocomplete with `isEditing` focus model, goalkeeper filter, out-of-order guard
+- **`components/topscores/`**: `TopScoresPage` + `ScorerRow` (domain-colocation); "Artilharia" tab in BottomNav for all roles
+- **Scorer sync wired into main pipeline** (FASE 1.6 in `useSyncSystem`) — zero new API calls per sync run
+- **`specials/` extraction**: `PlayerCombobox`, `OtherUsersPredictions`, `TournamentPredictionsCard` moved to `components/specials/`
 
 ---
 
@@ -119,7 +129,7 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 
 Await user verification of the Artilharia tab (now auto-populated by normal sync). On confirmation: move plan to `completed/`, invoke `changelog-updater`. Then optionally specials refactor Phase A (`.claude/plans/specials-components-refactor.md`).
 
-R1 scoring fixes are documented and complete. `changelog-updater` still needs to be invoked to bump version for R1 fix.
+Commit all uncommitted Players/Artilharia work (combobox fix, specials/ extraction, scorer sync, TopScoresPage). Then optionally specials refactor Phase A (`.claude/plans/specials-components-refactor.md`).
 
 ## Completed — Players & Top Scorer Phases 1–4 (2026-06-06, commit `122f6ed`)
 

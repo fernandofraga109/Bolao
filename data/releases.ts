@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.25.0";
+export const CURRENT_VERSION = "1.26.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,17 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.26.0",
+    date: "2026-06-08",
+    changes: [
+      "Nova aba 'Artilharia' no menu inferior com artilheiros ordenados por gols e assistências",
+      "Artilheiros sincronizados automaticamente a cada sync — sem chamadas extras à API",
+      "Autocomplete de jogadores nos Palpites Especiais: busca por nome com dropdown e foto do escudo",
+      "Palpites de artilheiro, melhor jogador e melhor goleiro agora identificam o jogador com precisão",
+      "Catálogo completo dos elencos da Copa disponível para previsões e estatísticas",
+    ],
+  },
   {
     version: "1.25.0",
     date: "2026-06-08",
