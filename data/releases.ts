@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.27.0";
+export const CURRENT_VERSION = "1.28.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,19 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.28.0",
+    date: "2026-06-09",
+    changes: [
+      "Placar de mata-mata exibe Tempo Regular, Prorrogação e Pênaltis em seções separadas",
+      "Pontuação do bônus 'Quem se classifica' agora concedida corretamente para vitórias na prorrogação",
+      "Edição inline de placar (tempo regular, prorrogação e pênaltis) diretamente no card de partida admin",
+      "Auditoria de palpites mostra sub-linhas detalhadas por fase do jogo (tempo regular, prorrogação, pênaltis)",
+      "Estatísticas exibem sub-linhas 'Regular', 'Prorrog.' e 'Pên.' nos cards de previsão",
+      "Chaveamento do torneio exibe placar regular como principal, com delta de prorrogação e placar agregado",
+      "Colunas de placar em banco de dados separadas por fase do jogo para precisão no cálculo de pontos",
+    ],
+  },
   {
     version: "1.27.0",
     date: "2026-06-09",
