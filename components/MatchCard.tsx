@@ -135,7 +135,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
   // --- CENTRALIZED SCORING HELPER ---
   const getScoringDetails = (home: number, away: number, predWhoClassifiesId?: string) => {
-    if (!match.result) return { points: 0, bonus: 0, category: 'wrong' as const };
+    if (!match.result) return { points: 0, bonus: 0, category: 'wrong' as const, classifiesBonus: 0 };
 
     if (ruleset === "regulamento_2") {
       const matchPredictions = friends
@@ -155,11 +155,10 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       }
 
       const phase = getMatchPhase(match.stage, match.group);
-      const realWhoClassifiesId = getKnockoutAdvancingTeamId(match);
-      const points = calculatePointsRegulamento2(home, away, match.result.home, match.result.away, phase, matchPredictions, currentUserId || "", predWhoClassifiesId, realWhoClassifiesId);
-      const cat = getScoreCategoryRegulamento2(home, away, match.result.home, match.result.away, phase, matchPredictions, currentUserId || "", predWhoClassifiesId, realWhoClassifiesId);
+      const points = calculatePointsRegulamento2(home, away, match.result.home, match.result.away, phase, matchPredictions, currentUserId || "");
+      const cat = getScoreCategoryRegulamento2(home, away, match.result.home, match.result.away, phase, matchPredictions, currentUserId || "");
 
-      return { points, bonus: 0, category: cat.type, aloneBonus: cat.aloneBonus ?? false, classifiesBonus: cat.classifiesBonus };
+      return { points, bonus: 0, category: cat.type, aloneBonus: cat.aloneBonus ?? false, classifiesBonus: 0 };
     }
 
     const realWhoClassifiesId = getKnockoutAdvancingTeamId(match);
@@ -183,7 +182,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       bonus = calculateUnderdogBonus(winnerRank, loserRank, minRankDiff ?? 0);
     }
 
-    return { points, bonus, category: cat.type, aloneBonus: false };
+    return { points, bonus, category: cat.type, aloneBonus: false, classifiesBonus: cat.classifiesBonus };
   };
 
   // For R1 knockout matches that went to extra time/penalties, show regularTime score.

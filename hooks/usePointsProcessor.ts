@@ -150,8 +150,6 @@ export const usePointsProcessor = (dbRef: any) => {
             if (isRegulamento2) {
               const phase = getMatchPhase(match.stage, match.group);
               const matchPredictionsGroup = matchPredictionsMap.get(p.matchId) || [];
-              const realWhoClassifiesIdR2 = getKnockoutAdvancingTeamId(match);
-              const predWhoClassifiesIdR2 = (p as any).tieWinnerTeamId as string | undefined;
               pts = calculatePointsRegulamento2(
                 p.homeScore,
                 p.awayScore,
@@ -159,9 +157,7 @@ export const usePointsProcessor = (dbRef: any) => {
                 match.result?.away ?? 0,
                 phase,
                 matchPredictionsGroup,
-                p.userId,
-                predWhoClassifiesIdR2,
-                realWhoClassifiesIdR2
+                p.userId
               );
             } else {
               const realWhoClassifiesId = getKnockoutAdvancingTeamId(match);
@@ -422,9 +418,6 @@ export const usePointsProcessor = (dbRef: any) => {
                 homeScore: p.homeScore,
                 awayScore: p.awayScore,
               }));
-            const realWhoClassifiesIdR2b = getKnockoutAdvancingTeamId(match);
-            const predWhoClassifiesIdR2b = (pred as any).tieWinnerTeamId as string | undefined;
-
             pts = calculatePointsRegulamento2(
               pred.homeScore,
               pred.awayScore,
@@ -432,9 +425,7 @@ export const usePointsProcessor = (dbRef: any) => {
               match.result?.away || 0,
               phase,
               matchPredictionsGroup,
-              pred.userId,
-              predWhoClassifiesIdR2b,
-              realWhoClassifiesIdR2b
+              pred.userId
             );
           } else {
             const realWhoClassifiesId2 = getKnockoutAdvancingTeamId(match);
@@ -553,11 +544,6 @@ export const usePointsProcessor = (dbRef: any) => {
                   const predsForMatch = matchPredictionsGroup.filter(
                     (pg) => pg.matchId === p.matchId
                   );
-                  const realWhoClassifiesIdR2c = getKnockoutAdvancingTeamId({
-                    ...match,
-                    result: match.resultHome != null ? { home: match.resultHome, away: match.resultAway ?? 0 } : undefined,
-                  });
-                  const predWhoClassifiesIdR2c = (p as any).tieWinnerTeamId as string | undefined;
                   total += calculatePointsRegulamento2(
                     p.homeScore,
                     p.awayScore,
@@ -565,9 +551,7 @@ export const usePointsProcessor = (dbRef: any) => {
                     match.resultAway ?? 0,
                     phase,
                     predsForMatch,
-                    p.userId,
-                    predWhoClassifiesIdR2c,
-                    realWhoClassifiesIdR2c
+                    p.userId
                   );
                 } else {
                   const realWhoClassifiesId3 = getKnockoutAdvancingTeamId({

@@ -145,11 +145,11 @@ export const useUserSystem = () => {
           };
         });
 
-      // Join Tournament Predictions — scoped to the user's active group
+      // Join Tournament Predictions — scoped to the viewer's active group (same logic as match predictions)
       const tpDb = db.tournamentPredictions.find(
         (tp) =>
           tp.userId === user.id &&
-          tp.groupId === resolvedActiveGroupId,
+          tp.groupId === effectiveGroupId,
       );
       const resolvePlayerName = (uuid?: string) =>
         uuid ? db.players.find((p) => p.id === uuid)?.name : undefined;
