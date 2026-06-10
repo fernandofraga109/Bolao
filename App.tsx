@@ -442,11 +442,11 @@ const App: React.FC = () => {
     setIsGroupSwitcherOpen(false);
   };
 
-  const handleJoinGroup = (code: string) => {
+  const handleJoinGroup = async (code: string) => {
     const group = getGroupByCode(code);
     if (group) {
       if (currentUser.groupIds.includes(group.id)) {
-        switchGroup(currentUser.id, group.id);
+        await switchGroup(currentUser.id, group.id);
       } else {
         joinGroup(currentUser.id, group.id);
       }
@@ -455,6 +455,8 @@ const App: React.FC = () => {
           (group.competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase(),
         );
       }
+      // Forçar recarregamento dos palpites para o novo grupo
+      db.refetchPredictions();
       setGroupError(null);
       setIsGroupSwitcherOpen(false);
     } else {
@@ -586,8 +588,8 @@ const App: React.FC = () => {
         <GroupSwitcher
           myGroups={myGroupsList}
           activeGroupId={currentUser.activeGroupId}
-          onSwitch={(id) => {
-            switchGroup(currentUser.id, id);
+          onSwitch={async (id) => {
+            await switchGroup(currentUser.id, id);
             const nextGroup = getGroupById(id);
             if (canWriteCompetitionData) {
               void syncMatchesAndStandings(
@@ -596,6 +598,8 @@ const App: React.FC = () => {
                 ).toUpperCase(),
               );
             }
+            // Forçar recarregamento dos palpites para o novo grupo
+            db.refetchPredictions();
             setIsGroupSwitcherOpen(false);
           }}
           onCreate={handleCreateGroup}

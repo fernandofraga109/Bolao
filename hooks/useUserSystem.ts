@@ -66,16 +66,16 @@ export const useUserSystem = () => {
     const viewerGroups = db.userGroups
       .filter((ug) => ug.userId === currentUserId)
       .map((ug) => ug.groupId);
-    
+
     if (viewerGroups.length === 0) return undefined;
-    
+
     const fromStorage = localStorage.getItem(`bolao_active_group_${currentUserId}`);
-    return (fromStorage && viewerGroups.includes(fromStorage) ? fromStorage : undefined)
-      || (db.users.find((u) => u.id === currentUserId)?.activeGroupId &&
-          viewerGroups.includes(db.users.find((u) => u.id === currentUserId)!.activeGroupId!)
-            ? db.users.find((u) => u.id === currentUserId)!.activeGroupId!
-            : undefined)
+    const dbActive = db.users.find((u) => u.id === currentUserId)?.activeGroupId;
+    // Prioritize dbActive (updated via switchGroup) over fromStorage
+    const resolved = (dbActive && viewerGroups.includes(dbActive) ? dbActive : undefined)
+      || (fromStorage && viewerGroups.includes(fromStorage) ? fromStorage : undefined)
       || viewerGroups[0];
+    return resolved;
   }, [currentUserId, db.users, db.userGroups]);
 
   const hydratedUsers: User[] = useMemo(() => {
@@ -90,7 +90,11 @@ export const useUserSystem = () => {
         `bolao_active_group_${user.id}`,
       );
 
+      // For the current viewer, prioritize db value (updated via switchGroup) over localStorage
       const resolvedActiveGroupId =
+        (user.id === currentUserId && user.activeGroupId && myGroups.includes(user.activeGroupId)
+          ? user.activeGroupId
+          : undefined) ||
         (preferredActiveGroupId && myGroups.includes(preferredActiveGroupId)
           ? preferredActiveGroupId
           : undefined) ||
@@ -613,8 +617,8 @@ export const useUserSystem = () => {
     localStorage.setItem(`bolao_active_group_${userId}`, groupId);
   };
 
-  const switchGroup = (userId: string, groupId: string) => {
-    db.updateUser(userId, { activeGroupId: groupId });
+  const switchGroup = async (userId: string, groupId: string) => {
+    await db.updateUser(userId, { activeGroupId: groupId });
     localStorage.setItem(`bolao_active_group_${userId}`, groupId);
   };
 
