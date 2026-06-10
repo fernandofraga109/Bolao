@@ -161,6 +161,9 @@ export default defineConfig(({ mode }) => {
       environment: "happy-dom",
       setupFiles: ["src/test/setup.ts"],
       globals: true,
+      // Testes E2E (Playwright) vivem em `tests/` e usam outro runner.
+      // Excluí-los evita que o Vitest tente executá-los.
+      exclude: ["**/node_modules/**", "**/dist/**", "tests/**"],
     },
   };
 });
