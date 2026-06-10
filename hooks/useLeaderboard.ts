@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { User, Match, MatchStatus, TournamentPredictions, Group } from "../types";
-import { calculatePoints, calculateTournamentPoints, calculatePointsRegulamento2, getMatchPhase, calculateTournamentPointsRegulamento2, getScoreCategoryRegulamento1, getScoreCategoryRegulamento2, getR1MatchScoringResult } from "../utils/scoring";
+import { calculatePoints, calculateTournamentPoints, calculatePointsRegulamento2, getMatchPhase, calculateTournamentPointsRegulamento2, getScoreCategoryRegulamento1, getScoreCategoryRegulamento2, getR1MatchScoringResult, getKnockoutAdvancingTeamId } from "../utils/scoring";
 import { DEFAULT_COMPETITION_CODE } from "../data/competitions";
 
 interface UserGroupDB {
@@ -110,13 +110,10 @@ export const useLeaderboard = (
                 user.id
               );
             } else {
-              const isShootout = match.score?.duration === "PENALTY_SHOOTOUT";
-              const realWhoClassifiesId = isShootout
-                ? (match.score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
-                : undefined;
+              const realWhoClassifiesId = getKnockoutAdvancingTeamId(match);
               const predWhoClassifiesId = pred.whoClassifiesTeamId;
               const r1Result = getR1MatchScoringResult(
-                match.score,
+                match,
                 match.result.home,
                 match.result.away
               );

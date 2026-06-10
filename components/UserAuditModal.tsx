@@ -16,6 +16,8 @@ import {
   POINTS_BEST_GOALKEEPER,
   POINTS_CLASSIFIES_BONUS,
   getR1MatchScoringResult,
+  getKnockoutAdvancingTeamId,
+  getMatchDuration,
 } from "../utils/scoring";
 import { translateGroupName } from "../utils/translations";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
@@ -191,13 +193,10 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
           user.id
         );
       } else {
-        const isShootout = (match as any).score?.duration === "PENALTY_SHOOTOUT";
-        const realWhoClassifiesId = isShootout
-          ? ((match as any).score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
-          : undefined;
+        const realWhoClassifiesId = getKnockoutAdvancingTeamId(match);
         const predWhoClassifiesId = pred.whoClassifiesTeamId;
         const r1Result = getR1MatchScoringResult(
-          (match as any).score,
+          match,
           match.result!.home,
           match.result!.away
         );
@@ -239,11 +238,8 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
         isDiffCorrect = r2Cat.type === "diff";
         isOutcomeCorrect = r2Cat.type !== "wrong";
       } else {
-        const auditScore = getR1MatchScoringResult((match as any).score, match.result!.home, match.result!.away);
-        const isShootoutForCat = (match as any).score?.duration === "PENALTY_SHOOTOUT";
-        const realWhoClassifiesIdForCat = isShootoutForCat
-          ? ((match as any).score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
-          : undefined;
+        const auditScore = getR1MatchScoringResult(match, match.result!.home, match.result!.away);
+        const realWhoClassifiesIdForCat = getKnockoutAdvancingTeamId(match);
         const r1Cat = getScoreCategoryRegulamento1(
           pred.home, pred.away,
           auditScore.home, auditScore.away,
@@ -262,11 +258,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
       else if (isOutcomeCorrect && isDiffCorrect) resultLabel = "Diferença certa";
       else if (isOutcomeCorrect) resultLabel = "Resultado certo";
 
-      // Calculate classifiesBonus for display (Reg. 1 only)
-      const isShootout = (match as any).score?.duration === "PENALTY_SHOOTOUT";
-      const realWhoClassifiesIdDisplay = isShootout
-        ? ((match as any).score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
-        : undefined;
+      const realWhoClassifiesIdDisplay = getKnockoutAdvancingTeamId(match);
       const classifiesBonus =
         ruleset === "regulamento_1" &&
         pred.home === pred.away &&
@@ -752,6 +744,34 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
                             </p>
                           </div>
                         </div>
+                        {getMatchDuration(row.match) !== "REGULAR" && (
+                          <div className="mt-2 space-y-1 px-1">
+                            {row.match.regularHome != null && (
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span className="text-slate-500">Tempo Regular (R1)</span>
+                                <span className="text-slate-400 font-bold tabular-nums">
+                                  {row.match.regularHome} – {row.match.regularAway}
+                                </span>
+                              </div>
+                            )}
+                            {row.match.extraTimeHome != null && (
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span className="text-slate-500">Após Prorrogação</span>
+                                <span className="text-slate-400 font-bold tabular-nums">
+                                  {row.match.result!.home} – {row.match.result!.away}
+                                </span>
+                              </div>
+                            )}
+                            {row.match.penaltiesHome != null && (
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span className="text-slate-500">Pênaltis</span>
+                                <span className="text-slate-400 font-bold tabular-nums">
+                                  {row.match.penaltiesHome} – {row.match.penaltiesAway}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                         <div className="mt-2 flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] text-slate-500">{row.resultLabel}</span>

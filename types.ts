@@ -95,8 +95,12 @@ export interface MatchDB {
   lastSyncAt?: string;
   syncLocked?: boolean;
   score?: any; // Payload completo do score da API (duration, regularTime, extraTime, penalties, etc.)
-  penaltiesHome?: number; // Placar de pênaltis (apenas quando duration = PENALTY_SHOOTOUT)
-  penaltiesAway?: number; // Placar de pênaltis (apenas quando duration = PENALTY_SHOOTOUT)
+  penaltiesHome?: number;
+  penaltiesAway?: number;
+  regularHome?: number;
+  regularAway?: number;
+  extraTimeHome?: number;
+  extraTimeAway?: number;
 }
 
 export interface PredictionDB {
@@ -291,8 +295,12 @@ export interface Match {
   lastSyncAt?: string;
   syncLocked?: boolean;
   score?: any; // Payload completo do score da API (duration, regularTime, extraTime, penalties, etc.)
-  penaltiesHome?: number; // Placar de pênaltis (apenas quando duration = PENALTY_SHOOTOUT)
-  penaltiesAway?: number; // Placar de pênaltis (apenas quando duration = PENALTY_SHOOTOUT)
+  penaltiesHome?: number;
+  penaltiesAway?: number;
+  regularHome?: number;
+  regularAway?: number;
+  extraTimeHome?: number;
+  extraTimeAway?: number;
 }
 
 export type Group = GroupDB;

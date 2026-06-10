@@ -112,7 +112,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [mostGoalsTeamId, setMostGoalsTeamId] = useState<string>("");
   const [mostConcededTeamId, setMostConcededTeamId] = useState<string>("");
   const [isSavingAwards, setIsSavingAwards] = useState(false);
-
   const activeCompetitions = React.useMemo(() => {
     const codes = Array.from(
       new Set(
@@ -1331,7 +1330,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* SPECIALS OVERRIDES PANEL (Classificados, Maior Diferença de Gols) */}
       <AdminSpecialsOverrides selectedCompetitionCode={selectedCompetitionCode} />
-
 
       {/* ZEBRA BONUS CONFIG */}
       <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">

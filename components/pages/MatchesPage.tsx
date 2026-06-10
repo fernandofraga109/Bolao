@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Match, MatchStatus, User, GroupDB } from "../../types";
 import { MatchCard } from "../MatchCard.tsx";
+import AdminMatchCard from "../AdminMatchCard";
 import { getMatchPhase } from "../../utils/scoring";
 import { translateGroupName } from "../../utils/translations";
 import RulesSection from "../RulesSection";
@@ -79,32 +80,38 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
 
       {isOpen && (
         <div className="mt-3 space-y-6 animate-fadeIn">
-          {matches.map((match) => (
-            <MatchCard
-              key={match.id}
-              match={match}
-              userPrediction={
-                userPredictions[match.id]
-                  ? {
-                    matchId: match.id,
-                    homeScore: userPredictions[match.id].home,
-                    awayScore: userPredictions[match.id].away,
-                    whoClassifiesTeamId: userPredictions[match.id].whoClassifiesTeamId,
-                  }
-                  : undefined
-              }
-              friends={leaderboardData}
-              currentUserId={currentUserId}
-              onPredict={onPredict}
-              isAdmin={isAdmin}
-              onAdminSaveMatch={onAdminSaveMatch}
-              onAdminToggleSyncLock={onAdminToggleSyncLock}
-              minRankDiff={minRankDiff}
-              ruleset={ruleset}
-              eligibleGroups={eligibleGroups}
-              phaseLockSet={phaseLockSet}
-            />
-          ))}
+          {matches.map((match) =>
+            isAdmin ? (
+              <AdminMatchCard
+                key={match.id}
+                match={match}
+                onAdminSaveMatch={onAdminSaveMatch}
+                onAdminToggleSyncLock={onAdminToggleSyncLock}
+              />
+            ) : (
+              <MatchCard
+                key={match.id}
+                match={match}
+                userPrediction={
+                  userPredictions[match.id]
+                    ? {
+                      matchId: match.id,
+                      homeScore: userPredictions[match.id].home,
+                      awayScore: userPredictions[match.id].away,
+                      whoClassifiesTeamId: userPredictions[match.id].whoClassifiesTeamId,
+                    }
+                    : undefined
+                }
+                friends={leaderboardData}
+                currentUserId={currentUserId}
+                onPredict={onPredict}
+                minRankDiff={minRankDiff}
+                ruleset={ruleset}
+                eligibleGroups={eligibleGroups}
+                phaseLockSet={phaseLockSet}
+              />
+            )
+          )}
         </div>
       )}
     </div>

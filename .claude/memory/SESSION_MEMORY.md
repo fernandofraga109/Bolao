@@ -18,9 +18,45 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 
 | Priority | Item | Plan | Status |
 |----------|------|------|--------|
-| Deferred | Specials components refactor | `.claude/plans/specials-components-refactor.md` | DEFERRED ("soon") — safety net DONE (chars. tests 67→109 green). Refactor not started. Phase A (specials/ folder) recommended first; Phase B (AdminDashboard split) only smoke-tested = highest residual risk. |
+| Completed | Knockout score flat columns + full display | `.claude/plans/completed/knockout-score-columns.md` | DONE 2026-06-09 |
+| Deferred | Specials components refactor | `.claude/plans/specials-components-refactor.md` | DEFERRED ("soon") — safety net DONE (chars. tests 67→109 green). Refactor not started. |
 | Deferred | Large file refactor (5 phases) | `.claude/plans/large-file-refactors.md` | Planned, not started — branch `chore/structural-refactor` |
 | Ongoing | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Open |
+
+---
+
+## In Progress — Knockout Score Flat Columns (2026-06-09)
+
+Branch: `feat/knockout-score-flat-columns` | Plan: `.claude/plans/knockout-score-columns.md`
+
+### What was done this session
+
+- **Phase 1 ✅** — Migration `0027_add_regular_extratime_cols.sql`: adds `regularHome`, `regularAway`, `extraTimeHome`, `extraTimeAway` (integer, nullable) to `v2_matches`. Includes SQL backfill from existing `score` JSONB. **Migration already applied to Supabase dev.**
+- **Phase 2 ✅** — `hooks/useSyncSystem.ts`: `extractMatchResult` now returns all four flat cols. Both upsert paths (existing match + new match) write them. `hasChanged` guard forces re-sync if knockout match has null flat cols.
+- **Phase 4 ✅** — `MatchCard.tsx`: all `match.score?.…` reads replaced with `getMatchDuration` / `getKnockoutAdvancingTeamId` / `getR1MatchScoringResult(match, …)`. Admin props (`isAdmin`, `onAdminSaveMatch`, `onAdminToggleSyncLock`) fully removed from MatchCard.
+- **Phase 5 ✅** — New `AdminMatchCard.tsx`: dedicated admin card used in MatchesPage when isAdmin. Shows regularTime + ET + penalties inputs inline for LIVE/FINISHED knockout matches. Auto-derives `resultHome = regularHome + extraTimeHome` (5.a baked in). Deleted `AdminKnockoutScoreModal.tsx`, removed "Placar Mata-Mata" panel from AdminDashboard.
+- **Phase 6 ✅** — `UserAuditModal.tsx`: expanded match row now shows sub-lines "Tempo Regular (R1)", "Após Prorrogação", "Pênaltis" when `getMatchDuration !== 'REGULAR'`.
+- **Phase 7 ✅** — `StatsPage.tsx` `PredictionCard`: shows "Prorrog. X×Y" and "Pên. X×Y" sub-rows in the scores area for knockout matches.
+- **Phase 8 ✅** — `TournamentStandings.tsx`: knockout match score block now shows "Prorr." and "Pên. X×Y" badges below the main score when applicable.
+- **Phase 9 ✅** — Docs: `docs/features/scoring.md` updated — classifica bônus condition corrected (EXTRA_TIME + PENALTY_SHOOTOUT), display components table updated.
+- **Phase 3 ✅** — `types.ts`: `MatchDB` + `Match` gain four new optional fields. `utils/scoring.ts`: three changes:
+  - `getR1MatchScoringResult(match, fb_home, fb_away)` — new signature takes match object, reads flat cols first, JSONB fallback.
+  - `getMatchDuration(match)` — new helper, infers `REGULAR/EXTRA_TIME/PENALTY_SHOOTOUT` from flat cols.
+  - `getKnockoutAdvancingTeamId(match)` — new helper; covers **both** EXTRA_TIME (from `result`) and PENALTY_SHOOTOUT (from `penaltiesHome/Away`). Fixes the silent bug where +3 `whoClassifiesTeamId` bonus was never awarded for ET wins.
+  - All call-sites updated: `useLeaderboard`, `usePointsProcessor` (×3), `UserAuditModal`.
+
+### Completed — Knockout Score Flat Columns (2026-06-09)
+
+All 9 phases shipped on branch `feat/knockout-score-flat-columns`. Changelog bump pending (invoke `changelog-updater`).
+
+After Phase 6: Phase 7 (StatsPage), Phase 8 (TournamentStandings), Phase 9 (docs).
+
+### Key design decisions (do not revisit)
+
+- `score` JSONB column stays — audit trail, backward compat for rows not yet synced.
+- Duration inferred from null checks: `penaltiesHome != null` → PENALTY_SHOOTOUT, `extraTimeHome != null` → EXTRA_TIME.
+- `whoClassifiesTeamId` bonus applies to **both** EXTRA_TIME and PENALTY_SHOOTOUT (corrected from old PENALTY_SHOOTOUT-only logic).
+- Pre-existing TS errors in `DatabaseContext.tsx` (lines 479, 555) — pre-date this branch, ignore.
 
 ---
 

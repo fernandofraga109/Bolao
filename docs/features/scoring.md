@@ -75,7 +75,7 @@ Exemplos com Brasil 1×1 Argentina 90' → 2×1 após prorrogação → Argentin
 **Bônus "Quem se Classifica" (+3 pts):**
 Somente quando TODAS as condições:
 1. Palpite é empate (`predHome === predAway`)
-2. Jogo foi a pênaltis (`score.duration === "PENALTY_SHOOTOUT"`)
+2. Jogo foi à prorrogação ou pênaltis (`getMatchDuration(match) !== 'REGULAR'`)
 3. Usuário indicou o time correto que avançou (`predWhoClassifiesId === realWhoClassifiesId`)
 
 ### Bônus Underdog
@@ -237,9 +237,12 @@ Implementado em `getMatchPhase(stage, group)` — também aceita nomes de grupo 
 | `utils/scoring.ts` | Funções puras de cálculo (ambos regulamentos) |
 | `hooks/usePointsProcessor.ts` | Processa e persiste pontos no DB |
 | `hooks/useLeaderboard.ts` | Calcula totais para exibição no leaderboard |
-| `components/MatchCard.tsx` | Badge de pontos + cor + label "Placar Isolado" |
-| `components/UserAuditModal.tsx` | Exibe breakdown de pontos por partida |
+| `components/MatchCard.tsx` | Badge de pontos + cor + label "Placar Isolado" + bloco ET/pênaltis |
+| `components/UserAuditModal.tsx` | Breakdown de pontos por partida + sub-linhas ET/pênaltis no detalhe expandido |
+| `components/pages/StatsPage.tsx` | PredictionCard mostra sub-linhas "Prorrog." e "Pên." para jogos de mata-mata |
+| `components/TournamentStandings.tsx` | Linha de placar no bracket exibe badge "Prorr." e "Pên. X×Y" quando aplicável |
 | `components/ui/ScoringGuide.tsx` | Modal de guia visual (R1 e R2) + fonte de `SCORING_COLORS` |
+| `components/AdminMatchCard.tsx` | Card admin dedicado — edita result, regularTime, ET e pênaltis inline no Jogos |
 
 ### Funções Chave (`utils/scoring.ts`)
 
@@ -249,18 +252,64 @@ Implementado em `getMatchPhase(stage, group)` — também aceita nomes de grupo 
 | `calculatePoints` | Total de pontos R1 |
 | `getScoreCategoryRegulamento2` | Retorna tipo + aloneBonus para R2 |
 | `calculatePointsRegulamento2` | Total de pontos R2 (context-aware) |
-| `getR1MatchScoringResult` | Extrai regularTime para comparação R1 em mata-mata |
+| `getR1MatchScoringResult` | Extrai regularTime para comparação R1 em mata-mata (usa campos planos, fallback JSONB) |
+| `getMatchDuration` | Infere 'REGULAR' / 'EXTRA_TIME' / 'PENALTY_SHOOTOUT' dos campos planos |
+| `getKnockoutAdvancingTeamId` | Retorna teamId que avançou (ET ou pênaltis), undefined se REGULAR |
 | `getMatchPhase` | Mapeia stage/group → MatchPhase |
 | `calculateUnderdogBonus` | Bônus por ranking para R1 |
 
 ### `getR1MatchScoringResult`
 
-Retorna o placar de comparação correto para R1. Para jogos com `duration = EXTRA_TIME` ou `PENALTY_SHOOTOUT`, retorna `score.regularTime`; para os demais, retorna o `match.result` normal.
+Retorna o placar de comparação correto para R1. Para jogos mata-mata usa `regularHome/regularAway` (tempo regular apenas). Fallback para `score.regularTime` JSONB em partidas antigas sem os campos planos.
 
 ```ts
-getR1MatchScoringResult(match.score, fallbackHome, fallbackAway)
+getR1MatchScoringResult(match, fallbackHome, fallbackAway)
 // → { home, away } — sempre regularTime para mata-mata R1
 ```
+
+**Fonte de dados:** lê `match.regularHome / match.regularAway` (colunas planas, migration 0027). Fallback para `score.regularTime` JSONB para partidas antigas. Nunca passar `match.score` diretamente — passe o objeto `match` inteiro.
+
+### `getMatchDuration` / `getKnockoutAdvancingTeamId`
+
+Helpers em `utils/scoring.ts` para inferir duração e time classificado a partir dos campos planos (sem ler o JSONB `score`):
+
+```ts
+getMatchDuration(match) // → 'REGULAR' | 'EXTRA_TIME' | 'PENALTY_SHOOTOUT'
+getKnockoutAdvancingTeamId(match) // → teamId que avançou, ou undefined (REGULAR)
+```
+
+Regra de inferência de duração: `penaltiesHome != null` → PENALTY_SHOOTOUT; `extraTimeHome != null` → EXTRA_TIME; senão REGULAR. Fallback para `score.duration` para partidas sem os campos planos ainda populados.
+
+**`getKnockoutAdvancingTeamId` cobre EXTRA_TIME e PENALTY_SHOOTOUT:**
+- PENALTY_SHOOTOUT: `penaltiesHome > penaltiesAway` → HOME_TEAM
+- EXTRA_TIME: `result.home > result.away` → HOME_TEAM (placar cumulativo após a prorrogação)
+- REGULAR: `undefined` (partida decidida nos 90 min — bônus "classifica" não se aplica)
+
+**Regra do bônus `whoClassifiesTeamId` (R1):** concedido quando `duration IN ('EXTRA_TIME', 'PENALTY_SHOOTOUT')` e o palpite de avanço coincide com `getKnockoutAdvancingTeamId`. Anteriormente verificava apenas PENALTY_SHOOTOUT — gap corrigido.
+
+### Admin — `AdminMatchCard` (Jogos screen)
+
+Componente `components/AdminMatchCard.tsx` — card dedicado para a visão admin na tela Jogos. Substitui o `MatchCard` com `isAdmin=true`.
+
+**Seções sempre visíveis:**
+- Inputs de resultado (`resultHome` / `resultAway`) + seletor de status + "Salvar Edição" + toggle de sync lock
+
+**Seção de placar mata-mata** — visível quando `(isLive || isFinished) && isKnockout`:
+- `regularHome` / `regularAway` — tempo regular; fonte do R1 (obrigatório para knockout)
+- `extraTimeHome` / `extraTimeAway` — delta da prorrogação, não cumulativo (opcional, clearable)
+- `penaltiesHome` / `penaltiesAway` — pênaltis (opcional, clearable)
+- Preview "Resultado Final (R2): X × Y" — derivado automaticamente: `regularHome + extraTimeHome`
+
+**Derivação de `resultHome` (5.a baked-in):**
+```
+resultHome = regularHome + extraTimeHome   (com ET)
+resultHome = regularHome                   (sem ET)
+```
+Inputs de `resultHome/resultAway` no topo são auto-preenchidos pelo efeito de derivação. Admin pode sobrescrever manualmente se necessário.
+
+**Save:** `db.updateMatch` (flat cols + resultHome derivado) → `onAdminSaveMatch` (status + result → aciona finishMatch/updateLiveScore e recálculo de pontos) → `db.refetchMatches()`.
+
+**Rationale para LIVE:** se a API parar de enviar o breakdown de regularTime/extraTime durante uma partida mata-mata ao vivo, o admin pode preencher os campos manualmente em tempo real.
 
 ### DB Boundary — `whoClassifiesTeamId`
 

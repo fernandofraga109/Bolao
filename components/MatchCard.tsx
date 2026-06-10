@@ -14,6 +14,8 @@ import {
   getScoreCategoryRegulamento2,
   getMatchPhase,
   getR1MatchScoringResult,
+  getMatchDuration,
+  getKnockoutAdvancingTeamId,
   POINTS_EXACT,
   POINTS_GOAL_DIFF,
   POINTS_OUTCOME,
@@ -26,7 +28,6 @@ import {
   Pencil,
   Trophy,
   Lock,
-  LockKeyhole,
   Clock,
   Zap,
   EyeOff,
@@ -51,14 +52,6 @@ interface MatchCardProps {
     targetGroupIds?: string[],
     whoClassifiesTeamId?: string,
   ) => Promise<void> | void;
-  isAdmin?: boolean;
-  onAdminSaveMatch?: (
-    matchId: string,
-    status: "started" | "live" | "ended",
-    home: number,
-    away: number,
-  ) => void;
-  onAdminToggleSyncLock?: (matchId: string, locked: boolean) => void;
   minRankDiff?: number;
   ruleset?: "regulamento_1" | "regulamento_2";
   eligibleGroups?: GroupDB[];
@@ -71,9 +64,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   friends,
   currentUserId,
   onPredict,
-  isAdmin = false,
-  onAdminSaveMatch,
-  onAdminToggleSyncLock,
   minRankDiff,
   ruleset = "regulamento_1",
   eligibleGroups = [],
@@ -82,7 +72,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const [showFriends, setShowFriends] = useState(false);
   const [homeInput, setHomeInput] = useState<string>("");
   const [awayInput, setAwayInput] = useState<string>("");
-  const [adminStatus, setAdminStatus] = useState<"started" | "live" | "ended">("started");
   const [isSavingPrediction, setIsSavingPrediction] = useState(false);
   const [predictionError, setPredictionError] = useState<string | null>(null);
   const [hasSavedPrediction, setHasSavedPrediction] = useState(
@@ -95,29 +84,12 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
   // Initialize inputs
   useEffect(() => {
-    if (isAdmin) {
-      if (match.result) {
-        setHomeInput(match.result.home.toString());
-        setAwayInput(match.result.away.toString());
-      } else {
-        setHomeInput("");
-        setAwayInput("");
-      }
-      setAdminStatus(
-        match.status === MatchStatus.FINISHED
-          ? "ended"
-          : match.status === MatchStatus.LIVE
-          ? "live"
-          : "started",
-      );
-    } else {
-      if (userPrediction) {
-        setHomeInput(userPrediction.homeScore.toString());
-        setAwayInput(userPrediction.awayScore.toString());
-        setWhoClassifiesTeamId(userPrediction.whoClassifiesTeamId ?? null);
-      }
+    if (userPrediction) {
+      setHomeInput(userPrediction.homeScore.toString());
+      setAwayInput(userPrediction.awayScore.toString());
+      setWhoClassifiesTeamId(userPrediction.whoClassifiesTeamId ?? null);
     }
-  }, [userPrediction, match.result, isAdmin, match.id, match.status]);
+  }, [userPrediction, match.id]);
 
   const handlePredict = async () => {
     if (isSavingPrediction || isPredictionDisabled) return;
@@ -139,20 +111,12 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     }
   };
 
-  const handleAdminSave = () => {
-    if (!onAdminSaveMatch) return;
-    const h = homeInput === "" ? 0 : parseInt(homeInput);
-    const a = awayInput === "" ? 0 : parseInt(awayInput);
-    if (Number.isNaN(h) || Number.isNaN(a)) return;
-    onAdminSaveMatch(match.id, adminStatus, h, a);
-  };
-
   const matchDate = new Date(match.date);
   const isLocked = new Date() > matchDate || match.status !== MatchStatus.SCHEDULED;
   const isLive = match.status === MatchStatus.LIVE;
   const isFinished = match.status === MatchStatus.FINISHED;
   const isPhaseLocked = ruleset === "regulamento_2" && phaseLockSet?.has(getMatchPhase(match.stage, match.group));
-  const isPredictionDisabled = !isAdmin && (isFinished || isLive || isLocked || !!isPhaseLocked);
+  const isPredictionDisabled = isFinished || isLive || isLocked || !!isPhaseLocked;
   const isKnockoutMatch = ruleset === "regulamento_1" && getMatchPhase(match.stage, match.group) !== "groups";
   const homeInputNum = parseInt(homeInput);
   const awayInputNum = parseInt(awayInput);
@@ -197,12 +161,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       return { points, bonus: 0, category: cat.type, aloneBonus: cat.aloneBonus ?? false };
     }
 
-    const isShootout = match.score?.duration === "PENALTY_SHOOTOUT";
-    const realWhoClassifiesId = isShootout
-      ? (match.score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
-      : undefined;
+    const realWhoClassifiesId = getKnockoutAdvancingTeamId(match);
     const predWhoClassifiesId = userPrediction?.whoClassifiesTeamId;
-    const r1Result = getR1MatchScoringResult(match.score, match.result.home, match.result.away);
+    const r1Result = getR1MatchScoringResult(match, match.result.home, match.result.away);
 
     const points = calculatePoints(
       home, away, r1Result.home, r1Result.away,
@@ -230,10 +191,10 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const displayResult = useMemo(() => {
     if (!match.result) return null;
     if (ruleset === "regulamento_1") {
-      return getR1MatchScoringResult(match.score, match.result.home, match.result.away);
+      return getR1MatchScoringResult(match, match.result.home, match.result.away);
     }
     return { home: match.result.home, away: match.result.away };
-  }, [match.result, match.score, ruleset]);
+  }, [match.result, match.regularHome, match.regularAway, match.extraTimeHome, match.penaltiesHome, match.score, ruleset]);
 
   const userScoring = useMemo(() => {
     if ((isFinished || isLive) && match.result && userPrediction) {
@@ -313,7 +274,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
           {/* Inputs/Results Container */}
           <div className="flex flex-col items-center gap-4">
-            {(isFinished || isLive) && !isAdmin ? (
+            {(isFinished || isLive) ? (
               <div className="flex flex-col items-center gap-2 animate-fadeIn">
                 {/* Score — regular time (or live) */}
                 <div className="flex flex-col items-center">
@@ -329,7 +290,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">
                     {isLive
                       ? (match.minute ? `Minuto ${match.minute}'` : "Ao Vivo")
-                      : ruleset === "regulamento_1" && (match.score?.duration === "EXTRA_TIME" || match.score?.duration === "PENALTY_SHOOTOUT")
+                      : ruleset === "regulamento_1" && getMatchDuration(match) !== 'REGULAR'
                         ? "Tempo Regular"
                         : "Resultado"}
                   </span>
@@ -472,13 +433,13 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         </div>
 
         {/* Extra Time + Penalties row — shown below teams for finished R1 knockout matches */}
-        {!isAdmin && (isFinished || isLive) && ruleset === "regulamento_1" && (
-          (match.score?.duration === "EXTRA_TIME" || match.score?.duration === "PENALTY_SHOOTOUT") ||
+        {(isFinished || isLive) && ruleset === "regulamento_1" && (
+          getMatchDuration(match) !== 'REGULAR' ||
           (match.penaltiesHome != null || match.penaltiesAway != null)
         ) && (
           <div className="flex gap-3 mb-4 animate-fadeIn">
             {/* Extra Time block */}
-            {(match.score?.duration === "EXTRA_TIME" || match.score?.duration === "PENALTY_SHOOTOUT") && match.result && (
+            {getMatchDuration(match) !== 'REGULAR' && match.result && (
               <div className="flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-2xl bg-slate-700/30 border border-slate-600/40">
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Após Prorrogação</span>
                 <div className="flex items-center gap-2 mt-0.5">
@@ -498,11 +459,16 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   <span className="text-sm font-bold text-slate-500">×</span>
                   <span className="text-lg font-black text-white">{match.penaltiesAway ?? 0}</span>
                 </div>
-                {match.score?.winner && (
-                  <span className="text-[9px] font-bold text-amber-300 text-center leading-tight">
-                    Vencedor: {match.score.winner === "HOME_TEAM" ? match.homeTeam.name : match.awayTeam.name}
-                  </span>
-                )}
+                {(() => {
+                  const winnerId = getKnockoutAdvancingTeamId(match);
+                  if (!winnerId) return null;
+                  const winnerName = winnerId === match.homeTeam?.id ? match.homeTeam.name : match.awayTeam.name;
+                  return (
+                    <span className="text-[9px] font-bold text-amber-300 text-center leading-tight">
+                      Vencedor: {winnerName}
+                    </span>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -515,7 +481,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           </div>
         )}
 
-        <div className={`flex mt-4 ${isAdmin ? "flex-col gap-3" : "items-center justify-between"}`}>
+        <div className="flex mt-4 items-center justify-between">
           {/* Row 1: icon buttons + (non-admin) action */}
           <div className="flex items-center justify-between">
             <div className="flex gap-2">
@@ -545,7 +511,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               )}
             </div>
 
-            {!isAdmin && (
+            {(
               <div className="flex-1 flex justify-end pl-4">
                 {(isFinished || isLive) && match.result ? (
                    <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl border border-white/5 ${getPointsStyle(userScoring.category)}`}>
@@ -570,8 +536,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                                <Zap size={8} fill="currentColor" /> +{userScoring.bonus} zebra
                             </span>
                          )}
-                         {userPrediction?.whoClassifiesTeamId && match.score?.duration === "PENALTY_SHOOTOUT" && (() => {
-                            const realWhoClassifies = match.score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id;
+                         {userPrediction?.whoClassifiesTeamId && getMatchDuration(match) !== 'REGULAR' && (() => {
+                            const realWhoClassifies = getKnockoutAdvancingTeamId(match);
                             const hit = userPrediction.whoClassifiesTeamId === realWhoClassifies;
                             return hit ? (
                                <span className="text-[8px] font-black uppercase tracking-tighter text-amber-300 flex items-center gap-0.5">
@@ -600,42 +566,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             )}
           </div>
 
-          {/* Row 2 (admin only): status selector + save button */}
-          {isAdmin && (
-            <div className="flex flex-col gap-2 w-full">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <label className="text-[10px] uppercase tracking-widest text-slate-400 shrink-0">Status</label>
-                  <select
-                    value={adminStatus}
-                    onChange={(e) => setAdminStatus(e.target.value as "started" | "live" | "ended")}
-                    className="bg-slate-900 text-white text-xs font-bold px-3 py-2 rounded-2xl border border-slate-700 focus:outline-none min-w-0 flex-1"
-                  >
-                    <option value="started">SCHEDULED</option>
-                    <option value="live">LIVE</option>
-                    <option value="ended">FINISHED</option>
-                  </select>
-                </div>
-                <button
-                  onClick={handleAdminSave}
-                  className="shrink-0 bg-brand-blue text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-brand-blue/20 hover:scale-105 active:scale-95 transition-all"
-                >
-                  Salvar Edição
-                </button>
-              </div>
-              <button
-                onClick={() => onAdminToggleSyncLock?.(match.id, !match.syncLocked)}
-                className={`flex items-center justify-center gap-2 w-full py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                  match.syncLocked
-                    ? "bg-amber-500/15 border-amber-500/40 text-amber-400 hover:bg-amber-500/25"
-                    : "bg-slate-900/50 border-slate-700/50 text-slate-500 hover:bg-slate-800 hover:text-slate-300"
-                }`}
-              >
-                <LockKeyhole size={12} />
-                {match.syncLocked ? "Sync Bloqueado (Clique para Desbloquear)" : "Bloquear Sync deste Jogo"}
-              </button>
-            </div>
-          )}
         </div>
       </div>
 

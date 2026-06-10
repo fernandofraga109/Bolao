@@ -103,6 +103,10 @@ export const extractMatchResult = (score: any) => {
       away: rtAway + etAway,
       penaltiesHome: duration === "PENALTY_SHOOTOUT" ? (penalties?.home ?? null) : null,
       penaltiesAway: duration === "PENALTY_SHOOTOUT" ? (penalties?.away ?? null) : null,
+      regularHome: regularTime?.home ?? null,
+      regularAway: regularTime?.away ?? null,
+      extraTimeHome: extraTime?.home ?? null,
+      extraTimeAway: extraTime?.away ?? null,
     };
   }
 
@@ -112,6 +116,10 @@ export const extractMatchResult = (score: any) => {
     away: fullTime?.away ?? null,
     penaltiesHome: null,
     penaltiesAway: null,
+    regularHome: regularTime?.home ?? (fullTime?.home ?? null),
+    regularAway: regularTime?.away ?? (fullTime?.away ?? null),
+    extraTimeHome: null,
+    extraTimeAway: null,
   };
 };
 
@@ -635,6 +643,10 @@ export const useSyncSystem = (
           score: m.score,
           penaltiesHome: m.penaltiesHome,
           penaltiesAway: m.penaltiesAway,
+          regularHome: m.regularHome,
+          regularAway: m.regularAway,
+          extraTimeHome: m.extraTimeHome,
+          extraTimeAway: m.extraTimeAway,
         }));
 
         const matchUpserts: any[] = [];
@@ -671,6 +683,10 @@ export const useSyncSystem = (
           const awayScore = extracted.away;
           const penaltiesHome = extracted.penaltiesHome;
           const penaltiesAway = extracted.penaltiesAway;
+          const regularHome = extracted.regularHome;
+          const regularAway = extracted.regularAway;
+          const extraTimeHome = extracted.extraTimeHome;
+          const extraTimeAway = extracted.extraTimeAway;
 
           const result = homeScore != null ? { home: homeScore, away: awayScore } : undefined;
 
@@ -702,6 +718,7 @@ export const useSyncSystem = (
             }
 
             const isPenaltyShootout = em.score?.duration === "PENALTY_SHOOTOUT";
+            const isKnockoutScore = em.score?.duration === "EXTRA_TIME" || isPenaltyShootout;
             const hasChanged =
               existing.status !== status ||
               (homeScore != null && existing.result?.home !== homeScore) ||
@@ -711,6 +728,8 @@ export const useSyncSystem = (
               (penaltiesAway != null && existing.penaltiesAway !== penaltiesAway) ||
               // Se a API sinaliza pênaltis mas o banco ainda não tem os valores, forçar update
               (isPenaltyShootout && (existing.penaltiesHome == null || existing.penaltiesAway == null)) ||
+              // Flat cols: forçar update se a API tem dados de regularTime/extraTime mas o banco não
+              (isKnockoutScore && (existing.regularHome == null || existing.extraTimeHome == null)) ||
               // Verifica lastUpdated da API para detectar outras mudanças (horário, adiamento, etc)
               shouldUpdateByLastUpdated(em.lastUpdated, existing.lastSyncAt, 30);
 
@@ -741,6 +760,10 @@ export const useSyncSystem = (
                 score: em.score,
                 penaltiesHome: penaltiesHome ?? null,
                 penaltiesAway: penaltiesAway ?? null,
+                regularHome: regularHome ?? null,
+                regularAway: regularAway ?? null,
+                extraTimeHome: extraTimeHome ?? null,
+                extraTimeAway: extraTimeAway ?? null,
               });
 
 
@@ -783,6 +806,10 @@ export const useSyncSystem = (
                 score: em.score,
                 penaltiesHome: penaltiesHome ?? null,
                 penaltiesAway: penaltiesAway ?? null,
+                regularHome: regularHome ?? null,
+                regularAway: regularAway ?? null,
+                extraTimeHome: extraTimeHome ?? null,
+                extraTimeAway: extraTimeAway ?? null,
               });
             } else {
               // Times com id/tla nulos = jogos de fase eliminatória ainda não definidos (TBD).
