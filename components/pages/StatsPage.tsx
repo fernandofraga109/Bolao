@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { User, Match, MatchStatus } from "../../types";
+import React, { useMemo, useState } from 'react';
+import { User, Match, MatchStatus } from '../../types';
 import {
   Target,
   Zap,
@@ -12,9 +12,9 @@ import {
   ChevronUp,
   Calendar,
   MapPin,
-} from "lucide-react";
-import { translateGroupName } from "../../utils/translations";
-import { getMatchDuration } from "../../utils/scoring";
+} from 'lucide-react';
+import { translateGroupName } from '../../utils/translations';
+import { getMatchDuration } from '../../utils/scoring';
 
 interface StatsPageProps {
   user: User;
@@ -24,9 +24,7 @@ interface StatsPageProps {
 // ─── Aggregate stats (same logic as before) ───────────────────────────────────
 function useStats(user: User, matches: Match[]) {
   return useMemo(() => {
-    const finishedMatches = matches.filter(
-      (m) => m.status === MatchStatus.FINISHED,
-    );
+    const finishedMatches = matches.filter((m) => m.status === MatchStatus.FINISHED);
     const predictions = user.predictions || {};
 
     let exactScores = 0;
@@ -43,10 +41,7 @@ function useStats(user: User, matches: Match[]) {
       const pts = pred.points || 0;
       totalPoints += pts;
 
-      if (
-        pred.home === match.result.home &&
-        pred.away === match.result.away
-      ) {
+      if (pred.home === match.result.home && pred.away === match.result.away) {
         exactScores++;
       }
 
@@ -57,10 +52,8 @@ function useStats(user: User, matches: Match[]) {
       if (pts > 15) bonusZebras++;
     });
 
-    const accuracy =
-      gamesPredicted > 0 ? (correctResults / gamesPredicted) * 100 : 0;
-    const exactRate =
-      gamesPredicted > 0 ? (exactScores / gamesPredicted) * 100 : 0;
+    const accuracy = gamesPredicted > 0 ? (correctResults / gamesPredicted) * 100 : 0;
+    const exactRate = gamesPredicted > 0 ? (exactScores / gamesPredicted) * 100 : 0;
 
     return {
       totalPoints,
@@ -70,8 +63,7 @@ function useStats(user: User, matches: Match[]) {
       bonusZebras,
       accuracy: accuracy.toFixed(1),
       exactRate: exactRate.toFixed(1),
-      avgPoints:
-        gamesPredicted > 0 ? (totalPoints / gamesPredicted).toFixed(1) : "0",
+      avgPoints: gamesPredicted > 0 ? (totalPoints / gamesPredicted).toFixed(1) : '0',
     };
   }, [user.predictions, matches]);
 }
@@ -88,21 +80,19 @@ interface PredictionEntry {
 
 function usePredictionHistory(
   user: User,
-  matches: Match[],
+  matches: Match[]
 ): { scored: PredictionEntry[]; missed: PredictionEntry[] } {
   return useMemo(() => {
     const predictions = user.predictions || {};
     const finishedMatches = matches.filter(
-      (m) => m.status === MatchStatus.FINISHED && predictions[m.id] != null,
+      (m) => m.status === MatchStatus.FINISHED && predictions[m.id] != null
     );
 
     const entries: PredictionEntry[] = finishedMatches.map((match) => {
       const pred = predictions[match.id];
       const pts = pred.points ?? 0;
       const isExact =
-        !!match.result &&
-        pred.home === match.result.home &&
-        pred.away === match.result.away;
+        !!match.result && pred.home === match.result.home && pred.away === match.result.away;
       return {
         matchId: match.id,
         match,
@@ -114,10 +104,7 @@ function usePredictionHistory(
     });
 
     // Sort by match date descending (most recent first)
-    entries.sort(
-      (a, b) =>
-        new Date(b.match.date).getTime() - new Date(a.match.date).getTime(),
-    );
+    entries.sort((a, b) => new Date(b.match.date).getTime() - new Date(a.match.date).getTime());
 
     return {
       scored: entries.filter((e) => e.points > 0),
@@ -131,15 +118,15 @@ const PredictionCard: React.FC<{ entry: PredictionEntry }> = ({ entry }) => {
   const { match, home, away, points, isExact } = entry;
   const matchDate = new Date(match.date);
 
-  const formattedDate = matchDate.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
+  const formattedDate = matchDate.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
   });
 
-  const formattedTime = matchDate.toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
+  const formattedTime = matchDate.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
   });
 
   const hasPoints = points > 0;
@@ -149,9 +136,9 @@ const PredictionCard: React.FC<{ entry: PredictionEntry }> = ({ entry }) => {
       className={`relative rounded-2xl border overflow-hidden transition-all hover:scale-[1.01] hover:shadow-xl ${
         hasPoints
           ? isExact
-            ? "bg-gradient-to-br from-brand-green/10 to-emerald-900/20 border-brand-green/30 shadow-brand-green/5 shadow-lg"
-            : "bg-slate-800/60 border-slate-700/60 shadow-sm"
-          : "bg-slate-900/40 border-slate-800/60"
+            ? 'bg-gradient-to-br from-brand-green/10 to-emerald-900/20 border-brand-green/30 shadow-brand-green/5 shadow-lg'
+            : 'bg-slate-800/60 border-slate-700/60 shadow-sm'
+          : 'bg-slate-900/40 border-slate-800/60'
       }`}
     >
       {/* Top bar */}
@@ -172,11 +159,11 @@ const PredictionCard: React.FC<{ entry: PredictionEntry }> = ({ entry }) => {
         <div
           className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black border ${
             hasPoints
-              ? "bg-brand-green/20 border-brand-green/40 text-brand-green"
-              : "bg-slate-800 border-slate-700 text-slate-500"
+              ? 'bg-brand-green/20 border-brand-green/40 text-brand-green'
+              : 'bg-slate-800 border-slate-700 text-slate-500'
           }`}
         >
-          {hasPoints ? `+${points} pts` : "0 pts"}
+          {hasPoints ? `+${points} pts` : '0 pts'}
         </div>
       </div>
 
@@ -192,9 +179,7 @@ const PredictionCard: React.FC<{ entry: PredictionEntry }> = ({ entry }) => {
             />
           </div>
 
-          <span className="text-sm font-bold text-white truncate">
-            {match.homeTeam.name}
-          </span>
+          <span className="text-sm font-bold text-white truncate">{match.homeTeam.name}</span>
         </div>
 
         {/* Scores area */}
@@ -216,11 +201,16 @@ const PredictionCard: React.FC<{ entry: PredictionEntry }> = ({ entry }) => {
             resultado
           </span>
           {/* ET + penalties sub-rows */}
-          {getMatchDuration(match) !== "REGULAR" && (
+          {getMatchDuration(match) !== 'REGULAR' && (
             <div className="flex flex-col items-center gap-0.5 w-full">
+              {match.regularHome != null && (
+                <span className="text-[9px] text-slate-500 tabular-nums">
+                  Regular {match.regularHome}×{match.regularAway}
+                </span>
+              )}
               {match.extraTimeHome != null && (
                 <span className="text-[9px] text-slate-500 tabular-nums">
-                  Prorrog. {match.result!.home}×{match.result!.away}
+                  Prorrog. {match.extraTimeHome}×{match.extraTimeAway}
                 </span>
               )}
               {match.penaltiesHome != null && (
@@ -233,13 +223,13 @@ const PredictionCard: React.FC<{ entry: PredictionEntry }> = ({ entry }) => {
           {/* Prediction */}
           <div className="flex items-center gap-2 bg-slate-900/60 px-2 py-0.5 rounded-lg border border-slate-700/50">
             <span
-              className={`text-sm font-black leading-none ${hasPoints ? "text-brand-green" : "text-slate-400"}`}
+              className={`text-sm font-black leading-none ${hasPoints ? 'text-brand-green' : 'text-slate-400'}`}
             >
               {home}
             </span>
             <span className="text-slate-600 text-xs font-bold">×</span>
             <span
-              className={`text-sm font-black leading-none ${hasPoints ? "text-brand-green" : "text-slate-400"}`}
+              className={`text-sm font-black leading-none ${hasPoints ? 'text-brand-green' : 'text-slate-400'}`}
             >
               {away}
             </span>
@@ -261,7 +251,6 @@ const PredictionCard: React.FC<{ entry: PredictionEntry }> = ({ entry }) => {
               className="w-6 h-6 object-contain"
             />
           </div>
-
         </div>
       </div>
 
@@ -286,7 +275,7 @@ const CollapsibleSection: React.FC<{
   icon?: React.ReactNode;
   accentClass?: string;
   children: React.ReactNode;
-}> = ({ title, count, defaultOpen = true, icon, accentClass = "text-brand-green", children }) => {
+}> = ({ title, count, defaultOpen = true, icon, accentClass = 'text-brand-green', children }) => {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
@@ -311,9 +300,7 @@ const CollapsibleSection: React.FC<{
         )}
       </button>
 
-      {open && (
-        <div className="space-y-3 animate-fadeIn">{children}</div>
-      )}
+      {open && <div className="space-y-3 animate-fadeIn">{children}</div>}
     </div>
   );
 };
@@ -344,9 +331,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ user, matches }) => {
           <div className="bg-brand-green/20 w-10 h-10 rounded-2xl flex items-center justify-center mb-4">
             <Target size={20} className="text-brand-green" />
           </div>
-          <div className="text-3xl font-black text-white leading-none mb-1">
-            {stats.accuracy}%
-          </div>
+          <div className="text-3xl font-black text-white leading-none mb-1">{stats.accuracy}%</div>
           <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
             Acurácia de Resultado
           </div>
@@ -380,9 +365,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ user, matches }) => {
           <div className="bg-white/10 w-10 h-10 rounded-2xl flex items-center justify-center mb-4">
             <TrendingUp size={20} className="text-white" />
           </div>
-          <div className="text-3xl font-black text-white leading-none mb-1">
-            {stats.avgPoints}
-          </div>
+          <div className="text-3xl font-black text-white leading-none mb-1">{stats.avgPoints}</div>
           <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
             Média pts / Jogo
           </div>
@@ -402,9 +385,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ user, matches }) => {
               <span className="text-xs font-black text-slate-400 uppercase">
                 Frequência de Placar Exato
               </span>
-              <span className="text-xs font-black text-white">
-                {stats.exactRate}%
-              </span>
+              <span className="text-xs font-black text-white">{stats.exactRate}%</span>
             </div>
             <div className="w-full h-3 bg-slate-900 rounded-full overflow-hidden p-0.5 border border-slate-700">
               <div
@@ -419,9 +400,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ user, matches }) => {
               <span className="text-xs font-black text-slate-400 uppercase">
                 Taxa de Acerto Geral
               </span>
-              <span className="text-xs font-black text-white">
-                {stats.accuracy}%
-              </span>
+              <span className="text-xs font-black text-white">{stats.accuracy}%</span>
             </div>
             <div className="w-full h-3 bg-slate-900 rounded-full overflow-hidden p-0.5 border border-slate-700">
               <div
@@ -443,8 +422,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ user, matches }) => {
             Resumo de Atividade
           </p>
           <p className="text-xs font-bold text-slate-400">
-            Você participou de{" "}
-            <span className="text-white">{stats.gamesPredicted}</span> jogos
+            Você participou de <span className="text-white">{stats.gamesPredicted}</span> jogos
             finalizados até agora.
           </p>
         </div>
@@ -498,9 +476,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ user, matches }) => {
 
       {scored.length === 0 && missed.length === 0 && (
         <div className="text-center py-10 border border-slate-800 rounded-2xl border-dashed">
-          <p className="text-slate-500 text-sm">
-            Nenhum palpite em partidas finalizadas ainda.
-          </p>
+          <p className="text-slate-500 text-sm">Nenhum palpite em partidas finalizadas ainda.</p>
         </div>
       )}
     </div>
