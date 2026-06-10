@@ -18,7 +18,7 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 
 | Priority | Item | Plan | Status |
 |----------|------|------|--------|
-| **Active** | Knockout score flat columns + full display | `.claude/plans/knockout-score-columns.md` | IN PROGRESS — branch `feat/knockout-score-flat-columns` — All 9 phases done, awaiting user confirmation |
+| Completed | Knockout score flat columns + full display | `.claude/plans/completed/knockout-score-columns.md` | DONE 2026-06-09 |
 | Deferred | Specials components refactor | `.claude/plans/specials-components-refactor.md` | DEFERRED ("soon") — safety net DONE (chars. tests 67→109 green). Refactor not started. |
 | Deferred | Large file refactor (5 phases) | `.claude/plans/large-file-refactors.md` | Planned, not started — branch `chore/structural-refactor` |
 | Ongoing | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Open |
@@ -45,9 +45,9 @@ Branch: `feat/knockout-score-flat-columns` | Plan: `.claude/plans/knockout-score
   - `getKnockoutAdvancingTeamId(match)` — new helper; covers **both** EXTRA_TIME (from `result`) and PENALTY_SHOOTOUT (from `penaltiesHome/Away`). Fixes the silent bug where +3 `whoClassifiesTeamId` bonus was never awarded for ET wins.
   - All call-sites updated: `useLeaderboard`, `usePointsProcessor` (×3), `UserAuditModal`.
 
-### What's next (awaiting user confirmation → Phase completion)
+### Completed — Knockout Score Flat Columns (2026-06-09)
 
-All 9 phases implemented. Awaiting user confirmation that the display looks correct on all screens before moving the plan to `completed/` and invoking `changelog-updater`.
+All 9 phases shipped on branch `feat/knockout-score-flat-columns`. Changelog bump pending (invoke `changelog-updater`).
 
 After Phase 6: Phase 7 (StatsPage), Phase 8 (TournamentStandings), Phase 9 (docs).
 

@@ -27,6 +27,7 @@ Esta estrutura permite carregar apenas o contexto relevante para cada tarefa, re
 - `scoring.md` - Sistema de pontuação (Regulamento 1 e 2)
 - `leaderboard.md` - Leaderboard e ranking
 - `players-and-top-scorers.md` - Tabela de jogadores, autocomplete de artilheiro e aba Top Scores
+- `knockout-score-display.md` - Padrão de exibição de placar mata-mata (regular/ET/pênaltis) por tela
 
 ### 🛠️ Setup (`docs/setup/`)
 - `environment.md` - Variáveis de ambiente
