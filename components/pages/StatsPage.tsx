@@ -14,11 +14,12 @@ import {
   MapPin,
 } from 'lucide-react';
 import { translateGroupName } from '../../utils/translations';
-import { getMatchDuration } from '../../utils/scoring';
+import { getMatchDuration, getR1MatchScoringResult } from '../../utils/scoring';
 
 interface StatsPageProps {
   user: User;
   matches: Match[];
+  ruleset?: 'regulamento_1' | 'regulamento_2';
 }
 
 // ─── Aggregate stats (same logic as before) ───────────────────────────────────
@@ -80,10 +81,12 @@ interface PredictionEntry {
 
 function usePredictionHistory(
   user: User,
-  matches: Match[]
+  matches: Match[],
+  ruleset?: 'regulamento_1' | 'regulamento_2'
 ): { scored: PredictionEntry[]; missed: PredictionEntry[] } {
   return useMemo(() => {
     const predictions = user.predictions || {};
+    const isR2 = ruleset === 'regulamento_2';
     const finishedMatches = matches.filter(
       (m) => m.status === MatchStatus.FINISHED && predictions[m.id] != null
     );
@@ -91,8 +94,11 @@ function usePredictionHistory(
     const entries: PredictionEntry[] = finishedMatches.map((match) => {
       const pred = predictions[match.id];
       const pts = pred.points ?? 0;
-      const isExact =
-        !!match.result && pred.home === match.result.home && pred.away === match.result.away;
+      const isExact = !!match.result && (() => {
+        if (isR2) return pred.home === match.result!.home && pred.away === match.result!.away;
+        const r1 = getR1MatchScoringResult(match, match.result!.home, match.result!.away);
+        return pred.home === r1.home && pred.away === r1.away;
+      })();
       return {
         matchId: match.id,
         match,
@@ -306,9 +312,9 @@ const CollapsibleSection: React.FC<{
 };
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
-const StatsPage: React.FC<StatsPageProps> = ({ user, matches }) => {
+const StatsPage: React.FC<StatsPageProps> = ({ user, matches, ruleset }) => {
   const stats = useStats(user, matches);
-  const { scored, missed } = usePredictionHistory(user, matches);
+  const { scored, missed } = usePredictionHistory(user, matches, ruleset);
 
   return (
     <div className="w-full max-w-2xl mx-auto pb-10 animate-fadeIn space-y-8">

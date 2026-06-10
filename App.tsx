@@ -678,7 +678,7 @@ const App: React.FC = () => {
 
         {/* User Stats Tab */}
         {activeTab === "stats" && currentUser.role !== "ADMIN" && (
-          <StatsPage user={currentUser} matches={matches} />
+          <StatsPage user={currentUser} matches={matches} ruleset={currentGroup?.ruleset} />
         )}
 
         {/* Admin Tab */}

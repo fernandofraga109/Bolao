@@ -134,7 +134,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const isZebraCandidate = ruleset !== "regulamento_2" && match.status === MatchStatus.SCHEDULED && zebraBonus > 0;
 
   // --- CENTRALIZED SCORING HELPER ---
-  const getScoringDetails = (home: number, away: number) => {
+  const getScoringDetails = (home: number, away: number, predWhoClassifiesId?: string) => {
     if (!match.result) return { points: 0, bonus: 0, category: 'wrong' as const };
 
     if (ruleset === "regulamento_2") {
@@ -155,14 +155,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       }
 
       const phase = getMatchPhase(match.stage, match.group);
-      const points = calculatePointsRegulamento2(home, away, match.result.home, match.result.away, phase, matchPredictions, currentUserId || "");
-      const cat = getScoreCategoryRegulamento2(home, away, match.result.home, match.result.away, phase, matchPredictions, currentUserId || "");
+      const realWhoClassifiesId = getKnockoutAdvancingTeamId(match);
+      const points = calculatePointsRegulamento2(home, away, match.result.home, match.result.away, phase, matchPredictions, currentUserId || "", predWhoClassifiesId, realWhoClassifiesId);
+      const cat = getScoreCategoryRegulamento2(home, away, match.result.home, match.result.away, phase, matchPredictions, currentUserId || "", predWhoClassifiesId, realWhoClassifiesId);
 
-      return { points, bonus: 0, category: cat.type, aloneBonus: cat.aloneBonus ?? false };
+      return { points, bonus: 0, category: cat.type, aloneBonus: cat.aloneBonus ?? false, classifiesBonus: cat.classifiesBonus };
     }
 
     const realWhoClassifiesId = getKnockoutAdvancingTeamId(match);
-    const predWhoClassifiesId = userPrediction?.whoClassifiesTeamId;
     const r1Result = getR1MatchScoringResult(match, match.result.home, match.result.away);
 
     const points = calculatePoints(
@@ -198,13 +198,13 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
   const userScoring = useMemo(() => {
     if ((isFinished || isLive) && match.result && userPrediction) {
-      const details = getScoringDetails(userPrediction.homeScore, userPrediction.awayScore);
+      const details = getScoringDetails(userPrediction.homeScore, userPrediction.awayScore, userPrediction.whoClassifiesTeamId);
       if (typeof userPrediction.points === 'number') {
-        return { points: userPrediction.points, bonus: details.bonus, category: details.category, aloneBonus: details.aloneBonus };
+        return { points: userPrediction.points, bonus: details.bonus, category: details.category, aloneBonus: details.aloneBonus, classifiesBonus: details.classifiesBonus ?? 0 };
       }
-      return details;
+      return { ...details, classifiesBonus: details.classifiesBonus ?? 0 };
     }
-    return { points: 0, bonus: 0, category: "wrong" as ScoringCategory, aloneBonus: false };
+    return { points: 0, bonus: 0, category: "wrong" as ScoringCategory, aloneBonus: false, classifiesBonus: 0 };
   }, [isFinished, isLive, match.result, userPrediction]);
 
   const getPointsStyle = (category: ScoringCategory) => SCORING_COLORS[category].bg + " shadow-lg";
@@ -536,15 +536,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                                <Zap size={8} fill="currentColor" /> +{userScoring.bonus} zebra
                             </span>
                          )}
-                         {userPrediction?.whoClassifiesTeamId && getMatchDuration(match) !== 'REGULAR' && (() => {
-                            const realWhoClassifies = getKnockoutAdvancingTeamId(match);
-                            const hit = userPrediction.whoClassifiesTeamId === realWhoClassifies;
-                            return hit ? (
-                               <span className="text-[8px] font-black uppercase tracking-tighter text-amber-300 flex items-center gap-0.5">
-                                 <Zap size={8} fill="currentColor" /> +{POINTS_CLASSIFIES_BONUS} classifica
-                               </span>
-                            ) : null;
-                         })()}
+                         {userScoring.classifiesBonus > 0 && (
+                            <span className="text-[8px] font-black uppercase tracking-tighter text-amber-300 flex items-center gap-0.5">
+                              <Zap size={8} fill="currentColor" /> +{userScoring.classifiesBonus} classifica
+                            </span>
+                         )}
                       </div>
                    </div>
                 ) : isPredictionDisabled ? (
