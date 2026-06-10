@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { User, Group, Match, MatchStatus } from "../types";
+import { User, Group } from "../types";
 import {
   Shield,
   Trash2,
@@ -45,8 +45,6 @@ import {
 } from "../data/competitions";
 import type { CompetitionDB } from "../types";
 import AdminSpecialsOverrides from "./AdminSpecialsOverrides";
-import AdminKnockoutScoreModal from "./AdminKnockoutScoreModal";
-import { getMatchPhase } from "../utils/scoring";
 
 interface AdminDashboardProps {
   users: User[];
@@ -114,8 +112,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [mostGoalsTeamId, setMostGoalsTeamId] = useState<string>("");
   const [mostConcededTeamId, setMostConcededTeamId] = useState<string>("");
   const [isSavingAwards, setIsSavingAwards] = useState(false);
-  const [knockoutEditMatch, setKnockoutEditMatch] = useState<Match | null>(null);
-
   const activeCompetitions = React.useMemo(() => {
     const codes = Array.from(
       new Set(
@@ -1334,79 +1330,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* SPECIALS OVERRIDES PANEL (Classificados, Maior Diferença de Gols) */}
       <AdminSpecialsOverrides selectedCompetitionCode={selectedCompetitionCode} />
-
-      {/* KNOCKOUT SCORE EDIT PANEL */}
-      <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
-        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-          <Trophy className="text-amber-400" size={20} />
-          Placar Mata-Mata
-        </h2>
-        <p className="text-xs text-slate-400 mb-5 leading-relaxed">
-          Edite manualmente o placar de tempo regular, prorrogação e pênaltis de partidas eliminatórias encerradas.
-          O sync automático sobrescreverá esses valores na próxima sincronização (exceto partidas com sync bloqueado).
-        </p>
-        {(() => {
-          const knockoutFinished = db.matches
-            .filter(m => m.status === MatchStatus.FINISHED && getMatchPhase(m.stage, m.group) !== 'groups')
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-          if (knockoutFinished.length === 0) {
-            return (
-              <p className="text-sm text-slate-500 text-center py-4">Nenhuma partida eliminatória encerrada encontrada.</p>
-            );
-          }
-
-          return (
-            <div className="space-y-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
-              {knockoutFinished.map(mdb => {
-                const homeTeam = db.teams.find(t => t.id === mdb.homeTeamId);
-                const awayTeam = db.teams.find(t => t.id === mdb.awayTeamId);
-                if (!homeTeam || !awayTeam) return null;
-                const regScore = mdb.regularHome != null
-                  ? `${mdb.regularHome}×${mdb.regularAway}`
-                  : mdb.resultHome != null ? `${mdb.resultHome}×${mdb.resultAway}` : "—";
-                const etScore = mdb.extraTimeHome != null ? `+${mdb.extraTimeHome}×${mdb.extraTimeAway} ET` : null;
-                const penScore = mdb.penaltiesHome != null ? `P(${mdb.penaltiesHome}×${mdb.penaltiesAway})` : null;
-                const hydratedMatch: Match = {
-                  ...mdb,
-                  homeTeam,
-                  awayTeam,
-                  status: mdb.status as MatchStatus,
-                  result: mdb.resultHome != null ? { home: mdb.resultHome, away: mdb.resultAway! } : undefined,
-                };
-                return (
-                  <div key={mdb.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-900/50 border border-slate-700/50">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {homeTeam.flag && <img src={homeTeam.flag} alt={homeTeam.name} className="w-5 h-5 object-contain shrink-0" />}
-                      <span className="text-xs font-bold text-white truncate">{homeTeam.name}</span>
-                      <span className="text-slate-500 font-black text-xs shrink-0">{regScore}</span>
-                      <span className="text-xs font-bold text-white truncate">{awayTeam.name}</span>
-                      {awayTeam.flag && <img src={awayTeam.flag} alt={awayTeam.name} className="w-5 h-5 object-contain shrink-0" />}
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {etScore && <span className="text-[9px] font-bold text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded">{etScore}</span>}
-                      {penScore && <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">{penScore}</span>}
-                      <button
-                        onClick={() => setKnockoutEditMatch(hydratedMatch)}
-                        className="text-[10px] font-black px-3 py-1.5 rounded-lg bg-brand-blue/15 border border-brand-blue/30 text-brand-blue hover:bg-brand-blue/25 transition-all"
-                      >
-                        Editar
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })()}
-      </div>
-
-      {knockoutEditMatch && (
-        <AdminKnockoutScoreModal
-          match={knockoutEditMatch}
-          onClose={() => setKnockoutEditMatch(null)}
-        />
-      )}
 
       {/* ZEBRA BONUS CONFIG */}
       <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">

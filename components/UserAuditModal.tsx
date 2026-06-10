@@ -17,6 +17,7 @@ import {
   POINTS_CLASSIFIES_BONUS,
   getR1MatchScoringResult,
   getKnockoutAdvancingTeamId,
+  getMatchDuration,
 } from "../utils/scoring";
 import { translateGroupName } from "../utils/translations";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
@@ -743,6 +744,34 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
                             </p>
                           </div>
                         </div>
+                        {getMatchDuration(row.match) !== "REGULAR" && (
+                          <div className="mt-2 space-y-1 px-1">
+                            {row.match.regularHome != null && (
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span className="text-slate-500">Tempo Regular (R1)</span>
+                                <span className="text-slate-400 font-bold tabular-nums">
+                                  {row.match.regularHome} – {row.match.regularAway}
+                                </span>
+                              </div>
+                            )}
+                            {row.match.extraTimeHome != null && (
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span className="text-slate-500">Após Prorrogação</span>
+                                <span className="text-slate-400 font-bold tabular-nums">
+                                  {row.match.result!.home} – {row.match.result!.away}
+                                </span>
+                              </div>
+                            )}
+                            {row.match.penaltiesHome != null && (
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span className="text-slate-500">Pênaltis</span>
+                                <span className="text-slate-400 font-bold tabular-nums">
+                                  {row.match.penaltiesHome} – {row.match.penaltiesAway}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                         <div className="mt-2 flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] text-slate-500">{row.resultLabel}</span>

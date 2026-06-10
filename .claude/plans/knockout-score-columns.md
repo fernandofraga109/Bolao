@@ -1,6 +1,6 @@
 # Plan: Knockout Score Flat Columns + Full Display
 
-_Status_: IN PROGRESS — 2026-06-09 | Branch: `feat/knockout-score-flat-columns`
+_Status_: IN PROGRESS — 2026-06-09 | Branch: `feat/knockout-score-flat-columns` | Phases 1–9 implemented, awaiting user confirmation to close
 
 ---
 
@@ -238,35 +238,112 @@ Specific replacements:
 
 ---
 
-### Phase 5 — Admin: Knockout Score Edit Modal
+### Phase 5 — AdminMatchCard: Inline Score Editing on Jogos Screen ✅ DONE
 
-**Goal:** Allow the admin to manually set `extraTimeHome`, `extraTimeAway`, `penaltiesHome`, `penaltiesAway` on any finished knockout match.
+**Status:** REVISED (replaces original modal approach + absorbs 5.a concern)
 
-**Where:** `components/AdminDashboard.tsx` — add a new "KnockoutScoreModal" section (or inline modal within the existing match management section).
+**Motivation for revision:** The original Phase 5 added a "Placar Mata-Mata" panel to `AdminDashboard` requiring the admin to navigate away from Jogos to edit scores. Keeping score editing in the Jogos screen (where the admin is already looking at the match) is far more ergonomic. A dedicated `AdminMatchCard` also avoids polluting the regular `MatchCard` with admin-only complexity.
 
-**Trigger condition:** Match is FINISHED + `match.group` is not a group stage (i.e., `!match.group.startsWith("Grupo")`), or equivalently `getMatchPhase(match.stage, match.group) === 'knockout'`.
+#### What gets deleted (already shipped in prior commit)
+- `components/AdminKnockoutScoreModal.tsx` — delete
+- "Placar Mata-Mata" panel in `AdminDashboard.tsx` + related state (`knockoutEditMatch`) — remove
+- `getMatchPhase` import added to `AdminDashboard.tsx` — remove if unused elsewhere
 
-**Modal fields:**
-- "Placar Tempo Regular" — `regularHome` / `regularAway` (read-only display of current `resultHome/resultAway` or editable)
-- "Prorrogação" — `extraTimeHome` / `extraTimeAway` (optional; only shown for EXTRA_TIME or PENALTY_SHOOTOUT)
-- "Pênaltis" — `penaltiesHome` / `penaltiesAway` (optional; only when PENALTY_SHOOTOUT)
-- Clear/reset option to null out ET/penalties (in case of data entry error)
+#### New file: `components/AdminMatchCard.tsx`
 
-**Save action:** calls `db.updateMatch(matchId, { regularHome, regularAway, extraTimeHome, extraTimeAway, penaltiesHome, penaltiesAway })`
+Used in `MatchesPage` instead of `MatchCard` when `isAdmin === true`. Calls `useDatabase()` directly — no prop-drilling of save callbacks (avoids extending `onAdminSaveMatch` signature).
 
-**Important:** Saving should NOT recalculate points automatically — admin triggers sync/recalc separately. This modal is display-data only (the flat cols feed the UI, not the scoring engine directly — R1 scoring still uses regularHome/Away, but that's handled by getR1MatchScoringResult).
+**Sections (always visible):**
 
-Actually, we SHOULD trigger a point recalculation after saving since `regularHome`/`regularAway` may change what R1 considers the "scoring result". Add a call to `db.refetchMatches()` + `adminControls.recalcAfterEdit(matchId)` (or use existing `finishMatch` flow).
+```
+┌─────────────────────────────────────────────────┐
+│  DATE · TIME · STATUS BADGE                     │
+│                                                 │
+│  [Flag] TEAM A  [inputs: result H × A]  [Flag]  │
+│                                                 │
+│  ── Placar de Tempo Regular (R1) ──             │  ← only for FINISHED knockout
+│    regularHome × regularAway                    │
+│                                                 │
+│  ── Prorrogação ──  [Limpar]                    │  ← only for FINISHED knockout
+│    extraTimeHome × extraTimeAway (optional)     │
+│                                                 │
+│  ── Pênaltis ──  [Limpar]                       │  ← only for FINISHED knockout
+│    penaltiesHome × penaltiesAway (optional)     │
+│                                                 │
+│  Resultado Final (R2): X × Y  ← live preview   │  ← derived, read-only
+│                                                 │
+│  STATUS [select]         [SALVAR EDIÇÃO]        │
+│  [Bloquear Sync]                                │
+└─────────────────────────────────────────────────┘
+```
 
-**Accessibility:** modal uses existing `ModalShell` component.
+**Score sections visibility rule:**
+- "Resultado" inputs (top, existing admin flow): always shown — saves `resultHome/resultAway`
+- Flat score section (regularTime + ET + penalties): shown when `(isFinished || isLive) && isKnockout`
+  - `isKnockout = getMatchPhase(match.stage, match.group) !== 'groups'`
+  - Rationale: if the external API stops sending score breakdown during a live knockout match (regularTime / extraTime split), the admin can patch values in real time without waiting for FINISHED status
+
+**Save logic (single button, single `updateMatch` call):**
+
+```ts
+// Always saved
+resultHome: parseInt(resultHomeInput)
+resultAway: parseInt(resultAwayInput)
+status: adminStatus  // via existing onAdminSaveMatch or direct db call
+
+// Only when isFinished && isKnockout
+regularHome: numOrNull(regularHomeInput)    // mandatory for knockout
+regularAway: numOrNull(regularAwayInput)
+extraTimeHome: hasET ? numOrNull(extraHomeInput) : null
+extraTimeAway: hasET ? numOrNull(extraAwayInput) : null
+penaltiesHome: hasPen ? numOrNull(penHomeInput) : null
+penaltiesAway: hasPen ? numOrNull(penAwayInput) : null
+
+// 5.a fix — derived, keeps R2 correct
+// result = regular + ET delta (penalties don't add to result)
+resultHome = regularHome + (extraTimeHome ?? 0)   // when hasET
+resultHome = regularHome                           // when !hasET
+```
+
+> **5.a baked in:** `resultHome/resultAway` are always derived from `regularHome + extraTimeHome` and included in the save payload. No separate fix needed.
+
+**"Resultado Final (R2)" live preview** (read-only, updates as admin types):
+```
+Tempo Regular: 1 × 1
++ Prorrogação: 1 × 0
+─────────────────────
+Resultado Final: 2 × 1
+```
+Only shown when isFinished && isKnockout && regularHome input is non-empty.
+
+**After save:** `db.refetchMatches()` to force local re-hydration.
+
+#### Changes to `MatchesPage.tsx`
+
+- Import `AdminMatchCard`
+- When `isAdmin === true`, render `<AdminMatchCard>` instead of `<MatchCard isAdmin={true}>`
+- `MatchCard` no longer receives `isAdmin` from MatchesPage (admin path fully separated)
+
+#### Changes to `MatchCard.tsx`
+
+- Remove `isAdmin`, `onAdminSaveMatch`, `onAdminToggleSyncLock` props entirely — now dead code since admin gets its own card
+- Remove the admin footer section (status selector + salvar edição + sync lock)
+- `MatchCardProps` interface simplified
+
+> **Risk:** existing tests or call-sites that pass `isAdmin` to `MatchCard` need updating. Grep for `isAdmin` before deleting.
 
 **Validation:**
-- Admin can open modal, enter ET scores, save, and the MatchCard immediately reflects new values.
-- Penalty block appears/disappears correctly based on whether penaltiesHome is null.
+- Admin on Jogos tab, opens a FINISHED knockout match → sees regularTime + ET + penalties inputs below the main score
+- Admin fills in ET (1×0) with regular (1×1) → preview shows "Resultado Final: 2×1" → saves → MatchCard immediately reflects ET block
+- Admin clears ET → preview shows "Resultado Final: 1×1" → saves → ET block disappears
+- R1 scoring uses regularHome (1×1) ✓, R2 scoring uses resultHome (2×1) ✓
+- Group-stage FINISHED matches: no flat score section shown (only result inputs + status)
+- LIVE knockout matches: flat score section shown (API fallback for missing score breakdown)
+- SCHEDULED knockout matches: no flat score section (match hasn't started)
 
 ---
 
-### Phase 6 — UserAuditModal: Show ET + Penalties
+### Phase 6 — UserAuditModal: Show ET + Penalties ✅ DONE
 
 **Goal:** In the rank screen's audit view, each match row should show extra time result and penalties when applicable, mirroring the MatchCard display.
 
@@ -285,7 +362,7 @@ Actually, we SHOULD trigger a point recalculation after saving since `regularHom
 
 ---
 
-### Phase 7 — StatsPage: PredictionCard ET + Penalties
+### Phase 7 — StatsPage: PredictionCard ET + Penalties ✅ DONE
 
 **Goal:** The `PredictionCard` component inside `StatsPage.tsx` shows the match result vs user prediction. Add ET and penalties info when applicable.
 
@@ -301,7 +378,7 @@ Actually, we SHOULD trigger a point recalculation after saving since `regularHom
 
 ---
 
-### Phase 8 — TournamentStandings (Tabela): Knockout Match Row
+### Phase 8 — TournamentStandings (Tabela): Knockout Match Row ✅ DONE
 
 **Goal:** In the Tabela screen's knockout view, each match row shows `match.result.home × match.result.away`. For knockouts that went to ET or penalties, add an indicator below the score.
 
@@ -319,7 +396,7 @@ Actually, we SHOULD trigger a point recalculation after saving since `regularHom
 
 ---
 
-### Phase 9 — Documentation Update
+### Phase 9 — Documentation Update ✅ DONE
 
 **Files to update:**
 - `docs/database/schema.md` (if exists) — add new columns to `v2_matches` section.

@@ -75,7 +75,7 @@ Exemplos com Brasil 1×1 Argentina 90' → 2×1 após prorrogação → Argentin
 **Bônus "Quem se Classifica" (+3 pts):**
 Somente quando TODAS as condições:
 1. Palpite é empate (`predHome === predAway`)
-2. Jogo foi a pênaltis (`score.duration === "PENALTY_SHOOTOUT"`)
+2. Jogo foi à prorrogação ou pênaltis (`getMatchDuration(match) !== 'REGULAR'`)
 3. Usuário indicou o time correto que avançou (`predWhoClassifiesId === realWhoClassifiesId`)
 
 ### Bônus Underdog
@@ -237,10 +237,12 @@ Implementado em `getMatchPhase(stage, group)` — também aceita nomes de grupo 
 | `utils/scoring.ts` | Funções puras de cálculo (ambos regulamentos) |
 | `hooks/usePointsProcessor.ts` | Processa e persiste pontos no DB |
 | `hooks/useLeaderboard.ts` | Calcula totais para exibição no leaderboard |
-| `components/MatchCard.tsx` | Badge de pontos + cor + label "Placar Isolado" |
-| `components/UserAuditModal.tsx` | Exibe breakdown de pontos por partida |
+| `components/MatchCard.tsx` | Badge de pontos + cor + label "Placar Isolado" + bloco ET/pênaltis |
+| `components/UserAuditModal.tsx` | Breakdown de pontos por partida + sub-linhas ET/pênaltis no detalhe expandido |
+| `components/pages/StatsPage.tsx` | PredictionCard mostra sub-linhas "Prorrog." e "Pên." para jogos de mata-mata |
+| `components/TournamentStandings.tsx` | Linha de placar no bracket exibe badge "Prorr." e "Pên. X×Y" quando aplicável |
 | `components/ui/ScoringGuide.tsx` | Modal de guia visual (R1 e R2) + fonte de `SCORING_COLORS` |
-| `components/AdminKnockoutScoreModal.tsx` | Modal admin para editar placar mata-mata (regularTime, ET, pênaltis) |
+| `components/AdminMatchCard.tsx` | Card admin dedicado — edita result, regularTime, ET e pênaltis inline no Jogos |
 
 ### Funções Chave (`utils/scoring.ts`)
 
@@ -285,21 +287,29 @@ Regra de inferência de duração: `penaltiesHome != null` → PENALTY_SHOOTOUT;
 
 **Regra do bônus `whoClassifiesTeamId` (R1):** concedido quando `duration IN ('EXTRA_TIME', 'PENALTY_SHOOTOUT')` e o palpite de avanço coincide com `getKnockoutAdvancingTeamId`. Anteriormente verificava apenas PENALTY_SHOOTOUT — gap corrigido.
 
-### Admin — Edição de Placar Mata-Mata (`AdminKnockoutScoreModal`)
+### Admin — `AdminMatchCard` (Jogos screen)
 
-Componente `components/AdminKnockoutScoreModal.tsx` exibe um modal para o admin corrigir ou inserir manualmente os campos planos de uma partida mata-mata encerrada.
+Componente `components/AdminMatchCard.tsx` — card dedicado para a visão admin na tela Jogos. Substitui o `MatchCard` com `isAdmin=true`.
 
-**Trigger:** partida com `status === FINISHED` e `getMatchPhase(stage, group) !== 'groups'` (cobre oitavas, quartas, semis, 3º lugar e final).
+**Seções sempre visíveis:**
+- Inputs de resultado (`resultHome` / `resultAway`) + seletor de status + "Salvar Edição" + toggle de sync lock
 
-**Campos editáveis:**
-- `regularHome` / `regularAway` — tempo regular (obrigatório; fonte do R1)
-- `extraTimeHome` / `extraTimeAway` — prorrogação (opcional; se preenchido, infere EXTRA_TIME ou PENALTY_SHOOTOUT)
-- `penaltiesHome` / `penaltiesAway` — pênaltis (opcional; se preenchido, infere PENALTY_SHOOTOUT)
-- Botão "Limpar ET" e "Limpar Pênaltis" para nulificar os campos correspondentes
+**Seção de placar mata-mata** — visível quando `(isLive || isFinished) && isKnockout`:
+- `regularHome` / `regularAway` — tempo regular; fonte do R1 (obrigatório para knockout)
+- `extraTimeHome` / `extraTimeAway` — delta da prorrogação, não cumulativo (opcional, clearable)
+- `penaltiesHome` / `penaltiesAway` — pênaltis (opcional, clearable)
+- Preview "Resultado Final (R2): X × Y" — derivado automaticamente: `regularHome + extraTimeHome`
 
-**Save:** chama `db.updateMatch(id, {...})` + `db.refetchMatches()` para forçar re-hidratação local.
+**Derivação de `resultHome` (5.a baked-in):**
+```
+resultHome = regularHome + extraTimeHome   (com ET)
+resultHome = regularHome                   (sem ET)
+```
+Inputs de `resultHome/resultAway` no topo são auto-preenchidos pelo efeito de derivação. Admin pode sobrescrever manualmente se necessário.
 
-**Não** dispara recálculo de pontos automaticamente — admin aciona sync/recalc separadamente.
+**Save:** `db.updateMatch` (flat cols + resultHome derivado) → `onAdminSaveMatch` (status + result → aciona finishMatch/updateLiveScore e recálculo de pontos) → `db.refetchMatches()`.
+
+**Rationale para LIVE:** se a API parar de enviar o breakdown de regularTime/extraTime durante uma partida mata-mata ao vivo, o admin pode preencher os campos manualmente em tempo real.
 
 ### DB Boundary — `whoClassifiesTeamId`
 

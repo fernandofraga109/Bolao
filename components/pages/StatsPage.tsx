@@ -14,6 +14,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { translateGroupName } from "../../utils/translations";
+import { getMatchDuration } from "../../utils/scoring";
 
 interface StatsPageProps {
   user: User;
@@ -214,6 +215,21 @@ const PredictionCard: React.FC<{ entry: PredictionEntry }> = ({ entry }) => {
           <span className="text-[9px] font-bold uppercase tracking-widest text-slate-600">
             resultado
           </span>
+          {/* ET + penalties sub-rows */}
+          {getMatchDuration(match) !== "REGULAR" && (
+            <div className="flex flex-col items-center gap-0.5 w-full">
+              {match.extraTimeHome != null && (
+                <span className="text-[9px] text-slate-500 tabular-nums">
+                  Prorrog. {match.result!.home}×{match.result!.away}
+                </span>
+              )}
+              {match.penaltiesHome != null && (
+                <span className="text-[9px] text-slate-500 tabular-nums">
+                  Pên. {match.penaltiesHome}×{match.penaltiesAway}
+                </span>
+              )}
+            </div>
+          )}
           {/* Prediction */}
           <div className="flex items-center gap-2 bg-slate-900/60 px-2 py-0.5 rounded-lg border border-slate-700/50">
             <span

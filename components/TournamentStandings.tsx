@@ -16,6 +16,7 @@ import {
   getCurrentSeason,
 } from "../services/liveScoreService";
 import { translateGroupName } from "../utils/translations";
+import { getMatchDuration } from "../utils/scoring";
 import TopScoresPage from "./topscores/TopScoresPage";
 
 interface TournamentStandingsProps {
@@ -759,17 +760,33 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
 
                             <div className="flex flex-col items-center px-4 min-w-[100px]">
                               {match.status === MatchStatus.FINISHED ? (
-                                <div className="flex items-center gap-3">
-                                  <span className="text-xl font-black text-white">
-                                    {match.result?.home}
-                                  </span>
-                                  <span className="text-slate-600 font-bold">
-                                    x
-                                  </span>
-                                  <span className="text-xl font-black text-white">
-                                    {match.result?.away}
-                                  </span>
-                                </div>
+                                <>
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-xl font-black text-white">
+                                      {match.result?.home}
+                                    </span>
+                                    <span className="text-slate-600 font-bold">
+                                      x
+                                    </span>
+                                    <span className="text-xl font-black text-white">
+                                      {match.result?.away}
+                                    </span>
+                                  </div>
+                                  {getMatchDuration(match) !== "REGULAR" && (
+                                    <div className="flex flex-col items-center mt-0.5 gap-0.5">
+                                      {match.extraTimeHome != null && (
+                                        <span className="text-[9px] text-slate-500">
+                                          Prorr.
+                                        </span>
+                                      )}
+                                      {match.penaltiesHome != null && (
+                                        <span className="text-[9px] text-slate-500 tabular-nums">
+                                          Pên. {match.penaltiesHome}×{match.penaltiesAway}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </>
                               ) : (
                                 <div className="flex flex-col items-center">
                                   <span className="text-[10px] text-slate-500 uppercase mb-1">
