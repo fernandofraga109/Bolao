@@ -87,7 +87,7 @@ ALTER TABLE IF EXISTS matches
 
 ---
 
-### Phase 2 — Sync System: Populate Flat Columns
+### Phase 2 — Sync System: Populate Flat Columns ✅ DONE
 
 **Goal:** When `useSyncSystem` upserts a match from the Football Data API response, write the four new columns from `score.regularTime`, `score.extraTime`, and `score.penalties`.
 
@@ -158,34 +158,66 @@ Update all call-sites in `useLeaderboard.ts`, `usePointsProcessor.ts`, `UserAudi
 
 #### 3c — Add duration/winner inference helpers
 
+> **Design note — two concerns:**
+>
+> 1. **Who advances in a knockout tiebreaker** (`getKnockoutAdvancingTeamId`) — used for the `whoClassifiesTeamId` bonus in R1. Returns the advancing team for BOTH EXTRA_TIME and PENALTY_SHOOTOUT, because a user who predicted "home team advances" should earn +3 regardless of whether the home team scored in ET or won on penalties. Returns `undefined` for REGULAR duration (no tiebreaker occurred, match was decided in 90 min — no "who classifies" question was ever meaningful).
+>
+> 2. **Display winner label** — for any finished match, compare `match.result.home > match.result.away` directly in display code. No helper needed.
+>
+> **R1 scoring rule (corrected):** `whoClassifiesTeamId` bonus is awarded when `duration IN ('EXTRA_TIME', 'PENALTY_SHOOTOUT')` AND the user's pick matches the advancing team. Previously only checked for PENALTY_SHOOTOUT — this was a gap.
+>
+> Example:
+> - regularTime 1×1, extraTime 1×0 → `result = { home: 2, away: 1 }`, duration = EXTRA_TIME → `getKnockoutAdvancingTeamId` returns `homeTeam.id` ✓
+> - regularTime 1×1, penalties 4×3 → duration = PENALTY_SHOOTOUT → returns `homeTeam.id` ✓
+> - regularTime 2×1, no ET → duration = REGULAR → returns `undefined` (no "classifies" bonus applicable) ✓
+
 ```ts
-export function getMatchDuration(match: Pick<Match, 'extraTimeHome' | 'penaltiesHome' | 'score'>): 'REGULAR' | 'EXTRA_TIME' | 'PENALTY_SHOOTOUT' {
+export function getMatchDuration(
+  match: Pick<Match, 'extraTimeHome' | 'penaltiesHome' | 'score'>
+): 'REGULAR' | 'EXTRA_TIME' | 'PENALTY_SHOOTOUT' {
   if (match.penaltiesHome != null) return 'PENALTY_SHOOTOUT';
   if (match.extraTimeHome != null) return 'EXTRA_TIME';
   return match.score?.duration ?? 'REGULAR'; // backward compat
 }
 
-export function getMatchWinnerId(match: Pick<Match, 'penaltiesHome' | 'penaltiesAway' | 'regularHome' | 'regularAway' | 'extraTimeHome' | 'extraTimeAway' | 'homeTeam' | 'awayTeam' | 'score'>): string | undefined {
+// Returns the team id that advanced through the knockout tiebreaker.
+// Works for both EXTRA_TIME (winner from result) and PENALTY_SHOOTOUT (winner from penalties).
+// Returns undefined for REGULAR matches — no tiebreaker, no "classifies" bonus applicable.
+export function getKnockoutAdvancingTeamId(
+  match: Pick<Match, 'extraTimeHome' | 'penaltiesHome' | 'penaltiesAway' | 'result' | 'homeTeam' | 'awayTeam' | 'score'>
+): string | undefined {
   const duration = getMatchDuration(match);
+
   if (duration === 'PENALTY_SHOOTOUT') {
     if (match.penaltiesHome != null && match.penaltiesAway != null) {
       return match.penaltiesHome > match.penaltiesAway ? match.homeTeam.id : match.awayTeam.id;
     }
-    // backward compat
+    // backward compat: flat cols not yet populated
     return match.score?.winner === 'HOME_TEAM' ? match.homeTeam.id : match.awayTeam.id;
   }
-  // EXTRA_TIME or REGULAR — winner is decided by the full result
+
+  if (duration === 'EXTRA_TIME') {
+    // result is cumulative (regularTime + extraTime), so comparing it gives the ET winner
+    if (match.result) {
+      return match.result.home > match.result.away ? match.homeTeam.id : match.awayTeam.id;
+    }
+  }
+
   return undefined;
 }
 ```
 
 **Replace all existing `match.score?.duration` and `match.score?.winner` reads** across:
-- `components/MatchCard.tsx`
+- `components/MatchCard.tsx` — use `getMatchDuration` + `getKnockoutAdvancingTeamId`
 - `components/UserAuditModal.tsx`
 - `hooks/useLeaderboard.ts`
 - `hooks/usePointsProcessor.ts`
 
-**Validation:** `tsc --noEmit` clean.
+**Scoring call-sites:** replace `const realWhoClassifiesId = isShootout ? ... : undefined` with `const realWhoClassifiesId = getKnockoutAdvancingTeamId(match)` — the `undefined` for REGULAR is preserved, and ET now correctly returns a winner.
+
+**In phases 6/7/8 (display):** to label the match winner for any duration, compare `match.result.home > match.result.away` directly.
+
+**Validation:** `tsc --noEmit` clean. Verify in tests that a user predicting 1-1 + correct advancing team on an ET match now earns the +3 bonus.
 
 ---
 
@@ -196,7 +228,7 @@ export function getMatchWinnerId(match: Pick<Match, 'penaltiesHome' | 'penalties
 Specific replacements:
 - `match.score?.duration === "EXTRA_TIME" || ...` → `getMatchDuration(match) !== 'REGULAR'`
 - `match.score?.duration === "PENALTY_SHOOTOUT"` → `getMatchDuration(match) === 'PENALTY_SHOOTOUT'`
-- `match.score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id` → `getMatchWinnerId(match)`
+- `match.score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id` → `getKnockoutAdvancingTeamId(match)`
 - `match.result` (full time) in "Após Prorrogação" block → use `match.extraTimeHome != null ? { home: match.extraTimeHome + (match.regularHome ?? 0), ... }` — actually the current display shows `match.result` (full aggregated) for this block, which is correct (final after ET). Keep that.
 - `displayResult` memo for R1 → call `getR1MatchScoringResult(match, match.result.home, match.result.away)`
 
