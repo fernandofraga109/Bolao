@@ -392,21 +392,70 @@ export const calculateTournamentPointsRegulamento2 = (
 
 /**
  * R1 scoring base: regularTime only (not regularTime + extraTime).
- * Falls back to the stored result if regularTime is missing.
+ * Prefers flat columns (regularHome/Away); falls back to score JSONB for older rows.
  */
 export const getR1MatchScoringResult = (
-  score: any,
+  match: { regularHome?: number | null; regularAway?: number | null; extraTimeHome?: number | null; penaltiesHome?: number | null; score?: any },
   fallbackHome: number,
   fallbackAway: number
 ): { home: number; away: number } => {
-  const duration = score?.duration;
+  if (match.regularHome != null && match.regularAway != null) {
+    return { home: match.regularHome, away: match.regularAway };
+  }
+  // JSONB backward compat for rows not yet synced with flat cols
+  const duration = match.score?.duration;
   if (duration === "EXTRA_TIME" || duration === "PENALTY_SHOOTOUT") {
     return {
-      home: score?.regularTime?.home ?? fallbackHome,
-      away: score?.regularTime?.away ?? fallbackAway,
+      home: match.score?.regularTime?.home ?? fallbackHome,
+      away: match.score?.regularTime?.away ?? fallbackAway,
     };
   }
   return { home: fallbackHome, away: fallbackAway };
+};
+
+/**
+ * Infers match duration from flat columns.
+ * Falls back to score JSONB for rows not yet synced.
+ */
+export const getMatchDuration = (
+  match: { extraTimeHome?: number | null; penaltiesHome?: number | null; score?: any }
+): 'REGULAR' | 'EXTRA_TIME' | 'PENALTY_SHOOTOUT' => {
+  if (match.penaltiesHome != null) return 'PENALTY_SHOOTOUT';
+  if (match.extraTimeHome != null) return 'EXTRA_TIME';
+  return match.score?.duration ?? 'REGULAR';
+};
+
+/**
+ * Returns the id of the team that advanced through the knockout tiebreaker.
+ * Covers both EXTRA_TIME (winner from result) and PENALTY_SHOOTOUT (winner from penalties).
+ * Returns undefined for REGULAR matches — no tiebreaker, whoClassifiesTeamId bonus not applicable.
+ */
+export const getKnockoutAdvancingTeamId = (
+  match: {
+    extraTimeHome?: number | null;
+    penaltiesHome?: number | null;
+    penaltiesAway?: number | null;
+    result?: { home: number; away: number } | null;
+    homeTeam?: { id: string } | null;
+    awayTeam?: { id: string } | null;
+    score?: any;
+  }
+): string | undefined => {
+  const duration = getMatchDuration(match);
+
+  if (duration === 'PENALTY_SHOOTOUT') {
+    if (match.penaltiesHome != null && match.penaltiesAway != null) {
+      return match.penaltiesHome > match.penaltiesAway ? match.homeTeam?.id : match.awayTeam?.id;
+    }
+    // JSONB backward compat
+    return match.score?.winner === 'HOME_TEAM' ? match.homeTeam?.id : match.awayTeam?.id;
+  }
+
+  if (duration === 'EXTRA_TIME' && match.result) {
+    return match.result.home > match.result.away ? match.homeTeam?.id : match.awayTeam?.id;
+  }
+
+  return undefined;
 };
 
 export interface PhaseMatchContext {

@@ -16,6 +16,7 @@ import {
   POINTS_BEST_GOALKEEPER,
   POINTS_CLASSIFIES_BONUS,
   getR1MatchScoringResult,
+  getKnockoutAdvancingTeamId,
 } from "../utils/scoring";
 import { translateGroupName } from "../utils/translations";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
@@ -191,13 +192,10 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
           user.id
         );
       } else {
-        const isShootout = (match as any).score?.duration === "PENALTY_SHOOTOUT";
-        const realWhoClassifiesId = isShootout
-          ? ((match as any).score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
-          : undefined;
+        const realWhoClassifiesId = getKnockoutAdvancingTeamId(match);
         const predWhoClassifiesId = pred.whoClassifiesTeamId;
         const r1Result = getR1MatchScoringResult(
-          (match as any).score,
+          match,
           match.result!.home,
           match.result!.away
         );
@@ -239,11 +237,8 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
         isDiffCorrect = r2Cat.type === "diff";
         isOutcomeCorrect = r2Cat.type !== "wrong";
       } else {
-        const auditScore = getR1MatchScoringResult((match as any).score, match.result!.home, match.result!.away);
-        const isShootoutForCat = (match as any).score?.duration === "PENALTY_SHOOTOUT";
-        const realWhoClassifiesIdForCat = isShootoutForCat
-          ? ((match as any).score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
-          : undefined;
+        const auditScore = getR1MatchScoringResult(match, match.result!.home, match.result!.away);
+        const realWhoClassifiesIdForCat = getKnockoutAdvancingTeamId(match);
         const r1Cat = getScoreCategoryRegulamento1(
           pred.home, pred.away,
           auditScore.home, auditScore.away,
@@ -262,11 +257,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
       else if (isOutcomeCorrect && isDiffCorrect) resultLabel = "Diferença certa";
       else if (isOutcomeCorrect) resultLabel = "Resultado certo";
 
-      // Calculate classifiesBonus for display (Reg. 1 only)
-      const isShootout = (match as any).score?.duration === "PENALTY_SHOOTOUT";
-      const realWhoClassifiesIdDisplay = isShootout
-        ? ((match as any).score?.winner === "HOME_TEAM" ? match.homeTeam?.id : match.awayTeam?.id)
-        : undefined;
+      const realWhoClassifiesIdDisplay = getKnockoutAdvancingTeamId(match);
       const classifiesBonus =
         ruleset === "regulamento_1" &&
         pred.home === pred.away &&

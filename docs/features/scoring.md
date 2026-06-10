@@ -251,7 +251,7 @@ Implementado em `getMatchPhase(stage, group)` — também aceita nomes de grupo 
 | `calculatePointsRegulamento2` | Total de pontos R2 (context-aware) |
 | `getR1MatchScoringResult` | Extrai regularTime para comparação R1 em mata-mata (usa campos planos, fallback JSONB) |
 | `getMatchDuration` | Infere 'REGULAR' / 'EXTRA_TIME' / 'PENALTY_SHOOTOUT' dos campos planos |
-| `getMatchWinnerId` | Retorna teamId do vencedor nos pênaltis, ou undefined |
+| `getKnockoutAdvancingTeamId` | Retorna teamId que avançou (ET ou pênaltis), undefined se REGULAR |
 | `getMatchPhase` | Mapeia stage/group → MatchPhase |
 | `calculateUnderdogBonus` | Bônus por ranking para R1 |
 
@@ -264,18 +264,25 @@ getR1MatchScoringResult(match, fallbackHome, fallbackAway)
 // → { home, away } — sempre regularTime para mata-mata R1
 ```
 
-**Fonte de dados:** lê `match.regularHome / match.regularAway` (colunas planas, migration 0027). Nunca ler `match.score?.regularTime` diretamente na lógica de pontuação.
+**Fonte de dados:** lê `match.regularHome / match.regularAway` (colunas planas, migration 0027). Fallback para `score.regularTime` JSONB para partidas antigas. Nunca passar `match.score` diretamente — passe o objeto `match` inteiro.
 
-### `getMatchDuration` / `getMatchWinnerId`
+### `getMatchDuration` / `getKnockoutAdvancingTeamId`
 
-Helpers em `utils/scoring.ts` para inferir duração e vencedor a partir dos campos planos (sem ler o JSONB `score`):
+Helpers em `utils/scoring.ts` para inferir duração e time classificado a partir dos campos planos (sem ler o JSONB `score`):
 
 ```ts
 getMatchDuration(match) // → 'REGULAR' | 'EXTRA_TIME' | 'PENALTY_SHOOTOUT'
-getMatchWinnerId(match) // → teamId do vencedor nos pênaltis, ou undefined
+getKnockoutAdvancingTeamId(match) // → teamId que avançou, ou undefined (REGULAR)
 ```
 
-Regra de inferência: `penaltiesHome != null` → PENALTY_SHOOTOUT; `extraTimeHome != null` → EXTRA_TIME; senão REGULAR. Fallback para `score.duration` / `score.winner` para partidas sem as colunas planas ainda populadas.
+Regra de inferência de duração: `penaltiesHome != null` → PENALTY_SHOOTOUT; `extraTimeHome != null` → EXTRA_TIME; senão REGULAR. Fallback para `score.duration` para partidas sem os campos planos ainda populados.
+
+**`getKnockoutAdvancingTeamId` cobre EXTRA_TIME e PENALTY_SHOOTOUT:**
+- PENALTY_SHOOTOUT: `penaltiesHome > penaltiesAway` → HOME_TEAM
+- EXTRA_TIME: `result.home > result.away` → HOME_TEAM (placar cumulativo após a prorrogação)
+- REGULAR: `undefined` (partida decidida nos 90 min — bônus "classifica" não se aplica)
+
+**Regra do bônus `whoClassifiesTeamId` (R1):** concedido quando `duration IN ('EXTRA_TIME', 'PENALTY_SHOOTOUT')` e o palpite de avanço coincide com `getKnockoutAdvancingTeamId`. Anteriormente verificava apenas PENALTY_SHOOTOUT — gap corrigido.
 
 ### DB Boundary — `whoClassifiesTeamId`
 

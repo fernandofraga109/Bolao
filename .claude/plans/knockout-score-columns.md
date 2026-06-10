@@ -111,7 +111,7 @@ Keep the `score` JSONB write in place for now (remove in Phase 4 cleanup if desi
 
 ---
 
-### Phase 3 — Types + Scoring Utils
+### Phase 3 — Types + Scoring Utils ✅ DONE
 
 **Goal:** Surface flat columns in TypeScript types and update R1 scoring to use them.
 
