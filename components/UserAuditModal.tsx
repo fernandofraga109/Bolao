@@ -183,6 +183,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
             homeScore: preds[matchId].home,
             awayScore: preds[matchId].away,
           }));
+        const realWhoClassifiesIdR2 = getKnockoutAdvancingTeamId(match);
         pts = calculatePointsRegulamento2(
           pred.home,
           pred.away,
@@ -190,7 +191,9 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
           match.result!.away,
           getMatchPhase(match.stage, match.group),
           matchPredictions,
-          user.id
+          user.id,
+          pred.whoClassifiesTeamId,
+          realWhoClassifiesIdR2
         );
       } else {
         const realWhoClassifiesId = getKnockoutAdvancingTeamId(match);
@@ -229,10 +232,13 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
         const matchPredsForCat = Object.entries(groupUserPredictions)
           .filter(([, preds]) => !!preds[matchId])
           .map(([uid, preds]) => ({ userId: uid, homeScore: preds[matchId].home, awayScore: preds[matchId].away }));
+        const realWhoClassifiesIdForCat = getKnockoutAdvancingTeamId(match);
         const r2Cat = getScoreCategoryRegulamento2(
           pred.home, pred.away,
           match.result!.home, match.result!.away,
-          phase, matchPredsForCat, user.id
+          phase, matchPredsForCat, user.id,
+          pred.whoClassifiesTeamId,
+          realWhoClassifiesIdForCat
         );
         isExact = r2Cat.type === "exact";
         isDiffCorrect = r2Cat.type === "diff";
@@ -260,7 +266,6 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
 
       const realWhoClassifiesIdDisplay = getKnockoutAdvancingTeamId(match);
       const classifiesBonus =
-        ruleset === "regulamento_1" &&
         pred.home === pred.away &&
         !!pred.whoClassifiesTeamId &&
         !!realWhoClassifiesIdDisplay &&
