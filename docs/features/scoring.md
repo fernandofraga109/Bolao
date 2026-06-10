@@ -240,6 +240,7 @@ Implementado em `getMatchPhase(stage, group)` — também aceita nomes de grupo 
 | `components/MatchCard.tsx` | Badge de pontos + cor + label "Placar Isolado" |
 | `components/UserAuditModal.tsx` | Exibe breakdown de pontos por partida |
 | `components/ui/ScoringGuide.tsx` | Modal de guia visual (R1 e R2) + fonte de `SCORING_COLORS` |
+| `components/AdminKnockoutScoreModal.tsx` | Modal admin para editar placar mata-mata (regularTime, ET, pênaltis) |
 
 ### Funções Chave (`utils/scoring.ts`)
 
@@ -283,6 +284,22 @@ Regra de inferência de duração: `penaltiesHome != null` → PENALTY_SHOOTOUT;
 - REGULAR: `undefined` (partida decidida nos 90 min — bônus "classifica" não se aplica)
 
 **Regra do bônus `whoClassifiesTeamId` (R1):** concedido quando `duration IN ('EXTRA_TIME', 'PENALTY_SHOOTOUT')` e o palpite de avanço coincide com `getKnockoutAdvancingTeamId`. Anteriormente verificava apenas PENALTY_SHOOTOUT — gap corrigido.
+
+### Admin — Edição de Placar Mata-Mata (`AdminKnockoutScoreModal`)
+
+Componente `components/AdminKnockoutScoreModal.tsx` exibe um modal para o admin corrigir ou inserir manualmente os campos planos de uma partida mata-mata encerrada.
+
+**Trigger:** partida com `status === FINISHED` e `getMatchPhase(stage, group) !== 'groups'` (cobre oitavas, quartas, semis, 3º lugar e final).
+
+**Campos editáveis:**
+- `regularHome` / `regularAway` — tempo regular (obrigatório; fonte do R1)
+- `extraTimeHome` / `extraTimeAway` — prorrogação (opcional; se preenchido, infere EXTRA_TIME ou PENALTY_SHOOTOUT)
+- `penaltiesHome` / `penaltiesAway` — pênaltis (opcional; se preenchido, infere PENALTY_SHOOTOUT)
+- Botão "Limpar ET" e "Limpar Pênaltis" para nulificar os campos correspondentes
+
+**Save:** chama `db.updateMatch(id, {...})` + `db.refetchMatches()` para forçar re-hidratação local.
+
+**Não** dispara recálculo de pontos automaticamente — admin aciona sync/recalc separadamente.
 
 ### DB Boundary — `whoClassifiesTeamId`
 
