@@ -80,8 +80,6 @@ export const useLeaderboard = (
                   awayScore: u.predictions[match.id].away,
                 }));
 
-              const realWhoClassifiesIdR2 = getKnockoutAdvancingTeamId(match);
-              const predWhoClassifiesIdR2 = pred.whoClassifiesTeamId;
               const phase = getMatchPhase(match.stage, match.group);
 
               const cat = getScoreCategoryRegulamento2(
@@ -91,9 +89,7 @@ export const useLeaderboard = (
                 match.result.away,
                 phase,
                 matchPredictions,
-                user.id,
-                predWhoClassifiesIdR2,
-                realWhoClassifiesIdR2
+                user.id
               );
 
               if (cat.type === "exact") breakdown.exactCount++;
@@ -113,9 +109,7 @@ export const useLeaderboard = (
                 match.result.away,
                 phase,
                 matchPredictions,
-                user.id,
-                predWhoClassifiesIdR2,
-                realWhoClassifiesIdR2
+                user.id
               );
             } else {
               const realWhoClassifiesId = getKnockoutAdvancingTeamId(match);

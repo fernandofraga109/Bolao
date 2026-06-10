@@ -107,7 +107,6 @@ export interface ScoreCategoryR1 {
 export interface ScoreCategoryR2 {
   type: 'exact' | 'diff' | 'outcome' | 'wrong';
   aloneBonus: boolean;
-  classifiesBonus: number;
 }
 
 /**
@@ -181,9 +180,7 @@ export const getScoreCategoryRegulamento2 = (
   realAway: number,
   phase: MatchPhase,
   matchPredictions: MatchPredictionContext[],
-  currentUserId: string,
-  predWhoClassifiesId?: string,
-  realWhoClassifiesId?: string
+  currentUserId: string
 ): ScoreCategoryR2 => {
   const isExact = predHome === realHome && predAway === realAway;
   const isRealDraw = realHome === realAway;
@@ -196,34 +193,25 @@ export const getScoreCategoryRegulamento2 = (
   const predDiff = predHome - predAway;
   const isDiffCorrect = realDiff === predDiff;
 
-  const predIsDraw = predHome === predAway;
-  const classifiesBonus =
-    predIsDraw &&
-    !!predWhoClassifiesId &&
-    !!realWhoClassifiesId &&
-    predWhoClassifiesId === realWhoClassifiesId
-      ? POINTS_CLASSIFIES_BONUS
-      : 0;
-
   if (isExact) {
     const exactHits = matchPredictions.filter(
       (p) => p.homeScore === realHome && p.awayScore === realAway
     );
     const aloneBonus = exactHits.length === 1 && exactHits[0].userId === currentUserId;
-    return { type: 'exact', aloneBonus, classifiesBonus };
+    return { type: 'exact', aloneBonus };
   }
 
   if (isOutcomeCorrect) {
     if (isRealDraw) {
-      return { type: 'outcome', aloneBonus: false, classifiesBonus };
+      return { type: 'outcome', aloneBonus: false };
     } else if (isDiffCorrect) {
-      return { type: 'diff', aloneBonus: false, classifiesBonus };
+      return { type: 'diff', aloneBonus: false };
     } else {
-      return { type: 'outcome', aloneBonus: false, classifiesBonus };
+      return { type: 'outcome', aloneBonus: false };
     }
   }
 
-  return { type: 'wrong', aloneBonus: false, classifiesBonus: 0 };
+  return { type: 'wrong', aloneBonus: false };
 };
 
 /**
@@ -236,11 +224,9 @@ export const calculatePointsRegulamento2 = (
   realAway: number,
   phase: MatchPhase,
   matchPredictions: MatchPredictionContext[],
-  currentUserId: string,
-  predWhoClassifiesId?: string,
-  realWhoClassifiesId?: string
+  currentUserId: string
 ): number => {
-  const cat = getScoreCategoryRegulamento2(predHome, predAway, realHome, realAway, phase, matchPredictions, currentUserId, predWhoClassifiesId, realWhoClassifiesId);
+  const cat = getScoreCategoryRegulamento2(predHome, predAway, realHome, realAway, phase, matchPredictions, currentUserId);
 
   let pointsExact = 15;
   let pointsDiff = 13;
@@ -257,13 +243,13 @@ export const calculatePointsRegulamento2 = (
   }
 
   if (cat.type === 'exact') {
-    return pointsExact + (cat.aloneBonus ? 5 : 0) + cat.classifiesBonus;
+    return pointsExact + (cat.aloneBonus ? 5 : 0);
   }
   if (cat.type === 'diff') {
-    return pointsDiff + cat.classifiesBonus;
+    return pointsDiff;
   }
   if (cat.type === 'outcome') {
-    return pointsOutcome + cat.classifiesBonus;
+    return pointsOutcome;
   }
   return 0;
 };
