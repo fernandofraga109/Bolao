@@ -16,7 +16,7 @@ interface MatchGroupProps {
   userPredictions: Record<string, any>;
   leaderboardData: any[];
   currentUserId: string;
-  onPredict: (id: string, h: number, a: number, targetGroupIds?: string[], whoClassifiesTeamId?: string) => Promise<void>;
+  onPredict: (id: string, h: number, a: number, targetGroupIds?: string[], whoClassifiesTeamId?: string | null) => Promise<void>;
   isAdmin: boolean;
   onAdminSaveMatch: (id: string, status: "started" | "live" | "ended", h: number, a: number) => void;
   onAdminToggleSyncLock?: (matchId: string, locked: boolean) => void;
@@ -128,7 +128,7 @@ interface MatchesPageProps {
   isSyncing: boolean;
   canWriteCompetitionData: boolean;
   onManualSync: () => void;
-  onPredict: (id: string, h: number, a: number, targetGroupIds?: string[], whoClassifiesTeamId?: string) => Promise<void>;
+  onPredict: (id: string, h: number, a: number, targetGroupIds?: string[], whoClassifiesTeamId?: string | null) => Promise<void>;
   onAdminSaveMatch: (id: string, status: "started" | "live" | "ended", h: number, a: number) => void;
   onAdminToggleSyncLock?: (matchId: string, locked: boolean) => void;
   onOpenGroupSwitcher?: () => void;

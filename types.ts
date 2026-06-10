@@ -111,7 +111,7 @@ export interface PredictionDB {
   awayScore: number;
   timestamp: string;
   points?: number;
-  tieWinnerTeamId?: string; // ID da seleção vencedora nos pênaltis (Reg. 1, mata-mata)
+  tieWinnerTeamId?: string | null; // ID da seleção vencedora nos pênaltis (Reg. 1, mata-mata)
 }
 
 export interface PlayerDB {

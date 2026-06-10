@@ -622,7 +622,7 @@ export const useUserSystem = () => {
     localStorage.setItem(`bolao_active_group_${userId}`, groupId);
   };
 
-  const predictMatch = async (matchId: string, home: number, away: number, targetGroupIds?: string[], whoClassifiesTeamId?: string) => {
+  const predictMatch = async (matchId: string, home: number, away: number, targetGroupIds?: string[], whoClassifiesTeamId?: string | null) => {
     if (!currentUser) {
       throw new Error("Voce precisa estar logado para salvar palpites.");
     }
@@ -639,7 +639,7 @@ export const useUserSystem = () => {
         homeScore: home,
         awayScore: away,
         timestamp: new Date().toISOString(),
-        tieWinnerTeamId: whoClassifiesTeamId ?? undefined, // app field → DB column
+        tieWinnerTeamId: whoClassifiesTeamId ?? null, // app field → DB column; null explicitly clears stale values
       },
     ];
 
@@ -653,7 +653,7 @@ export const useUserSystem = () => {
             homeScore: home,
             awayScore: away,
             timestamp: new Date().toISOString(),
-            tieWinnerTeamId: whoClassifiesTeamId ?? undefined, // app field → DB column
+            tieWinnerTeamId: whoClassifiesTeamId ?? null, // app field → DB column; null explicitly clears stale values
           });
         }
       });

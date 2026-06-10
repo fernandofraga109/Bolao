@@ -50,7 +50,7 @@ interface MatchCardProps {
     home: number,
     away: number,
     targetGroupIds?: string[],
-    whoClassifiesTeamId?: string,
+    whoClassifiesTeamId?: string | null,
   ) => Promise<void> | void;
   minRankDiff?: number;
   ruleset?: "regulamento_1" | "regulamento_2";
@@ -100,7 +100,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       try {
         setPredictionError(null);
         setIsSavingPrediction(true);
-        const effectiveTieWinner = isKnockoutMatch && h === a ? (whoClassifiesTeamId ?? undefined) : undefined;
+        const effectiveTieWinner = isKnockoutMatch && h === a ? whoClassifiesTeamId : null;
         await onPredict(match.id, h, a, undefined, effectiveTieWinner);
         setHasSavedPrediction(true);
       } catch (error: any) {
@@ -626,7 +626,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           onConfirm={async (targetGroupIds) => {
             const h = parseInt(homeInput);
             const a = parseInt(awayInput);
-            const effectiveTieWinner = isKnockoutMatch && h === a ? (whoClassifiesTeamId ?? undefined) : undefined;
+            const effectiveTieWinner = isKnockoutMatch && h === a ? whoClassifiesTeamId : null;
             await onPredict(match.id, h, a, targetGroupIds, effectiveTieWinner);
             setHasSavedPrediction(true);
           }}
