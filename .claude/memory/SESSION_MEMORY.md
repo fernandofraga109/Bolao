@@ -18,10 +18,51 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 
 | Priority | Item | Plan | Status |
 |----------|------|------|--------|
-| **Next** | Knockout score flat columns + full display | `.claude/plans/knockout-score-columns.md` | PLANNING — awaiting user approval |
-| Deferred | Specials components refactor | `.claude/plans/specials-components-refactor.md` | DEFERRED ("soon") — safety net DONE (chars. tests 67→109 green). Refactor not started. Phase A (specials/ folder) recommended first; Phase B (AdminDashboard split) only smoke-tested = highest residual risk. |
+| **Active** | Knockout score flat columns + full display | `.claude/plans/knockout-score-columns.md` | IN PROGRESS — branch `feat/knockout-score-flat-columns` — Phases 1-3 done, Phase 4 is next |
+| Deferred | Specials components refactor | `.claude/plans/specials-components-refactor.md` | DEFERRED ("soon") — safety net DONE (chars. tests 67→109 green). Refactor not started. |
 | Deferred | Large file refactor (5 phases) | `.claude/plans/large-file-refactors.md` | Planned, not started — branch `chore/structural-refactor` |
 | Ongoing | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Open |
+
+---
+
+## In Progress — Knockout Score Flat Columns (2026-06-09)
+
+Branch: `feat/knockout-score-flat-columns` | Plan: `.claude/plans/knockout-score-columns.md`
+
+### What was done this session
+
+- **Phase 1 ✅** — Migration `0027_add_regular_extratime_cols.sql`: adds `regularHome`, `regularAway`, `extraTimeHome`, `extraTimeAway` (integer, nullable) to `v2_matches`. Includes SQL backfill from existing `score` JSONB. **Migration already applied to Supabase dev.**
+- **Phase 2 ✅** — `hooks/useSyncSystem.ts`: `extractMatchResult` now returns all four flat cols. Both upsert paths (existing match + new match) write them. `hasChanged` guard forces re-sync if knockout match has null flat cols.
+- **Phase 3 ✅** — `types.ts`: `MatchDB` + `Match` gain four new optional fields. `utils/scoring.ts`: three changes:
+  - `getR1MatchScoringResult(match, fb_home, fb_away)` — new signature takes match object, reads flat cols first, JSONB fallback.
+  - `getMatchDuration(match)` — new helper, infers `REGULAR/EXTRA_TIME/PENALTY_SHOOTOUT` from flat cols.
+  - `getKnockoutAdvancingTeamId(match)` — new helper; covers **both** EXTRA_TIME (from `result`) and PENALTY_SHOOTOUT (from `penaltiesHome/Away`). Fixes the silent bug where +3 `whoClassifiesTeamId` bonus was never awarded for ET wins.
+  - All call-sites updated: `useLeaderboard`, `usePointsProcessor` (×3), `UserAuditModal`.
+
+### What's next (Phase 4 — start here)
+
+**Phase 4 — `components/MatchCard.tsx`** — internal refactor, no visual change.
+
+Replace every `match.score?.…` read with the new helpers:
+
+| Old pattern | New pattern |
+|---|---|
+| `match.score?.duration === "EXTRA_TIME" \|\| ...` | `getMatchDuration(match) !== 'REGULAR'` |
+| `match.score?.duration === "PENALTY_SHOOTOUT"` | `getMatchDuration(match) === 'PENALTY_SHOOTOUT'` |
+| `match.score?.winner === "HOME_TEAM" ? homeTeam.id : awayTeam.id` | `getKnockoutAdvancingTeamId(match)` |
+| `displayResult` memo (R1) | `getR1MatchScoringResult(match, match.result.home, match.result.away)` |
+| `match.penaltiesHome` / `match.penaltiesAway` (already flat) | keep as-is |
+
+Import: add `getMatchDuration, getKnockoutAdvancingTeamId` to the import from `../utils/scoring`.
+
+After Phase 4: Phase 5 (Admin modal), Phase 6 (UserAuditModal display), Phase 7 (StatsPage), Phase 8 (TournamentStandings).
+
+### Key design decisions (do not revisit)
+
+- `score` JSONB column stays — audit trail, backward compat for rows not yet synced.
+- Duration inferred from null checks: `penaltiesHome != null` → PENALTY_SHOOTOUT, `extraTimeHome != null` → EXTRA_TIME.
+- `whoClassifiesTeamId` bonus applies to **both** EXTRA_TIME and PENALTY_SHOOTOUT (corrected from old PENALTY_SHOOTOUT-only logic).
+- Pre-existing TS errors in `DatabaseContext.tsx` (lines 479, 555) — pre-date this branch, ignore.
 
 ---
 

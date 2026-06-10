@@ -221,7 +221,7 @@ export function getKnockoutAdvancingTeamId(
 
 ---
 
-### Phase 4 — MatchCard.tsx: Use Flat Columns
+### Phase 4 — MatchCard.tsx: Use Flat Columns ⬅️ START HERE (next session)
 
 **Goal:** Replace all `match.score?.…` reads in MatchCard with flat columns + helpers from Phase 3. No visual change — this is an internal refactor.
 
