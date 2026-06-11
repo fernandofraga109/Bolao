@@ -343,17 +343,17 @@ export const useSyncSystem = (
       });
 
       try {
-        const season = getCurrentSeason();
         profiler.mark("setup", "cpu");
 
         // ── FASE 1: Fetch Paralelo ──────────────────────────────────────────
+        // A season é resolvida SERVER-SIDE nos proxies (api/_lib/seasonPolicy).
+        // O cliente não envia season — abas stale não conseguem injetar uma.
         console.log(`[SYNC] Iniciando fetch paralelo para ${normalizedCode}...`);
         const [externalTeams, externalMatches, standingsData, scorersData] = await Promise.all([
-          fetchCompetitionTeams(normalizedCode, season),
-          fetchExternalMatches(normalizedCode, season),
-          // Standings resolve a season via STANDINGS_SEASON_OVERRIDE (seedless por padrão)
+          fetchCompetitionTeams(normalizedCode),
+          fetchExternalMatches(normalizedCode),
           fetchExternalStandings(normalizedCode),
-          fetchCompetitionScorers(normalizedCode, season),
+          fetchCompetitionScorers(normalizedCode),
         ]);
         profiler.mark("api_fetch", "api");
 
@@ -960,7 +960,7 @@ export const useSyncSystem = (
               standingUpserts.push({
                 teamId: team.id,
                 competitionCode: normalizedCode,
-                season: standingsData.filters?.season || season,
+                season: standingsData.filters?.season || getCurrentSeason(),
                 stage: group.stage,
                 type: group.type,
                 group: resolvedGroup,

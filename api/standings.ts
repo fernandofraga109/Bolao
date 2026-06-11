@@ -6,6 +6,8 @@
 
 export const config = { runtime: "edge" };
 
+import { resolveSeason } from "./_lib/seasonPolicy";
+
 export default async function handler(req: Request) {
   const API_TOKEN = process.env.FOOTBALL_DATA_TOKEN;
   const BASE_URL = "https://api.football-data.org/v4";
@@ -15,14 +17,10 @@ export default async function handler(req: Request) {
     url.searchParams.get("competition") || "WC"
   ).toUpperCase();
 
-  // `season` é OPT-IN: só repassamos à API externa quando o caller envia
-  // explicitamente. Sem season, a football-data.org devolve a classificação da
-  // temporada corrente (o que queremos para um torneio ao vivo). Atenção: para
-  // a WC, `?season=2026` retorna um snapshot desatualizado — por isso o app NÃO
-  // deve mandar season para standings de competição ativa. Pinne uma season
-  // apenas quando precisar de dados históricos de uma edição específica
-  // (ver STANDINGS_SEASON_OVERRIDE em services/liveScoreService.ts).
-  const season = url.searchParams.get("season");
+  // A season é decidida SERVER-SIDE (resolveSeason). Ignoramos qualquer `season`
+  // enviado pelo cliente: abas stale mandam `season=2026` para a WC, o que devolve
+  // um snapshot zerado. Sem season → seedless (temporada corrente).
+  const season = resolveSeason(competitionCode);
   const targetUrl = season
     ? `${BASE_URL}/competitions/${competitionCode}/standings?season=${encodeURIComponent(season)}`
     : `${BASE_URL}/competitions/${competitionCode}/standings`;
