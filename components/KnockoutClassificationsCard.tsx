@@ -64,9 +64,6 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
   // Determine lock state per phase
   const isPhaseLocked = (phase: "Oitavas" | "Quartas" | "Semis") => {
     const now = new Date();
-    // Global tournament lock
-    if (now >= new Date(lockDate)) return true;
-
     // Phase-specific lock: when the first match of that phase starts
     const mList = phaseMatches[phase];
     if (mList.length > 0) {
