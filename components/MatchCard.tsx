@@ -580,22 +580,22 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 return (
                 <div
                   key={f.id}
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/40 border border-slate-700/30"
+                  className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-900/40 border border-slate-700/30"
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
                     <AvatarWithFallback
                       src={f.avatar}
                       alt={f.name}
-                      className="w-6 h-6 rounded-full"
+                      className="w-6 h-6 rounded-full shrink-0"
                       iconSize={12}
                     />
-                    <span className="text-xs font-bold text-slate-300">
+                    <span className="text-xs font-bold text-slate-300 truncate">
                       {f.name}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <span
-                      className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${
+                      className={`text-[10px] font-black px-1.5 py-0.5 rounded-md shrink-0 ${
                         pts > 0
                           ? "text-brand-green bg-brand-green/10"
                           : "text-slate-600 bg-slate-800"
@@ -603,8 +603,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     >
                       {pts > 0 ? `+${pts}pts` : "0pts"}
                     </span>
-                    <span className="font-mono font-black text-slate-400 bg-slate-950 px-2 py-0.5 rounded-lg border border-slate-800">
-                      {isPredictionDisabled ? `${pred.home} - ${pred.away}` : <EyeOff size={12} />}
+                    <span className="font-mono font-black text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded-lg border border-slate-800 shrink-0 text-[10px]">
+                      {isPredictionDisabled ? `${pred.home}-${pred.away}` : <EyeOff size={10} />}
                     </span>
                   </div>
                 </div>
