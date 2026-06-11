@@ -6,7 +6,6 @@ import { useDatabase } from '../contexts/DatabaseContext';
 import {
   ExternalStandingGroup,
   fetchExternalStandings,
-  getCurrentSeason,
 } from '../services/liveScoreService';
 import { translateGroupName } from '../utils/translations';
 import { getMatchDuration } from '../utils/scoring';
@@ -67,7 +66,6 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
   const [apiStandings, setApiStandings] = useState<Record<string, TeamStats[]> | null>(null);
   const [standingsSource, setStandingsSource] = useState<'api' | 'cache' | 'local'>('local');
 
-  const STANDINGS_SEASON = getCurrentSeason();
   const normalizeCompetition = (value?: string) => (value || 'WC').toUpperCase();
 
   const buildStandingsFromExternal = useCallback(
@@ -299,7 +297,7 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
 
       setIsLoadingStandings(true);
       try {
-        const data = await fetchExternalStandings(competitionCode, STANDINGS_SEASON);
+        const data = await fetchExternalStandings(competitionCode);
         if (!data || !Array.isArray(data.standings)) {
           throw new Error('Sem dados de standings na API.');
         }

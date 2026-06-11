@@ -351,7 +351,8 @@ export const useSyncSystem = (
         const [externalTeams, externalMatches, standingsData, scorersData] = await Promise.all([
           fetchCompetitionTeams(normalizedCode, season),
           fetchExternalMatches(normalizedCode, season),
-          fetchExternalStandings(normalizedCode, season),
+          // Standings resolve a season via STANDINGS_SEASON_OVERRIDE (seedless por padrão)
+          fetchExternalStandings(normalizedCode),
           fetchCompetitionScorers(normalizedCode, season),
         ]);
         profiler.mark("api_fetch", "api");

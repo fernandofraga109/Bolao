@@ -136,6 +136,28 @@ export interface ExternalStandingsResponse {
 export const getCurrentSeason = (): string =>
   new Date().getFullYear().toString();
 
+/**
+ * Competições que exigem uma season FIXA na API de standings.
+ *
+ * Ausência (caso padrão) = não envia season → a football-data.org devolve a
+ * classificação da temporada CORRENTE, que é o que queremos para um torneio ao
+ * vivo. A WC fica deliberadamente de fora: `?season=2026` retorna um snapshot
+ * desatualizado, então ela usa seedless.
+ *
+ * Para pinar uma edição histórica de uma competição, adicione `CODE: "ano"`.
+ */
+export const STANDINGS_SEASON_OVERRIDE: Record<string, string> = {
+  BSA: "2026", // Brasileirão Série A: exige season fixa na API de standings
+};
+
+/** Resolve a season de standings para uma competição (undefined = seedless). */
+export const getStandingsSeason = (
+  competitionCode = DEFAULT_COMPETITION_CODE,
+): string | undefined =>
+  STANDINGS_SEASON_OVERRIDE[
+    (competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase()
+  ];
+
 export const fetchExternalMatches = async (
   competitionCode = DEFAULT_COMPETITION_CODE,
   season = getCurrentSeason(),
@@ -261,7 +283,7 @@ export const fetchLiveMatchMinutes = async (): Promise<Record<number, number | n
 
 export const fetchExternalStandings = async (
   competitionCode = DEFAULT_COMPETITION_CODE,
-  season = getCurrentSeason(),
+  season = getStandingsSeason(competitionCode),
 ): Promise<ExternalStandingsResponse | null> => {
   const buildUrl = (seasonParam?: string) => {
     const params = new URLSearchParams();
