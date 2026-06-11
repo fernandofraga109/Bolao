@@ -49,16 +49,20 @@ test.describe("PRED — Palpite de partida", () => {
     await loginAndGoToMatches(loginPage, appShell);
     await matchesPage.expandAllGroups();
 
-    const filled = await matchesPage.fillPredictionAt(0, 2, 1);
+    // O índice 0 pode ser um jogo de hoje já TRAVADO (inputs disabled). Usa o
+    // 1º card EDITÁVEL (seed sintético futuro ou jogos reais palpitáveis).
+    const idx = await matchesPage.findFirstEditablePairIndex();
     test.skip(
-      !filled,
+      idx < 0,
       "Nenhum jogo palpitável. Rode tests/seed/seed-fixtures.sql no SQL Editor.",
     );
-    await matchesPage.savePrediction();
+
+    await matchesPage.fillPredictionAt(idx, 2, 1);
+    await matchesPage.savePredictionAt(idx);
 
     // O placar preenchido persiste no input do card.
-    await expect(matchesPage.scoreInputAt(0, "home")).toHaveValue("2");
-    await expect(matchesPage.scoreInputAt(0, "away")).toHaveValue("1");
+    await expect(matchesPage.scoreInputAt(idx, "home")).toHaveValue("2");
+    await expect(matchesPage.scoreInputAt(idx, "away")).toHaveValue("1");
   });
 
   test("PRED-07: editar palpite existente sobrescreve o placar", async ({
@@ -70,18 +74,21 @@ test.describe("PRED — Palpite de partida", () => {
     await loginAndGoToMatches(loginPage, appShell);
     await matchesPage.expandAllGroups();
 
-    const first = await matchesPage.fillPredictionAt(0, 1, 0);
+    // 1º card EDITÁVEL (índice 0 pode ser jogo de hoje já travado).
+    const idx = await matchesPage.findFirstEditablePairIndex();
     test.skip(
-      !first,
+      idx < 0,
       "Nenhum jogo palpitável. Rode tests/seed/seed-fixtures.sql no SQL Editor.",
     );
-    await matchesPage.savePrediction();
+
+    await matchesPage.fillPredictionAt(idx, 1, 0);
+    await matchesPage.savePredictionAt(idx);
 
     // Edita para outro placar e salva novamente — deve sobrescrever.
-    await matchesPage.fillPredictionAt(0, 3, 2);
-    await matchesPage.savePrediction();
-    await expect(matchesPage.scoreInputAt(0, "home")).toHaveValue("3");
-    await expect(matchesPage.scoreInputAt(0, "away")).toHaveValue("2");
+    await matchesPage.fillPredictionAt(idx, 3, 2);
+    await matchesPage.savePredictionAt(idx);
+    await expect(matchesPage.scoreInputAt(idx, "home")).toHaveValue("3");
+    await expect(matchesPage.scoreInputAt(idx, "away")).toHaveValue("2");
   });
 
   test("PRED-05: mata-mata empate exibe e persiste 'quem se classifica'", async ({
@@ -104,10 +111,10 @@ test.describe("PRED — Palpite de partida", () => {
     // Seletor visível (empate 1×1 já preenchido por findKnockoutPairIndex).
     await matchesPage.expectWhoClassifiesVisible();
 
-    // Escolhe um time e salva.
+    // Escolhe um time e salva (no card de mata-mata específico).
     await matchesPage.selectFirstTieWinner();
     expect(await matchesPage.hasTieWinnerSelected()).toBe(true);
-    await matchesPage.savePrediction();
+    await matchesPage.savePredictionAt(koIndex);
 
     // Recarrega a página para reler o estado persistido do backend.
     await matchesPage.reloadAndReopenMatches(appShell);
@@ -138,11 +145,11 @@ test.describe("PRED — Palpite de partida", () => {
     // Garante um tieWinner setado, salva, então limpa e salva de novo.
     await matchesPage.selectFirstTieWinner();
     expect(await matchesPage.hasTieWinnerSelected()).toBe(true);
-    await matchesPage.savePrediction();
+    await matchesPage.savePredictionAt(koIndex);
 
     await matchesPage.clearTieWinner();
     expect(await matchesPage.hasTieWinnerSelected()).toBe(false);
-    await matchesPage.savePrediction();
+    await matchesPage.savePredictionAt(koIndex);
 
     // Recarrega e confirma que NÃO há time marcado (tieWinnerTeamId = NULL).
     await matchesPage.reloadAndReopenMatches(appShell);
@@ -171,13 +178,14 @@ test.describe("PRED — Palpite de partida", () => {
     await appShell.goToTab("matches");
     await matchesPage.expandAllGroups();
 
-    const filled = await matchesPage.fillPredictionAt(0, 4, 0);
-    test.skip(!filled, "Nenhum jogo palpitável no grupo ativo após a troca.");
-    await matchesPage.savePrediction();
+    const idx = await matchesPage.findFirstEditablePairIndex();
+    test.skip(idx < 0, "Nenhum jogo palpitável no grupo ativo após a troca.");
+    await matchesPage.fillPredictionAt(idx, 4, 0);
+    await matchesPage.savePredictionAt(idx);
 
     // O palpite gravado aparece no input do novo grupo ativo.
-    await expect(matchesPage.scoreInputAt(0, "home")).toHaveValue("4");
-    await expect(matchesPage.scoreInputAt(0, "away")).toHaveValue("0");
+    await expect(matchesPage.scoreInputAt(idx, "home")).toHaveValue("4");
+    await expect(matchesPage.scoreInputAt(idx, "away")).toHaveValue("0");
   });
 
   test("PRED-04: replica palpite para grupos elegíveis (mesma competição+ruleset)", async ({
@@ -189,15 +197,16 @@ test.describe("PRED — Palpite de partida", () => {
     await loginAndGoToMatches(loginPage, appShell);
     await matchesPage.expandAllGroups();
 
-    // Preenche um palpite no grupo ativo (E2ETEST01).
-    const filled = await matchesPage.fillPredictionAt(0, 3, 1);
+    // Preenche um palpite no grupo ativo (E2ETEST01), no 1º card EDITÁVEL.
+    const idx = await matchesPage.findFirstEditablePairIndex();
     test.skip(
-      !filled,
+      idx < 0,
       "Nenhum jogo palpitável. Rode tests/seed/seed-fixtures.sql no SQL Editor.",
     );
+    await matchesPage.fillPredictionAt(idx, 3, 1);
 
     // O botão de replicação (RefreshCw) só aparece quando há grupos elegíveis.
-    const replicateButton = matchesPage.replicateButton();
+    const replicateButton = matchesPage.replicateButtonAt(idx);
     test.skip(
       !(await replicateButton.isVisible().catch(() => false)),
       `Sem grupos elegíveis (precisa do '${SEED_GROUP_2_NAME}'). Rode o seed.`,
@@ -217,8 +226,11 @@ test.describe("PRED — Palpite de partida", () => {
     await appShell.goToTab("matches");
     await matchesPage.expandAllGroups();
 
-    // O mesmo placar (3×1) deve estar refletido no grupo replicado.
-    await expect(matchesPage.scoreInputAt(0, "home")).toHaveValue("3");
-    await expect(matchesPage.scoreInputAt(0, "away")).toHaveValue("1");
+    // O mesmo placar (3×1) deve estar refletido no grupo replicado. O card
+    // replicado é o 1º editável (índice 0 pode ser jogo de hoje travado).
+    const replicatedIdx = await matchesPage.findFirstEditablePairIndex();
+    expect(replicatedIdx).toBeGreaterThanOrEqual(0);
+    await expect(matchesPage.scoreInputAt(replicatedIdx, "home")).toHaveValue("3");
+    await expect(matchesPage.scoreInputAt(replicatedIdx, "away")).toHaveValue("1");
   });
 });

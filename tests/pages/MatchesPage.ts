@@ -67,6 +67,18 @@ export class MatchesPage extends BasePage {
     return this.page.getByTitle(/Sincronizar este palpite com outros grupos/i).first();
   }
 
+  /**
+   * Botão de replicação (RefreshCw) DENTRO do card em `pairIndex`. Garante que
+   * o clique mira o card preenchido (não o primeiro card elegível da página).
+   */
+  replicateButtonAt(pairIndex: number): Locator {
+    const homeInput = this.scoreInputAt(pairIndex, "home");
+    const card = homeInput.locator(
+      "xpath=ancestor::div[contains(@class,'rounded-3xl')][1]",
+    );
+    return card.getByTitle(/Sincronizar este palpite com outros grupos/i);
+  }
+
   /** Cabeçalho do modal de replicação ("Sincronizar Palpite"). */
   replicateModalHeading(): Locator {
     return this.page.getByRole("heading", { name: /Sincronizar Palpite/i });
@@ -146,6 +158,28 @@ export class MatchesPage extends BasePage {
     await homeInput.fill(String(home));
     await awayInput.fill(String(away));
     return true;
+  }
+
+  /**
+   * Localiza o índice (0-based por card) do PRIMEIRO par de inputs EDITÁVEL.
+   *
+   * Análogo a `findKnockoutPairIndex`, mas sem exigir mata-mata: serve a
+   * qualquer card palpitável (fase de grupos OU mata-mata). Necessário porque
+   * o índice 0 pode pertencer a um jogo de "hoje" já TRAVADO (`isPrediction
+   * Disabled` → inputs `disabled`), enquanto os jogos futuros (seed sintético
+   * + jogos reais de jun/26) nos acordeões seguintes continuam editáveis.
+   *
+   * @returns o pairIndex do 1º card editável, ou -1 se nenhum for editável.
+   */
+  async findFirstEditablePairIndex(): Promise<number> {
+    const total = await this.matchCards.count();
+    const pairs = Math.floor(total / 2);
+    for (let i = 0; i < pairs; i++) {
+      const homeInput = this.scoreInputAt(i, "home");
+      if (!(await homeInput.count())) continue;
+      if (await homeInput.isEditable().catch(() => false)) return i;
+    }
+    return -1;
   }
 
   /**
@@ -234,5 +268,28 @@ export class MatchesPage extends BasePage {
       .getByRole("button", { name: /Salvar|Palpitar|Confirmar/i })
       .first()
       .click();
+  }
+
+  /**
+   * Salva o palpite do card que contém o par de inputs em `pairIndex`.
+   *
+   * Mais robusto que `savePrediction()` quando o card alvo NÃO é o primeiro
+   * card editável: localiza o botão "Salvar/Palpitar" DENTRO do mesmo
+   * MatchCard (ancestral do input), evitando clicar no save de outro card.
+   */
+  async savePredictionAt(pairIndex: number): Promise<void> {
+    const homeInput = this.scoreInputAt(pairIndex, "home");
+    // Sobe até o container do MatchCard (a raiz tem rounded-3xl) e mira o
+    // botão de salvar daquele card específico.
+    const card = homeInput.locator(
+      "xpath=ancestor::div[contains(@class,'rounded-3xl')][1]",
+    );
+    const saveBtn = card.getByRole("button", { name: /Salvar|Palpitar|Confirmar/i });
+    if (await saveBtn.count()) {
+      await saveBtn.first().click();
+      return;
+    }
+    // Fallback: comportamento legado (primeiro save da página).
+    await this.savePrediction();
   }
 }
