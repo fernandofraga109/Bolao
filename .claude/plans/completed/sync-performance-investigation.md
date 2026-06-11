@@ -1,6 +1,6 @@
 # Plano: Investigação de Performance do Sync (latência 30–40s)
 
-**Status:** Fase 2 VALIDADA — total ~20s → ~7.3s; `user_groups_recalc` 15.85s → 3.90s (~4×). Recálculo ainda é a maior fase (53%); backlog opcional para ir além.
+**Status:** DONE — 2026-06-11. Fase 2 VALIDADA — total ~20s → ~7.3s; `user_groups_recalc` 15.85s → 3.90s (~4×). Recálculo ainda é a maior fase (53%); backlog opcional para ir além (deferido, ver `sync-call-reduction.md`).
 **Branch sugerida:** `perf/sync-profiling`
 **Complementa:** `.claude/plans/sync-call-reduction.md`
 **Spec de referência:** `docs/architecture/external-api-calls.md` (§4 pipeline, §5 fluxo Supabase)

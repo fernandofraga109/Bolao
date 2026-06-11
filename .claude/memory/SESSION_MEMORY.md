@@ -8,8 +8,8 @@ _Read this first at the start of every session. Update after every significant t
 
 React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Supabase (PostgreSQL + Auth + Realtime) + Tailwind CSS.
 
-**Current version:** `1.5.0`
-**Test suite:** 112 tests passing / 2 pre-existing failures in `useLeaderboard.test.ts` (Vitest + RTL + happy-dom)
+**Current version:** `1.30.0`
+**Test suite:** ~188 passing / 2 pre-existing failures in `useLeaderboard.test.ts` (Vitest + RTL + happy-dom)
 **Feature memories:** `.claude/memory/features/sync-system.md`
 
 ---
@@ -23,9 +23,23 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 | Deferred | Large file refactor (5 phases) | `.claude/plans/large-file-refactors.md` | Planned, not started — branch `chore/structural-refactor` |
 | Deferred | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Deferred |
 | Next | Sync call reduction (cadências desacopladas + gate por estado) | `.claude/plans/sync-call-reduction.md` | PLANEJADO — aguardando aprovação |
-| In Progress | Sync performance investigation (latência 30–40s) | `.claude/plans/sync-performance-investigation.md` | Fix VALIDADO: total ~20s→~7.3s, `recalculateUserGroupPoints` 15.8s→3.9s (~4×, paralelização I/O). Recálculo ainda 53%; backlog opcional p/ reduzir mais |
+| Next | Banner "Nova versão disponível — Atualizar" (staleness de UI) | `.claude/plans/update-available-banner.md` | PLANEJADO 2026-06-11. Reusa `system_config`+Realtime: `app_version` (servidor, live) × `CURRENT_VERSION` (bundle). Aguardando aprovação. |
 | In Progress | E2E schema `test` + seed fixtures (piloto PRED) | `.claude/plans/e2e-seed-fixtures.md` | PARADO 2026-06-11. 13 passed/0 failed/16 skipped. Fix do `waitForMatchesLoaded` UNCOMMITTED (falta verificar). Detalhes completos no plano. |
-| In Progress | Política de `season` autoritativa no servidor (proxies) | `.claude/plans/standings-season-server-policy.md` | EM ANDAMENTO 2026-06-11. PR #8 (standings opt-in) deixou aba stale injetar `season=2026` e zerar `team_standings`. Mover política p/ `api/_lib/seasonPolicy.ts`; 4 proxies ignoram season do cliente. Branch `fix/season-server-policy`. |
+
+---
+
+## Completed — Política de `season` server-side nos proxies (2026-06-11)
+
+PR #9 (`fix/season-server-policy`, commit `874ff39`), validado em produção. CURRENT_VERSION 1.30.0.
+
+- **Root cause:** o PR #8 tornou o proxy de standings opt-in (confiava no `season` do cliente). Abas antigas (bundle stale) seguiam mandando `season=2026` via `useBackgroundSync` → football-data devolvia snapshot zerado → sobrescrevia `team_standings`. Lock/intervalo não protegem (controlam concorrência/frequência, não idade do código).
+- **Fix:** política de season movida para `api/_lib/seasonPolicy.ts` (`resolveSeason`, mapa `{ BSA: "2026" }`, WC/demais = seedless). Os 4 proxies (`standings`/`matches`/`scorers`/`teams`) **ignoram o `season` do cliente**. Cliente limpo: removidos `STANDINGS_SEASON_OVERRIDE`/`getStandingsSeason`; fetchers param de enviar season.
+- **Princípio (não revisitar):** política sensível a staleness mora no **servidor** → vale no deploy para todos, inclusive abas stale. Mudança de UI (client) NÃO — daí o plano do banner.
+- ⚠️ **Pendência:** testes do fix (`api/_lib/seasonPolicy.test.ts`, `services/liveScoreService.url.test.ts`) estão **UNCOMMITTED** no working tree da main (criados pós-merge). Commitar via branch+PR.
+
+## Completed — Sync performance investigation (2026-06-11)
+
+`completed/sync-performance-investigation.md`. Fase 2 validada: total ~20s → ~7.3s; `recalculateUserGroupPoints` 15.85s → 3.90s (~4×, paralelização de I/O). Recálculo ainda é 53% do tempo — backlog opcional deferido para `sync-call-reduction.md`.
 
 ---
 
@@ -41,9 +55,9 @@ Branch: `docs/e2e-tests-and-app-documentation` | Plano: `.claude/plans/e2e-seed-
 
 ---
 
-## In Progress — Knockout Score Flat Columns (2026-06-09)
+## Completed — Knockout Score Flat Columns (2026-06-09)
 
-Branch: `feat/knockout-score-flat-columns` | Plan: `.claude/plans/knockout-score-columns.md`
+Branch: `feat/knockout-score-flat-columns` | Plan: `.claude/plans/completed/knockout-score-columns.md` (duplicado órfão na raiz removido 2026-06-11)
 
 ### What was done this session
 
@@ -179,9 +193,9 @@ After Phase 6: Phase 7 (StatsPage), Phase 8 (TournamentStandings), Phase 9 (docs
 
 ## Next Action
 
-Await user verification of the Artilharia tab (now auto-populated by normal sync). On confirmation: move plan to `completed/`, invoke `changelog-updater`. Then optionally specials refactor Phase A (`.claude/plans/specials-components-refactor.md`).
-
-Commit all uncommitted Players/Artilharia work (combobox fix, specials/ extraction, scorer sync, TopScoresPage). Then optionally specials refactor Phase A (`.claude/plans/specials-components-refactor.md`).
+1. **Commitar (branch+PR) os testes do fix de season** — `api/_lib/seasonPolicy.test.ts` + `services/liveScoreService.url.test.ts`, UNCOMMITTED no working tree da main (criados pós-merge #9). Mais o housekeeping de planos (moves p/ `completed/`, plano do banner, SESSION_MEMORY).
+2. **Banner de versão** (`.claude/plans/update-available-banner.md`) — aguardando aprovação para implementar.
+3. Backlog deferido: sync-call-reduction, specials refactor Phase A, E2E Fase B/C.
 
 ## Completed — Players & Top Scorer Phases 1–4 (2026-06-06, commit `122f6ed`)
 
