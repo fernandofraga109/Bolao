@@ -32,26 +32,34 @@ export class MatchesPage extends BasePage {
    * esperar, os helpers (`expandAllGroups`, `fillPredictionAt`, etc.) leem 0
    * inputs e os testes pulam (skip gracioso) por engano.
    *
-   * Espera até que QUALQUER um dos sinais de "página de jogos pronta" apareça:
+   * Espera pelos SINAIS POSITIVOS de "jogos carregaram":
    *   - um input de placar (`input[type=number]`) — há jogo palpitável hoje; OU
-   *   - um acordeão de data fechado ("N jogos") — há jogos futuros; OU
-   *   - um estado vazio legítimo ("Nenhum jogo encontrado" / "não está em um
-   *     grupo") — não há jogos mesmo.
+   *   - um acordeão de data fechado ("N jogos") — há jogos futuros.
    *
-   * Resolve graciosamente (sem lançar) se o timeout estourar, para que os
-   * `test.skip` graciosos a jusante ainda funcionem em ambientes sem seed.
+   * ⚠️ NÃO corremos contra o estado vazio ("Nenhum jogo encontrado" / "não está
+   * em um grupo"): esse texto aparece TRANSITORIAMENTE durante o load (a lista
+   * começa `matches=[]` e só popula após o fetch async). Incluí-lo na `race`
+   * resolvia cedo demais — antes dos jogos chegarem — fazendo os `test.skip`
+   * graciosos dispararem por engano. Só conferimos o estado vazio DEPOIS que os
+   * sinais positivos não aparecem dentro do timeout (ambiente sem seed/jogos).
+   *
+   * Resolve graciosamente (sem lançar) em qualquer caso, para que os `test.skip`
+   * a jusante ainda funcionem em ambientes sem seed.
    */
   async waitForMatchesLoaded(timeout = 20_000): Promise<void> {
     const numberInput = this.matchCards.first();
     const dateAccordion = this.page.getByText(/\d+\s+jogos?$/i).first();
-    const emptyState = this.page
-      .getByText(/Nenhum jogo encontrado|não está em um grupo/i)
-      .first();
-    await Promise.race([
-      numberInput.waitFor({ state: "attached", timeout }).catch(() => {}),
-      dateAccordion.waitFor({ state: "visible", timeout }).catch(() => {}),
-      emptyState.waitFor({ state: "visible", timeout }).catch(() => {}),
+    const loaded = await Promise.race([
+      numberInput.waitFor({ state: "attached", timeout }).then(() => true).catch(() => false),
+      dateAccordion.waitFor({ state: "visible", timeout }).then(() => true).catch(() => false),
     ]);
+    if (loaded) return;
+    // Sem jogos após o timeout → confirma o estado vazio legítimo (sem lançar).
+    await this.page
+      .getByText(/Nenhum jogo encontrado|não está em um grupo/i)
+      .first()
+      .waitFor({ state: "visible", timeout: 1_000 })
+      .catch(() => {});
   }
 
   /** Recarrega a página e reabre a tab "Jogos" (reler estado do backend). */
