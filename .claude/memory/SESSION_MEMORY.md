@@ -23,7 +23,7 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 | Deferred | Large file refactor (5 phases) | `.claude/plans/large-file-refactors.md` | Planned, not started — branch `chore/structural-refactor` |
 | Deferred | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Deferred |
 | Next | Sync call reduction (cadências desacopladas + gate por estado) | `.claude/plans/sync-call-reduction.md` | PLANEJADO — aguardando aprovação |
-| Next | Banner "Nova versão disponível — Atualizar" (staleness de UI) | `.claude/plans/update-available-banner.md` | PLANEJADO 2026-06-11. Reusa `system_config`+Realtime: `app_version` (servidor, live) × `CURRENT_VERSION` (bundle). Aguardando aprovação. |
+| In Progress | Banner "Nova versão disponível — Atualizar" (staleness de UI) | `.claude/plans/update-available-banner.md` | EM ANDAMENTO 2026-06-11. Código pronto: migration `0028` (`app_version`), `useUpdateAvailable`, `UpdateAvailableBanner`, render em App. Falta: aplicar migration no Supabase, Fase 2 (Opção C — Vercel webhook `deployment.succeeded` → `api/publish-version`), e testes (test-runner). Passo-a-passo no plano. Branch `feat/update-available-banner`. |
 | In Progress | E2E schema `test` + seed fixtures (piloto PRED) | `.claude/plans/e2e-seed-fixtures.md` | PARADO 2026-06-11. 13 passed/0 failed/16 skipped. Fix do `waitForMatchesLoaded` UNCOMMITTED (falta verificar). Detalhes completos no plano. |
 
 ---

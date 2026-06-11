@@ -85,15 +85,88 @@ isso, nada chega às abas abertas. Opções:
   com **(a)** como fallback manual enquanto o hook não está configurado.
 
 ### Fase 3 — Frontend (banner)
-- Hook `useUpdateAvailable()`: deriva `isStale = !!systemConfig.appVersion && systemConfig.appVersion !== CURRENT_VERSION`.
-- Componente `UpdateAvailableBanner` (em `components/ui/`): barra discreta (topo/rodapé),
+- Hook `useUpdateAvailable()`: deriva `isStale = !!systemConfig.app_version && systemConfig.app_version !== CURRENT_VERSION`.
+- Componente `UpdateAvailableBanner` (em `components/ui/`): barra fixa no topo,
   texto "Nova versão disponível", botão "Atualizar" → `location.reload()`. Dismissível
-  (reaparece no próximo tick/Realtime se ainda stale). Não bloqueante.
-- Render em `App.tsx`, fora das áreas de formulário, sem auto-reload.
+  por versão (uma versão ainda mais nova reaparece). Não bloqueante.
+- Render em `App.tsx`, logo após `<Header>`, sem auto-reload.
 
 ### Fase 4 — Testes (test-runner)
 - `useUpdateAvailable`: stale quando versões divergem, não-stale quando iguais/null.
 - Banner: render condicional + `reload` no clique (mock de `location.reload`).
+
+---
+
+## ✅ Passo a passo de execução (checklist)
+
+### O que JÁ está implementado nesta branch (código)
+- [x] **Fase 1** — Migration `database/migrations/0028_add_app_version_to_system_config.sql` (coluna `app_version text`, nullable, com e sem prefixo `v2_`). `types.ts`: `SystemConfigDB.app_version?: string | null`.
+- [x] **Fase 3** — `hooks/useUpdateAvailable.ts`, `components/ui/UpdateAvailableBanner.tsx`, render em `App.tsx` após `<Header>`.
+- [ ] **Fase 4** — testes (delegar ao `test-runner`).
+
+### O que VOCÊ precisa rodar (operacional)
+
+**1. Aplicar a migration no Supabase** (dev e prod) — rodar o SQL abaixo no SQL Editor:
+```sql
+ALTER TABLE IF EXISTS system_config    ADD COLUMN IF NOT EXISTS app_version text;
+ALTER TABLE IF EXISTS v2_system_config ADD COLUMN IF NOT EXISTS app_version text;
+```
+> Idempotente: pode rodar quantas vezes quiser. Enquanto `app_version` for NULL, o banner não aparece (seguro).
+
+**2. Publicar a versão (Fase 2 / passo 2 da sequência).** Sem isto, a coluna nunca muda e o banner nunca dispara. Escolher UMA via:
+
+- **Manual (rápido, p/ validar agora):** no SQL Editor, após um deploy:
+  ```sql
+  UPDATE v2_system_config SET app_version = '1.31.0';  -- = CURRENT_VERSION recém-deployada
+  ```
+- **Opção C — Vercel Deploy Hook (alvo final, automático):** ver bloco abaixo.
+
+### Receita de teste LOCAL (sem deploy)
+1. `npm run build && npm run preview` (NÃO `npm run dev` — o HMR atrapalha; precisa do `CURRENT_VERSION` congelado no bundle).
+2. Abrir o preview. A app carrega com, digamos, `CURRENT_VERSION = "1.31.0"`.
+3. No Supabase (schema `dev`): `UPDATE v2_system_config SET app_version = '1.32.0';`
+4. O Realtime entrega → o banner aparece **na hora** na aba aberta (testar com 2 abas).
+5. Clicar "Atualizar" → reload → versões batem → banner some. Clicar no "X" → some até sair uma versão ainda mais nova.
+
+### Opção C — endpoint + Vercel Deploy Hook (passo a passo)
+
+**a. Criar o endpoint** `api/publish-version.ts` (escreve via service role, fora do bundle):
+```ts
+export const config = { runtime: "edge" };
+import { createClient } from "@supabase/supabase-js";
+import { CURRENT_VERSION } from "../data/releases";
+
+export default async function handler(req: Request) {
+  const url = new URL(req.url, "http://localhost");
+  if (url.searchParams.get("secret") !== process.env.PUBLISH_VERSION_SECRET)
+    return new Response("forbidden", { status: 403 });
+
+  const supabase = createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,        // server-side, NUNCA no bundle
+    { db: { schema: process.env.SUPABASE_SCHEMA || "public" } },
+  );
+  const table = `${process.env.DB_TABLE_PREFIX || ""}system_config`;
+
+  // escreve só se mudou (evita evento Realtime redundante)
+  const { data } = await supabase.from(table).select("id, app_version").single();
+  if (data && data.app_version !== CURRENT_VERSION) {
+    await supabase.from(table).update({ app_version: CURRENT_VERSION }).eq("id", data.id);
+  }
+  return new Response(JSON.stringify({ ok: true, version: CURRENT_VERSION }), {
+    headers: { "Content-Type": "application/json" },
+  });
+}
+```
+
+**b. Env vars na Vercel** (Project Settings → Environment Variables):
+- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (server-only), `SUPABASE_SCHEMA` (ex.: `public`/`dev`), `DB_TABLE_PREFIX` (ex.: `v2_`), `PUBLISH_VERSION_SECRET` (string aleatória).
+
+**c. Disparar pós-deploy** — Vercel → Project Settings → **Deploy Hooks** não serve (ele *inicia* deploy). Para rodar APÓS o deploy, usar **Webhooks da conta** (Vercel → Settings → Webhooks) no evento `deployment.succeeded`, apontando para `https://<app>/api/publish-version?secret=<PUBLISH_VERSION_SECRET>`. (Alternativa sem webhook: um passo de `postbuild` no `package.json`/CI que faz `curl` no endpoint.)
+
+**d. Validar num preview deploy:** subir um deploy, confirmar que `system_config.app_version` mudou sozinho e que uma aba antiga recebeu o banner.
+
+> A parte (a)+(b) é testável manualmente já (chamar `/api/publish-version?secret=...` com `curl`). Só o disparo automático (c) precisa do ambiente Vercel.
 
 ## Reforço opcional (defesa em profundidade)
 - Capturar `ChunkLoadError` (chunk lazy removido no deploy) → forçar reload. Pega o

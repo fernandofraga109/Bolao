@@ -17,6 +17,9 @@ export interface SystemConfigDB {
   is_auto_sync_enabled: boolean;
   sync_interval_ms: number;
   underdog_min_rank_diff: number;
+  /** Versão da app publicada pelo servidor; alimenta o banner "Nova versão
+   *  disponível". NULL = nunca publicada → banner não dispara. */
+  app_version?: string | null;
 }
 
 export interface CompetitionDB {
