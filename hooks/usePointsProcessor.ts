@@ -57,34 +57,49 @@ export const usePointsProcessor = (dbRef: any) => {
         const globalMinRankDiff: number = dbRef.current.systemConfig?.underdog_min_rank_diff ?? 10;
         const effectiveMinRankDiff: number = group?.underdog_min_rank_diff ?? globalMinRankDiff;
 
-        // 1. Fetch all predictions for the group from the DB (always fresh — never local state)
-        const { data: preds, error } = await supabase
-          .from('predictions')
-          .select('userId, matchId, groupId, homeScore, awayScore, points, timestamp, tieWinnerTeamId')
-          .eq('groupId', groupId);
+        // 1-4. Fetch all data for the group in parallel (predictions, tournament_predictions, competitions)
+        const compCode = group?.competitionCode || 'WC';
+        
+        console.time(`[GROUP PERF] ${groupId} - Fetch 3 queries in parallel`);
+        const [predsResult, tournPredsResult, compDataResult] = await Promise.all([
+          supabase
+            .from('predictions')
+            .select('userId, matchId, groupId, homeScore, awayScore, points, timestamp, tieWinnerTeamId')
+            .eq('groupId', groupId),
+          supabase
+            .from('tournament_predictions')
+            .select('*')
+            .eq('groupId', groupId),
+          supabase
+            .from('competitions')
+            .select('*')
+            .eq('code', compCode)
+            .single(),
+        ]);
+        console.timeEnd(`[GROUP PERF] ${groupId} - Fetch 3 queries in parallel`);
 
+        const { data: preds, error } = predsResult;
         if (error) {
           console.error(`❌ Erro ao buscar predições do grupo ${groupId}:`, error);
           continue;
         }
 
-        // 2. Fetch tournament predictions for the group
-        const { data: tournPreds, error: tournError } = await supabase
-          .from('tournament_predictions')
-          .select('*')
-          .eq('groupId', groupId);
-
+        const { data: tournPreds, error: tournError } = tournPredsResult;
         if (tournError) {
           console.error(`❌ Erro ao buscar predições do torneio do grupo ${groupId}:`, tournError);
         }
 
+        const { data: compData } = compDataResult;
+
         // 3. Fetch extra phase predictions for the group (only for Regulamento 2)
         let extraPhasePreds: any[] = [];
         if (isRegulamento2) {
+          console.time(`[GROUP PERF] ${groupId} - Fetch extra phase predictions`);
           const { data: epPreds, error: epError } = await supabase
             .from('extra_phase_predictions')
             .select('*')
             .eq('groupId', groupId);
+          console.timeEnd(`[GROUP PERF] ${groupId} - Fetch extra phase predictions`);
 
           if (epError) {
             console.error(
@@ -95,14 +110,6 @@ export const usePointsProcessor = (dbRef: any) => {
             extraPhasePreds = epPreds;
           }
         }
-
-        // 4. Fetch the current competition's actual results
-        const compCode = group?.competitionCode || 'WC';
-        const { data: compData } = await supabase
-          .from('competitions')
-          .select('*')
-          .eq('code', compCode)
-          .single();
 
         const tournamentResults: TournamentPredictions | null = compData
           ? {
@@ -320,10 +327,12 @@ export const usePointsProcessor = (dbRef: any) => {
         }
 
         // 8. Buscamos os membros atuais para preservar metadados
+        console.time(`[GROUP PERF] ${groupId} - Fetch user_groups`);
         const { data: members, error: ugError } = await supabase
           .from('user_groups')
           .select('userId, groupId, role, joinedAt')
           .eq('groupId', groupId);
+        console.timeEnd(`[GROUP PERF] ${groupId} - Fetch user_groups`);
 
         if (ugError) {
           console.error(`❌ Erro ao buscar membros do grupo ${groupId}:`, ugError);
@@ -353,9 +362,11 @@ export const usePointsProcessor = (dbRef: any) => {
             `📤 Enviando classificação atualizada para o grupo ${groupId} (${finalUpdates.length} usuários)`
           );
 
+          console.time(`[GROUP PERF] ${groupId} - Upsert user_groups`);
           const { error: upsertError } = await supabase
             .from('user_groups')
             .upsert(finalUpdates, { onConflict: 'userId,groupId' });
+          console.timeEnd(`[GROUP PERF] ${groupId} - Upsert user_groups`);
 
           if (upsertError) {
             console.error(`❌ Erro ao atualizar pontos do grupo ${groupId}:`, upsertError);
@@ -367,9 +378,11 @@ export const usePointsProcessor = (dbRef: any) => {
 
         // 9. Persist calculated points back to predictions.points in the DB.
         if (predPointsUpdates.length > 0) {
+          console.time(`[GROUP PERF] ${groupId} - Upsert predictions.points (${predPointsUpdates.length} updates)`);
           const { error: predError } = await supabase
             .from('predictions')
             .upsert(predPointsUpdates, { onConflict: '"userId", "matchId", "groupId"', defaultToNull: false });
+          console.timeEnd(`[GROUP PERF] ${groupId} - Upsert predictions.points`);
           if (predError) {
             console.error(`❌ Error updating prediction points for group ${groupId}:`, predError);
           } else {

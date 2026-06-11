@@ -344,12 +344,14 @@ export const useSyncSystem = (
 
         // ── FASE 1: Fetch Paralelo ──────────────────────────────────────────
         console.log(`[SYNC] Iniciando fetch paralelo para ${normalizedCode}...`);
+        console.time(`[SYNC PERF] FASE 1 - Fetch paralelo (${normalizedCode})`);
         const [externalTeams, externalMatches, standingsData, scorersData] = await Promise.all([
           fetchCompetitionTeams(normalizedCode, season),
           fetchExternalMatches(normalizedCode, season),
           fetchExternalStandings(normalizedCode, season),
           fetchCompetitionScorers(normalizedCode, season),
         ]);
+        console.timeEnd(`[SYNC PERF] FASE 1 - Fetch paralelo (${normalizedCode})`);
 
         if (!externalMatches || externalMatches.length === 0) {
           throw new Error("Nenhum jogo encontrado na API externa.");
@@ -635,6 +637,7 @@ export const useSyncSystem = (
         }
 
         // ── FASE 3: Processar Matches ────────────────────────────────────────
+        console.time(`[SYNC PERF] FASE 3 - Processar matches (${normalizedCode})`);
         const hydratedInternalMatches = dbRef.current.matches.map((m: any) => ({
           ...m,
           result: m.resultHome != null ? { home: m.resultHome, away: m.resultAway } : undefined,
@@ -907,7 +910,10 @@ export const useSyncSystem = (
             ? `${matchesUpdated} jogos atualizados.`
             : "Todos os jogos já estão atualizados.";
 
+        console.timeEnd(`[SYNC PERF] FASE 3 - Processar matches (${normalizedCode})`);
+
         // ── FASE 4: Batch Standings ──────────────────────────────────────────
+        console.time(`[SYNC PERF] FASE 4 - Batch standings (${normalizedCode})`);
         let standingsMessage = "Classificação não disponível.";
         let standingsSuccess = false;
 
@@ -999,6 +1005,7 @@ export const useSyncSystem = (
           }
         }
 
+        console.timeEnd(`[SYNC PERF] FASE 4 - Batch standings (${normalizedCode})`);
         // ── FASE 5: Recalcular Pontos + Atualizar competição ─────────────────
         const combinedSuccess = matchesUpdated >= 0 && standingsSuccess;
 
@@ -1022,7 +1029,9 @@ export const useSyncSystem = (
           .map((g: any) => g.id);
 
         if (affectedGroupIds.length > 0) {
+          console.time(`[SYNC PERF] FASE 5 - Recalcular pontos (${normalizedCode})`);
           await recalculateUserGroupPoints(affectedGroupIds);
+          console.timeEnd(`[SYNC PERF] FASE 5 - Recalcular pontos (${normalizedCode})`);
         }
 
         const combinedMessage = `${matchesMessage} ${standingsMessage}`;
