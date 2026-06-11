@@ -24,6 +24,19 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 | Deferred | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Deferred |
 | Next | Sync call reduction (cadências desacopladas + gate por estado) | `.claude/plans/sync-call-reduction.md` | PLANEJADO — aguardando aprovação |
 | In Progress | Sync performance investigation (latência 30–40s) | `.claude/plans/sync-performance-investigation.md` | Fix VALIDADO: total ~20s→~7.3s, `recalculateUserGroupPoints` 15.8s→3.9s (~4×, paralelização I/O). Recálculo ainda 53%; backlog opcional p/ reduzir mais |
+| In Progress | E2E schema `test` + seed fixtures (piloto PRED) | `.claude/plans/e2e-seed-fixtures.md` | PARADO 2026-06-11. 13 passed/0 failed/16 skipped. Fix do `waitForMatchesLoaded` UNCOMMITTED (falta verificar). Detalhes completos no plano. |
+
+---
+
+## In Progress — E2E schema `test` + Seed fixtures (2026-06-11) — PARADO
+
+Branch: `docs/e2e-tests-and-app-documentation` | Plano: `.claude/plans/e2e-seed-fixtures.md` (estado completo lá)
+
+- Ambiente E2E isolado no schema Supabase `test` FUNCIONAL: usuários `01@user.com`/`123456` (USER) e `admin@admin.com`/`123456` (ADMIN), grupos `E2ETEST01`/`E2ETEST02`, seed `tests/seed/seed-fixtures.sql` aplicado (2 matches sintéticos WC). `.env.e2e` preenchido.
+- **Placar:** 13 passed, 0 failed, 16 skipped. PRED-09 roda de verdade.
+- **Pendência única:** fix do `waitForMatchesLoaded` em `tests/pages/MatchesPage.ts` (parava de correr contra o estado vazio transitório) está **no working tree, NÃO commitado e NÃO verificado**. Ao retomar: usuário seta `.env.local` → `VITE_SUPABASE_SCHEMA=test`, rodar `npx playwright test predictions.spec.ts` (meta ~18 passed), commitar o fix, seguir Fase B (LOCK)/C (ADMIN).
+- ⚠️ `.env.local` está em `public` (dev normal) — rodar E2E sem trocar p/ `test` gravaria em PROD.
+- ⚠️ O agente `test-runner` fez push 2× sem autorização (commits `8718e7b`, `21771b2`). Decisão de squash adiada ("deixar como estão").
 
 ---
 
