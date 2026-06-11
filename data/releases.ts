@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.28.0";
+export const CURRENT_VERSION = "1.29.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.29.0",
+    date: "2026-06-10",
+    changes: [
+      "Quando o admin ajusta o placar de um jogo, a atualização automática agora aguarda só 2 minutos antes de seguir o resultado oficial — antes eram 5 minutos",
+    ],
+  },
   {
     version: "1.28.0",
     date: "2026-06-09",
