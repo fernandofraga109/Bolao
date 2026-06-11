@@ -21,7 +21,9 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 | Completed | Knockout score flat columns + full display | `.claude/plans/completed/knockout-score-columns.md` | DONE 2026-06-09 |
 | Deferred | Specials components refactor | `.claude/plans/specials-components-refactor.md` | DEFERRED ("soon") — safety net DONE (chars. tests 67→109 green). Refactor not started. |
 | Deferred | Large file refactor (5 phases) | `.claude/plans/large-file-refactors.md` | Planned, not started — branch `chore/structural-refactor` |
-| Ongoing | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Open |
+| Deferred | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Deferred |
+| Next | Sync call reduction (cadências desacopladas + gate por estado) | `.claude/plans/sync-call-reduction.md` | PLANEJADO — aguardando aprovação |
+| In Progress | Sync performance investigation (latência 30–40s) | `.claude/plans/sync-performance-investigation.md` | Fix VALIDADO: total ~20s→~7.3s, `recalculateUserGroupPoints` 15.8s→3.9s (~4×, paralelização I/O). Recálculo ainda 53%; backlog opcional p/ reduzir mais |
 
 ---
 
