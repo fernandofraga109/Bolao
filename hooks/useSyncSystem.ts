@@ -15,6 +15,7 @@ import {
 } from "../services/liveScoreService";
 import { supabase, isSupabaseEnabled } from "../services/supabase";
 import { persistScorers } from "./usePlayerSync";
+import { SyncProfiler } from "../utils/syncProfiler";
 
 // Map team codes to ISO 3166-1 alpha-2 country codes for flagcdn.com
 const teamCodeToCountryCode: Record<string, string> = {
@@ -320,12 +321,14 @@ export const useSyncSystem = (
 
       // Tenta adquirir o lock distribuído no banco
       // useBackgroundSync já verificou lastSync antes de chamar esta função
+      const profiler = new SyncProfiler(normalizedCode);
       const lockAcquired = await dbRef.current.acquireSyncLock(normalizedCode);
       if (!lockAcquired) {
         console.log(`🔒 [SYNC] Sync bloqueado por outra instância para ${normalizedCode}`);
         // Retorna sucesso silencioso - outra instância está sincronizando
         return { success: true, message: "" };
       }
+      profiler.mark("lock_acquire", "lock");
 
       // Lock adquirido! Notifica que o sync iniciou (para mostrar toast azul)
       if (options?.onSyncStart) {
@@ -341,6 +344,7 @@ export const useSyncSystem = (
 
       try {
         const season = getCurrentSeason();
+        profiler.mark("setup", "cpu");
 
         // ── FASE 1: Fetch Paralelo ──────────────────────────────────────────
         console.log(`[SYNC] Iniciando fetch paralelo para ${normalizedCode}...`);
@@ -350,6 +354,7 @@ export const useSyncSystem = (
           fetchExternalStandings(normalizedCode, season),
           fetchCompetitionScorers(normalizedCode, season),
         ]);
+        profiler.mark("api_fetch", "api");
 
         if (!externalMatches || externalMatches.length === 0) {
           throw new Error("Nenhum jogo encontrado na API externa.");
@@ -357,6 +362,7 @@ export const useSyncSystem = (
 
         // ── FASE 1.5a: Buscar ranking map (usado nos dois pontos de criação de times) ──
         const rankingMap = await getWcRankingMap();
+        profiler.mark("ranking_map", "cpu");
 
         // ── FASE 1.5: Upsert competition (satisfaz FK antes de matches/standings) ──
         const competitionMeta =
@@ -396,6 +402,7 @@ export const useSyncSystem = (
             { onConflict: "code" },
           );
         }
+        profiler.mark("upsert_competition", "db_write");
 
         // ── FASE 1.6: Persistir artilheiros (alimenta a aba Artilharia) ──────
         // Reaproveita `scorersData` já buscado na FASE 1 — NENHUMA chamada extra
@@ -414,6 +421,7 @@ export const useSyncSystem = (
             console.warn("[SYNC] Falha ao persistir artilheiros:", scorerErr);
           }
         }
+        profiler.mark("persist_scorers", "db_write");
 
         // ── FASE 2: Construir mapa de times ─────────────────────────────────
         // Start with what we already have in memory
@@ -566,6 +574,7 @@ export const useSyncSystem = (
             if (rankErr) console.warn("[SYNC] Erro ao atualizar rankings:", rankErr.message);
           }
         }
+        profiler.mark("teams_upsert", "db_write");
 
         // ── FASE 2.5: Calcular time com mais gols/sofridos em UM jogo ──
         // Varre todos os jogos finalizados da competição para encontrar recordes
@@ -633,6 +642,7 @@ export const useSyncSystem = (
               .eq("code", competitionMeta.code);
           }
         }
+        profiler.mark("goal_records", "db_write");
 
         // ── FASE 3: Processar Matches ────────────────────────────────────────
         const hydratedInternalMatches = dbRef.current.matches.map((m: any) => ({
@@ -651,6 +661,7 @@ export const useSyncSystem = (
 
         const matchUpserts: any[] = [];
         const finishedMatchesForPoints: Match[] = [];
+        profiler.mark("hydrate_matches", "cpu");
 
         // Fetch live minutes if there are any IN_PLAY matches in this batch
         const hasLiveMatches = externalMatches.some(
@@ -660,6 +671,7 @@ export const useSyncSystem = (
         if (hasLiveMatches) {
           console.log(`[SYNC] Minutos ao vivo obtidos para ${Object.keys(liveMinuteMap).length} jogos.`);
         }
+        profiler.mark("live_minutes", "api");
 
         for (const em of externalMatches) {
           // Proteção contra dados obsoletos da API (cache desatualizado):
@@ -820,6 +832,7 @@ export const useSyncSystem = (
             console.warn(`[SYNC] Jogo da API não encontrado no banco local: ${em.homeTeam?.name} vs ${em.awayTeam?.name} (${em.utcDate}). Verifique se a data/fuso-horário coincide.`);
           }
         }
+        profiler.mark("match_diff", "cpu");
 
 
         // Batch upsert matches (1 request!)
@@ -869,6 +882,7 @@ export const useSyncSystem = (
             }
           }
         }
+        profiler.mark("matches_upsert", "db_write");
 
         // ── FASE 4b: Calcular pontos das predictions ─────────────────────────
         // IMPORTANTE: Processa TODOS os jogos FINISHED do banco local, não apenas
@@ -901,6 +915,7 @@ export const useSyncSystem = (
           );
           await batchProcessPointsForMatches(allFinishedToProcess);
         }
+        profiler.mark("points_recalc", "db_write");
 
         const matchesMessage =
           matchesUpdated > 0
@@ -998,6 +1013,7 @@ export const useSyncSystem = (
             standingsSuccess = true;
           }
         }
+        profiler.mark("standings_upsert", "db_write");
 
         // ── FASE 5: Recalcular Pontos + Atualizar competição ─────────────────
         const combinedSuccess = matchesUpdated >= 0 && standingsSuccess;
@@ -1024,6 +1040,7 @@ export const useSyncSystem = (
         if (affectedGroupIds.length > 0) {
           await recalculateUserGroupPoints(affectedGroupIds);
         }
+        profiler.mark("user_groups_recalc", "db_write");
 
         const combinedMessage = `${matchesMessage} ${standingsMessage}`;
 
@@ -1048,6 +1065,8 @@ export const useSyncSystem = (
         setIsSyncing(false);
         // Libera o lock distribuído no banco
         await dbRef.current.releaseSyncLock(normalizedCode);
+        profiler.mark("lock_release", "lock");
+        profiler.log();
       }
     },
     [

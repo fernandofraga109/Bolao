@@ -12,6 +12,27 @@ import {
 } from '../utils/scoring';
 import { supabase } from '../services/supabase';
 
+/**
+ * Executa `fn` sobre `items` com no máximo `limit` operações simultâneas.
+ * Usado para recalcular grupos em paralelo sem inundar o Supabase com dezenas
+ * de requisições de uma vez.
+ */
+async function mapWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<void>
+): Promise<void> {
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      await fn(items[index]);
+    }
+  };
+  const workers = Array.from({ length: Math.min(limit, items.length) }, worker);
+  await Promise.all(workers);
+}
+
 export const usePointsProcessor = (dbRef: any) => {
   const recalculateUserGroupPoints = useCallback(
     async (groupIds: string[]) => {
@@ -48,7 +69,28 @@ export const usePointsProcessor = (dbRef: any) => {
         }
       });
 
-      for (const groupId of uniqueGroupIds) {
+      // Cache de competição entre grupos: antes era 1 fetch POR grupo, mesmo
+      // quando todos compartilham a mesma competição. Cacheia a Promise para
+      // que grupos concorrentes da mesma competição dividam 1 requisição.
+      const competitionPromises = new Map<string, Promise<any>>();
+      const getCompetition = (code: string): Promise<any> => {
+        if (!competitionPromises.has(code)) {
+          competitionPromises.set(
+            code,
+            Promise.resolve(
+              supabase
+                .from('competitions')
+                .select('*')
+                .eq('code', code)
+                .single()
+                .then((r) => r.data)
+            )
+          );
+        }
+        return competitionPromises.get(code)!;
+      };
+
+      const processGroup = async (groupId: string): Promise<void> => {
         // Resolve effective underdog threshold for this group
         const allGroups = dbRef.current.groups as any[];
         const group = allGroups.find((g: any) => g.id === groupId);
@@ -56,53 +98,58 @@ export const usePointsProcessor = (dbRef: any) => {
 
         const globalMinRankDiff: number = dbRef.current.systemConfig?.underdog_min_rank_diff ?? 10;
         const effectiveMinRankDiff: number = group?.underdog_min_rank_diff ?? globalMinRankDiff;
+        const compCode = group?.competitionCode || 'WC';
 
-        // 1. Fetch all predictions for the group from the DB (always fresh — never local state)
-        const { data: preds, error } = await supabase
-          .from('predictions')
-          .select('userId, matchId, groupId, homeScore, awayScore, points, timestamp, tieWinnerTeamId')
-          .eq('groupId', groupId);
+        // Reads independentes EM PARALELO (antes: 5 round-trips sequenciais por
+        // grupo, com os grupos rodando em série — o gargalo de ~16s do sync).
+        const [
+          { data: preds, error },
+          { data: tournPreds, error: tournError },
+          epResult,
+          { data: members, error: ugError },
+          compData,
+        ] = await Promise.all([
+          supabase
+            .from('predictions')
+            .select('userId, matchId, groupId, homeScore, awayScore, points, timestamp, tieWinnerTeamId')
+            .eq('groupId', groupId),
+          supabase.from('tournament_predictions').select('*').eq('groupId', groupId),
+          isRegulamento2
+            ? supabase.from('extra_phase_predictions').select('*').eq('groupId', groupId)
+            : Promise.resolve({ data: [] as any[], error: null }),
+          supabase
+            .from('user_groups')
+            .select('userId, groupId, role, joinedAt')
+            .eq('groupId', groupId),
+          getCompetition(compCode),
+        ]);
 
         if (error) {
           console.error(`❌ Erro ao buscar predições do grupo ${groupId}:`, error);
-          continue;
+          return;
         }
-
-        // 2. Fetch tournament predictions for the group
-        const { data: tournPreds, error: tournError } = await supabase
-          .from('tournament_predictions')
-          .select('*')
-          .eq('groupId', groupId);
 
         if (tournError) {
           console.error(`❌ Erro ao buscar predições do torneio do grupo ${groupId}:`, tournError);
         }
 
-        // 3. Fetch extra phase predictions for the group (only for Regulamento 2)
-        let extraPhasePreds: any[] = [];
-        if (isRegulamento2) {
-          const { data: epPreds, error: epError } = await supabase
-            .from('extra_phase_predictions')
-            .select('*')
-            .eq('groupId', groupId);
-
-          if (epError) {
-            console.error(
-              `❌ Erro ao buscar palpites extras de fase do grupo ${groupId}:`,
-              epError
-            );
-          } else if (epPreds) {
-            extraPhasePreds = epPreds;
-          }
+        if (ugError) {
+          console.error(`❌ Erro ao buscar membros do grupo ${groupId}:`, ugError);
+          return;
         }
 
-        // 4. Fetch the current competition's actual results
-        const compCode = group?.competitionCode || 'WC';
-        const { data: compData } = await supabase
-          .from('competitions')
-          .select('*')
-          .eq('code', compCode)
-          .single();
+        // 3. Extra phase predictions (only for Regulamento 2)
+        let extraPhasePreds: any[] = [];
+        if (isRegulamento2) {
+          if (epResult.error) {
+            console.error(
+              `❌ Erro ao buscar palpites extras de fase do grupo ${groupId}:`,
+              epResult.error
+            );
+          } else if (epResult.data) {
+            extraPhasePreds = epResult.data;
+          }
+        }
 
         const tournamentResults: TournamentPredictions | null = compData
           ? {
@@ -319,17 +366,7 @@ export const usePointsProcessor = (dbRef: any) => {
           });
         }
 
-        // 8. Buscamos os membros atuais para preservar metadados
-        const { data: members, error: ugError } = await supabase
-          .from('user_groups')
-          .select('userId, groupId, role, joinedAt')
-          .eq('groupId', groupId);
-
-        if (ugError) {
-          console.error(`❌ Erro ao buscar membros do grupo ${groupId}:`, ugError);
-          continue;
-        }
-
+        // 8. Membros já foram buscados no Promise.all acima (preserva metadados).
         if (!preds || preds.length === 0) {
           const existingMembers = (dbRef.current.userGroups as any[]).filter(
             (ug: any) => ug.groupId === groupId
@@ -339,7 +376,7 @@ export const usePointsProcessor = (dbRef: any) => {
             console.warn(
               `⚠️ Empty predictions for group ${groupId} with existing points — skipping update`
             );
-            continue;
+            return;
           }
         }
 
@@ -378,7 +415,11 @@ export const usePointsProcessor = (dbRef: any) => {
             );
           }
         }
-      }
+      };
+
+      // Recalcula os grupos EM PARALELO (concorrência limitada) em vez de em
+      // série — principal ganho de performance do recálculo (Fase 5 do sync).
+      await mapWithConcurrency(uniqueGroupIds, 6, processGroup);
 
       // Refresh predictions in local state so the UI reflects any
       // predictions that were inserted directly in the DB (bypassing Realtime).
