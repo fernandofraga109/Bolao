@@ -23,6 +23,8 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Zap,
   Award,
   Medal,
@@ -93,6 +95,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [copiedGroup, setCopiedGroup] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState("");
+  const [userPage, setUserPage] = useState(1);
+  const USERS_PER_PAGE = 10;
+  const [groupPage, setGroupPage] = useState(1);
+  const GROUPS_PER_PAGE = 6;
 
   // UI States
   const [showSyncMenu, setShowSyncMenu] = useState(false);
@@ -1434,13 +1440,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
 
         {/* List Groups */}
+        {(() => {
+          const totalGroupPages = Math.max(
+            1,
+            Math.ceil(groups.length / GROUPS_PER_PAGE),
+          );
+          const currentGroupPage = Math.min(groupPage, totalGroupPages);
+          const groupStartIndex = (currentGroupPage - 1) * GROUPS_PER_PAGE;
+          const pageGroups = groups.slice(
+            groupStartIndex,
+            groupStartIndex + GROUPS_PER_PAGE,
+          );
+
+          return (
+        <>
         <div className="grid gap-3 sm:grid-cols-2">
           {groups.length === 0 ? (
             <div className="col-span-2 text-center text-slate-500 py-4 italic border border-dashed border-slate-700 rounded-lg">
               Nenhum grupo encontrado no banco de dados.
             </div>
           ) : (
-            groups.map((group) => (
+            pageGroups.map((group) => (
               <div
                 key={group.id}
                 className="bg-slate-900 border border-slate-600 rounded-lg p-4 relative group hover:border-slate-500 transition-colors"
@@ -1497,6 +1517,36 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             ))
           )}
         </div>
+
+        {totalGroupPages > 1 && (
+          <div className="flex items-center justify-between pt-4">
+            <button
+              onClick={() => setGroupPage((p) => Math.max(1, p - 1))}
+              disabled={currentGroupPage === 1}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 text-xs font-bold hover:border-slate-500 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-slate-700 disabled:hover:text-slate-300"
+            >
+              <ChevronLeft size={14} />
+              Anterior
+            </button>
+            <span className="text-xs text-slate-400">
+              Página {currentGroupPage} de {totalGroupPages}
+              <span className="text-slate-600"> · {groups.length} grupos</span>
+            </span>
+            <button
+              onClick={() =>
+                setGroupPage((p) => Math.min(totalGroupPages, p + 1))
+              }
+              disabled={currentGroupPage === totalGroupPages}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 text-xs font-bold hover:border-slate-500 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-slate-700 disabled:hover:text-slate-300"
+            >
+              Próxima
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        )}
+        </>
+          );
+        })()}
       </div>
 
       {/* GLOBAL USERS MANAGEMENT */}
@@ -1507,9 +1557,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </h2>
 
         <div className="space-y-4">
-          {users
-            .filter((u) => u.role !== "ADMIN")
-            .map((user) => (
+          {(() => {
+            const nonAdminUsers = users.filter((u) => u.role !== "ADMIN");
+            const totalPages = Math.max(
+              1,
+              Math.ceil(nonAdminUsers.length / USERS_PER_PAGE),
+            );
+            const currentPage = Math.min(userPage, totalPages);
+            const startIndex = (currentPage - 1) * USERS_PER_PAGE;
+            const pageUsers = nonAdminUsers.slice(
+              startIndex,
+              startIndex + USERS_PER_PAGE,
+            );
+
+            if (nonAdminUsers.length === 0) {
+              return (
+                <p className="text-slate-500 text-sm italic text-center">
+                  Nenhum usuário cadastrado além do admin.
+                </p>
+              );
+            }
+
+            return (
+              <>
+                {pageUsers.map((user) => (
               <div
                 key={user.id}
                 className="bg-slate-900/50 p-3 rounded-lg border border-slate-700 flex items-center justify-between"
@@ -1558,12 +1629,40 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </button>
                 </div>
               </div>
-            ))}
-          {users.filter((u) => u.role !== "ADMIN").length === 0 && (
-            <p className="text-slate-500 text-sm italic text-center">
-              Nenhum usuário cadastrado além do admin.
-            </p>
-          )}
+                ))}
+
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-2">
+                    <button
+                      onClick={() => setUserPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 text-xs font-bold hover:border-slate-500 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-slate-700 disabled:hover:text-slate-300"
+                    >
+                      <ChevronLeft size={14} />
+                      Anterior
+                    </button>
+                    <span className="text-xs text-slate-400">
+                      Página {currentPage} de {totalPages}
+                      <span className="text-slate-600">
+                        {" "}
+                        · {nonAdminUsers.length} usuários
+                      </span>
+                    </span>
+                    <button
+                      onClick={() =>
+                        setUserPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      disabled={currentPage === totalPages}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 text-xs font-bold hover:border-slate-500 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-slate-700 disabled:hover:text-slate-300"
+                    >
+                      Próxima
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
     </div>
