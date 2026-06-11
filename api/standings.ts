@@ -14,10 +14,18 @@ export default async function handler(req: Request) {
   const competitionCode = (
     url.searchParams.get("competition") || "WC"
   ).toUpperCase();
-  const season =
-    url.searchParams.get("season") || new Date().getFullYear().toString();
 
-  const targetUrl = `${BASE_URL}/competitions/${competitionCode}/standings?season=${encodeURIComponent(season)}`;
+  // `season` é OPT-IN: só repassamos à API externa quando o caller envia
+  // explicitamente. Sem season, a football-data.org devolve a classificação da
+  // temporada corrente (o que queremos para um torneio ao vivo). Atenção: para
+  // a WC, `?season=2026` retorna um snapshot desatualizado — por isso o app NÃO
+  // deve mandar season para standings de competição ativa. Pinne uma season
+  // apenas quando precisar de dados históricos de uma edição específica
+  // (ver STANDINGS_SEASON_OVERRIDE em services/liveScoreService.ts).
+  const season = url.searchParams.get("season");
+  const targetUrl = season
+    ? `${BASE_URL}/competitions/${competitionCode}/standings?season=${encodeURIComponent(season)}`
+    : `${BASE_URL}/competitions/${competitionCode}/standings`;
 
   if (!API_TOKEN) {
     return new Response(
@@ -31,46 +39,36 @@ export default async function handler(req: Request) {
 
   try {
     const data = await (async () => {
-      // Tentativa 1: Com Temporada (ano atual por padrão)
-      console.log(`[PROXY] Standings Tentativa 1: ${targetUrl}`);
-      const res1 = await fetch(targetUrl, {
+      console.log(`[PROXY] Standings: ${targetUrl}`);
+      const res = await fetch(targetUrl, {
         method: "GET",
+        cache: "no-store",
         headers: {
           "X-Auth-Token": API_TOKEN,
           "Content-Type": "application/json",
         },
       });
 
-      if (res1.ok) return res1.json();
+      if (res.ok) return res.json();
 
-      // Se der 404 ou 403, tenta sem a temporada
-      if (res1.status === 404 || res1.status === 403) {
-        const fallbackUrl = `${BASE_URL}/competitions/${competitionCode}/standings`;
-        console.log(`[PROXY] Standings Tentativa 2 (Fallback): ${fallbackUrl}`);
-        const res2 = await fetch(fallbackUrl, {
-          method: "GET",
-          headers: {
-            "X-Auth-Token": API_TOKEN,
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (res2.ok) return res2.json();
-
-        // Se falhar tudo, retornamos algo vazio para não quebrar a UI
+      // Se falhar, retornamos algo vazio para não quebrar a UI
+      if (res.status === 404 || res.status === 403) {
         return {
           standings: [],
           message: "Tabela indisponível na API externa.",
         };
       }
 
-      const errorData = await res1.json().catch(() => ({}));
-      throw new Error(errorData.message || `Erro API (Status ${res1.status})`);
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || `Erro API (Status ${res.status})`);
     })();
 
     return new Response(JSON.stringify(data), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store, max-age=0",
+      },
     });
   } catch (error: any) {
     console.error("[PROXY] Erro interno (standings):", error);
