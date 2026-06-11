@@ -87,6 +87,16 @@ export default async function handler(req: Request) {
     );
   }
 
+  if (homeTeam.length > 100 || awayTeam.length > 100) {
+    return new Response(
+      JSON.stringify({ error: "Team names must not exceed 100 characters" }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
+
   try {
     const geminiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,

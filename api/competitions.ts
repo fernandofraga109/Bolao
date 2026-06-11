@@ -24,8 +24,6 @@ export default async function handler(req: Request) {
   }
 
   try {
-    console.log(`[PROXY] Consultando: ${targetUrl}`);
-
     const response = await fetch(targetUrl, {
       method: "GET",
       headers: {
@@ -36,12 +34,6 @@ export default async function handler(req: Request) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error(
-        `[PROXY] Erro da API Football-Data:`,
-        response.status,
-        errorData,
-      );
-
       return new Response(
         JSON.stringify({
           error: `Erro na API externa (${response.status})`,
@@ -61,9 +53,8 @@ export default async function handler(req: Request) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    console.error(`[PROXY] Erro interno:`, error);
     return new Response(
-      JSON.stringify({ error: "Erro de conexão", message: error.message }),
+      JSON.stringify({ error: "Erro de conexão", message: "Falha ao buscar competições." }),
       { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }

@@ -465,31 +465,23 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       const tournPredsRes = { data: tournPredsData, error: null };
       const extraPhasePredsRes = { data: extraPhasePredsData, error: null };
       
-      console.log("🔍 [Supabase Debug] Status das Tabelas no schema", SUPABASE_SCHEMA);
-      if (rolesRes.error) console.error("❌ [user_roles] erro:", rolesRes.error);
-      else console.log("✅ [user_roles] carregada, total de registros:", rolesRes.data?.length);
-      if (teamsRes.error) console.error("❌ [teams] erro:", teamsRes.error);
-      else console.log("✅ [teams] carregada, total de registros:", teamsRes.data?.length);
-      if (stadiumsRes.error) console.error("❌ [stadiums] erro:", stadiumsRes.error);
-      else console.log("✅ [stadiums] carregada, total de registros:", stadiumsRes.data?.length);
-      if (groupsRes.error) console.error("❌ [groups] erro:", groupsRes.error);
-      else console.log("✅ [groups] carregada, total de registros:", groupsRes.data?.length);
-      if (userGroupsRes.error) console.error("❌ [user_groups] erro:", userGroupsRes.error);
-      else console.log("✅ [user_groups] carregada, total de registros:", userGroupsRes.data?.length);
-      if (matchesRes.error) console.error("❌ [matches] erro:", matchesRes.error);
-      else console.log("✅ [matches] carregada, total de registros:", matchesRes.data?.length);
-      if (predsRes.error) console.error("❌ [predictions] erro:", predsRes.error);
-      else console.log("✅ [predictions] carregada, total de registros:", predsRes.data?.length);
-      if (tournPredsRes.error) console.error("❌ [tournament_predictions] erro:", tournPredsRes.error);
-      else console.log("✅ [tournament_predictions] carregada, total de registros:", tournPredsRes.data?.length);
-      if (configRes.error) console.error("❌ [system_config] erro:", configRes.error);
-      else console.log("✅ [system_config] carregada:", configRes.data);
-      if (competitionsRes.error) console.error("❌ [competitions] erro:", competitionsRes.error);
-      else console.log("✅ [competitions] carregada, total de registros:", competitionsRes.data?.length);
-      if (teamStandingsRes.error) console.error("❌ [team_standings] erro:", teamStandingsRes.error);
-      else console.log("✅ [team_standings] carregada, total de registros:", teamStandingsRes.data?.length);
-      if (extraPhasePredsRes.error) console.error("❌ [extra_phase_predictions] erro:", extraPhasePredsRes.error);
-      else console.log("✅ [extra_phase_predictions] carregada, total de registros:", extraPhasePredsRes.data?.length);
+      const tableErrors = [
+        rolesRes.error && "[user_roles]",
+        teamsRes.error && "[teams]",
+        stadiumsRes.error && "[stadiums]",
+        groupsRes.error && "[groups]",
+        userGroupsRes.error && "[user_groups]",
+        matchesRes.error && "[matches]",
+        predsRes.error && "[predictions]",
+        tournPredsRes.error && "[tournament_predictions]",
+        configRes.error && "[system_config]",
+        competitionsRes.error && "[competitions]",
+        teamStandingsRes.error && "[team_standings]",
+        extraPhasePredsRes.error && "[extra_phase_predictions]",
+      ].filter(Boolean);
+      if (tableErrors.length > 0) {
+        console.error("Supabase load errors:", tableErrors.join(", "));
+      }
 
       if (!isMounted) return;
 
@@ -1001,7 +993,6 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   const updateUser = async (id: string, data: Partial<UserDB>) => {
     setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...data } : u)));
     const enabled = isSupabaseEnabled();
-    console.log("[updateUser] called for id:", id, "data:", data, "supabaseEnabled:", enabled);
     if (enabled && supabase) {
       const payload: Record<string, any> = {};
       if ("name" in data && data.name !== undefined)
@@ -1013,22 +1004,15 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       if ("role" in data && data.role !== undefined) payload.role = data.role;
 
       if (Object.keys(payload).length > 0) {
-        const prefix = import.meta.env.VITE_DB_TABLE_PREFIX || "";
-        const tableName = prefix ? `${prefix}user_roles` : "user_roles";
-        console.log("[updateUser] Sending to Supabase | table:", tableName, "| schema:", import.meta.env.VITE_SUPABASE_SCHEMA || "public", "| payload:", payload);
         const result = await supabase.from("user_roles").update(payload).eq("userId", id).select();
-        console.log("[updateUser] Supabase result:", result);
         if (result.error) {
-          console.error("[updateUser] Supabase error:", result.error.message, "payload:", payload);
+          console.error("[updateUser] Supabase error:", result.error.message);
           throw new Error(result.error.message);
         }
         if (!result.data || result.data.length === 0) {
-          console.warn("[updateUser] Supabase returned 0 rows updated. The userId may not exist in the remote table, or the row is in a different schema/table.");
           throw new Error("Usuário não encontrado no servidor para atualização.");
         }
       }
-    } else {
-      console.warn("[updateUser] Supabase NOT enabled — only local state was updated.");
     }
   };
 
@@ -1298,29 +1282,22 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     });
 
     if (error) {
-      console.error(`[acquireSyncLock] ERRO ao chamar RPC:`, error);
+      console.error(`[acquireSyncLock] RPC error for ${code}`);
       return false;
     }
 
-    const lockAcquired = data === true;
-    console.log(`[acquireSyncLock] Lock ${lockAcquired ? '✅ ADQUIRIDO' : '🔒 BLOQUEADO'} para ${code}`);
-    return lockAcquired;
+    return data === true;
   };
 
   const releaseSyncLock = async (code: string): Promise<void> => {
-    console.log(`[releaseSyncLock] Liberando lock para ${code}`);
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("competitions")
       .update({ sync_locked_at: null })
       .eq("code", code)
       .select();
     
     if (error) {
-      console.error(`[releaseSyncLock] ERRO ao liberar lock:`, error);
-    } else if (!data || data.length === 0) {
-      console.warn(`[releaseSyncLock] AVISO: Nenhuma linha atualizada para ${code}. Competição não existe?`);
-    } else {
-      console.log(`[releaseSyncLock] ✅ Lock liberado com sucesso para ${code}`, data);
+      console.error(`[releaseSyncLock] error for ${code}`);
     }
   };
 

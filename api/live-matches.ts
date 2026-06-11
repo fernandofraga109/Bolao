@@ -51,9 +51,8 @@ export default async function handler(req: Request) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    console.error(`[PROXY LIVE] Erro interno:`, error);
     return new Response(
-      JSON.stringify({ error: "Erro de conexão", message: error.message }),
+      JSON.stringify({ error: "Erro de conexão", message: "Falha ao buscar dados ao vivo." }),
       { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
