@@ -25,6 +25,7 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 | Next | Sync call reduction (cadências desacopladas + gate por estado) | `.claude/plans/sync-call-reduction.md` | PLANEJADO — aguardando aprovação |
 | In Progress | Sync performance investigation (latência 30–40s) | `.claude/plans/sync-performance-investigation.md` | Fix VALIDADO: total ~20s→~7.3s, `recalculateUserGroupPoints` 15.8s→3.9s (~4×, paralelização I/O). Recálculo ainda 53%; backlog opcional p/ reduzir mais |
 | In Progress | E2E schema `test` + seed fixtures (piloto PRED) | `.claude/plans/e2e-seed-fixtures.md` | PARADO 2026-06-11. 13 passed/0 failed/16 skipped. Fix do `waitForMatchesLoaded` UNCOMMITTED (falta verificar). Detalhes completos no plano. |
+| In Progress | Política de `season` autoritativa no servidor (proxies) | `.claude/plans/standings-season-server-policy.md` | EM ANDAMENTO 2026-06-11. PR #8 (standings opt-in) deixou aba stale injetar `season=2026` e zerar `team_standings`. Mover política p/ `api/_lib/seasonPolicy.ts`; 4 proxies ignoram season do cliente. Branch `fix/season-server-policy`. |
 
 ---
 

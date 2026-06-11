@@ -26,17 +26,16 @@ export interface ExternalTeam {
 
 export const fetchCompetitionTeams = async (
   competitionCode = DEFAULT_COMPETITION_CODE,
-  season = getCurrentSeason(),
 ): Promise<ExternalTeam[]> => {
-  const buildUrl = (withSeason: boolean) => {
+  // Cliente não envia season — o proxy resolve server-side (seasonPolicy).
+  const buildUrl = () => {
     const params = new URLSearchParams();
     params.set("competition", (competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase());
-    if (withSeason) params.set("season", season);
     return `/api/teams?${params.toString()}`;
   };
 
   try {
-    let response = await fetch(buildUrl(true));
+    const response = await fetch(buildUrl());
     const contentType = response.headers.get("content-type") || "";
 
     if (!contentType.includes("application/json")) {
@@ -44,13 +43,7 @@ export const fetchCompetitionTeams = async (
       return [];
     }
 
-    let payload = await response.json().catch(() => ({}));
-
-    if (!response.ok && (response.status === 404 || response.status === 403)) {
-      console.warn(`[TEAMS] Season ${season} não encontrada para ${competitionCode}. Tentando sem season...`);
-      response = await fetch(buildUrl(false));
-      payload = await response.json().catch(() => ({}));
-    }
+    const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
       console.error(`[TEAMS] Erro (${response.status}):`, payload.message);
@@ -136,44 +129,23 @@ export interface ExternalStandingsResponse {
 export const getCurrentSeason = (): string =>
   new Date().getFullYear().toString();
 
-/**
- * Competições que exigem uma season FIXA na API de standings.
- *
- * Ausência (caso padrão) = não envia season → a football-data.org devolve a
- * classificação da temporada CORRENTE, que é o que queremos para um torneio ao
- * vivo. A WC fica deliberadamente de fora: `?season=2026` retorna um snapshot
- * desatualizado, então ela usa seedless.
- *
- * Para pinar uma edição histórica de uma competição, adicione `CODE: "ano"`.
- */
-export const STANDINGS_SEASON_OVERRIDE: Record<string, string> = {
-  BSA: "2026", // Brasileirão Série A: exige season fixa na API de standings
-};
-
-/** Resolve a season de standings para uma competição (undefined = seedless). */
-export const getStandingsSeason = (
-  competitionCode = DEFAULT_COMPETITION_CODE,
-): string | undefined =>
-  STANDINGS_SEASON_OVERRIDE[
-    (competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase()
-  ];
+// A política de `season` por competição vive SERVER-SIDE em
+// api/_lib/seasonPolicy.ts. O cliente não envia season; o proxy ignora qualquer
+// season recebida e decide sozinho. Isso é uma fronteira de confiança: abas
+// antigas (bundle stale) não conseguem injetar `season=2026` e zerar os dados.
 
 export const fetchExternalMatches = async (
   competitionCode = DEFAULT_COMPETITION_CODE,
-  season = getCurrentSeason(),
 ): Promise<ExternalMatch[]> => {
-  // Rota interna segura que oculta seu Token
-  const buildUrl = (seasonParam?: string) => {
+  // Cliente não envia season — o proxy resolve server-side (seasonPolicy).
+  const buildUrl = () => {
     const params = new URLSearchParams();
     params.set("competition", (competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase());
-    if (seasonParam) {
-      params.set("season", seasonParam);
-    }
     return `/api/matches?${params.toString()}`;
   };
 
-  const tryFetch = async (seasonParam?: string) => {
-    const response = await fetch(buildUrl(seasonParam));
+  const tryFetch = async () => {
+    const response = await fetch(buildUrl());
     const contentType = response.headers.get("content-type") || "";
 
     if (!contentType.includes("application/json")) {
@@ -185,19 +157,7 @@ export const fetchExternalMatches = async (
   };
 
   try {
-    let { response, payload, invalidContent } = await tryFetch(season);
-
-    // Se a resposta não é JSON (proxy retorna HTML em 404) OU é 404/403,
-    // tenta o fallback sem season antes de desistir
-    if (season && (invalidContent || (!response.ok && (response.status === 404 || response.status === 403)))) {
-      console.warn(
-        `[LIVE SCORE] Season ${season} indisponível para ${competitionCode}. Tentando sem season...`,
-      );
-      const fallbackResult = await tryFetch();
-      response = fallbackResult.response;
-      payload = fallbackResult.payload;
-      invalidContent = fallbackResult.invalidContent;
-    }
+    const { response, payload, invalidContent } = await tryFetch();
 
     if (invalidContent) {
       return [];
@@ -283,19 +243,16 @@ export const fetchLiveMatchMinutes = async (): Promise<Record<number, number | n
 
 export const fetchExternalStandings = async (
   competitionCode = DEFAULT_COMPETITION_CODE,
-  season = getStandingsSeason(competitionCode),
 ): Promise<ExternalStandingsResponse | null> => {
-  const buildUrl = (seasonParam?: string) => {
+  // Cliente não envia season — o proxy resolve server-side (seasonPolicy).
+  const buildUrl = () => {
     const params = new URLSearchParams();
     params.set("competition", (competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase());
-    if (seasonParam) {
-      params.set("season", seasonParam);
-    }
     return `/api/standings?${params.toString()}`;
   };
 
-  const tryFetch = async (seasonParam?: string) => {
-    const response = await fetch(buildUrl(seasonParam));
+  const tryFetch = async () => {
+    const response = await fetch(buildUrl());
     const contentType = response.headers.get("content-type") || "";
 
     if (!contentType.includes("application/json")) {
@@ -312,25 +269,7 @@ export const fetchExternalStandings = async (
   };
 
   try {
-    let { response, payload, invalidContent } = await tryFetch(season);
-
-    if (invalidContent) {
-      return null;
-    }
-
-    if (
-      !response.ok &&
-      season &&
-      (response.status === 404 || response.status === 403)
-    ) {
-      console.warn(
-        `[LIVE SCORE] Season ${season} não encontrada para ${competitionCode}. Tentando sem season...`,
-      );
-      const fallbackResult = await tryFetch();
-      response = fallbackResult.response;
-      payload = fallbackResult.payload;
-      invalidContent = fallbackResult.invalidContent;
-    }
+    const { response, payload, invalidContent } = await tryFetch();
 
     if (invalidContent) {
       return null;
@@ -390,19 +329,16 @@ export interface ExternalScorersResponse {
 
 export const fetchCompetitionScorers = async (
   competitionCode = DEFAULT_COMPETITION_CODE,
-  season = getCurrentSeason(),
 ): Promise<ExternalScorersResponse | null> => {
-  const buildUrl = (seasonParam?: string) => {
+  // Cliente não envia season — o proxy resolve server-side (seasonPolicy).
+  const buildUrl = () => {
     const params = new URLSearchParams();
     params.set("competition", (competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase());
-    if (seasonParam) {
-      params.set("season", seasonParam);
-    }
     return `/api/scorers?${params.toString()}`;
   };
 
-  const tryFetch = async (seasonParam?: string) => {
-    const response = await fetch(buildUrl(seasonParam));
+  const tryFetch = async () => {
+    const response = await fetch(buildUrl());
     const contentType = response.headers.get("content-type") || "";
 
     if (!contentType.includes("application/json")) {
@@ -419,25 +355,7 @@ export const fetchCompetitionScorers = async (
   };
 
   try {
-    let { response, payload, invalidContent } = await tryFetch(season);
-
-    if (invalidContent) {
-      return null;
-    }
-
-    if (
-      !response.ok &&
-      season &&
-      (response.status === 404 || response.status === 403)
-    ) {
-      console.warn(
-        `[SCORERS] Season ${season} não encontrada para ${competitionCode}. Tentando sem season...`,
-      );
-      const fallbackResult = await tryFetch();
-      response = fallbackResult.response;
-      payload = fallbackResult.payload;
-      invalidContent = fallbackResult.invalidContent;
-    }
+    const { response, payload, invalidContent } = await tryFetch();
 
     if (invalidContent) {
       return null;

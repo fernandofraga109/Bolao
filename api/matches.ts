@@ -6,6 +6,8 @@
 
 export const config = { runtime: "edge" };
 
+import { resolveSeason } from "./_lib/seasonPolicy";
+
 export default async function handler(req: Request) {
   const API_TOKEN = process.env.FOOTBALL_DATA_TOKEN;
   const BASE_URL = "https://api.football-data.org/v4";
@@ -14,10 +16,13 @@ export default async function handler(req: Request) {
   const COMPETITION_CODE = (
     url.searchParams.get("competition") || "WC"
   ).toUpperCase();
-  const SEASON =
-    url.searchParams.get("season") || new Date().getFullYear().toString();
 
-  const targetUrl = `${BASE_URL}/competitions/${COMPETITION_CODE}/matches?season=${SEASON}`;
+  // Season decidida SERVER-SIDE; ignora `season` do cliente (abas stale). Sem
+  // season → seedless (temporada corrente).
+  const SEASON = resolveSeason(COMPETITION_CODE);
+  const targetUrl = SEASON
+    ? `${BASE_URL}/competitions/${COMPETITION_CODE}/matches?season=${encodeURIComponent(SEASON)}`
+    : `${BASE_URL}/competitions/${COMPETITION_CODE}/matches`;
 
   if (!API_TOKEN) {
     return new Response(
