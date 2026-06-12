@@ -9,8 +9,9 @@ A ordem de classificação importa — **ao vivo tem prioridade sobre a data**:
 
 1. **Ao Vivo** (`liveMatches`) — `match.status === MatchStatus.LIVE`.
    Extraído **antes** de qualquer comparação de data. Aparece no topo da
-   página, sempre aberto, com estilo vermelho (`brand-red`) e indicador
-   pulsante.
+   página como um único accordion (`MatchGroup` com `isLive`), aberto por
+   padrão, com estilo vermelho (`brand-red`), indicador pulsante e badge de
+   contagem no header.
 2. **Jogos Anteriores** (`pastGroups`) — dia do jogo `< hoje`, agrupado por
    Rodada / Grupo / "Anteriores". Recolhido por padrão.
 3. **Jogos do Dia** (`todayMatches`) — dia do jogo `=== hoje`. Hero verde,
@@ -42,6 +43,7 @@ ao bucket de data correto no próximo recálculo.
 
 Renderiza um accordion reutilizável. Props de destaque:
 
-- `isToday` → estilo verde (hero "Hoje").
-- `isLive` → estilo vermelho (hero "Ao Vivo").
-- Ambos aumentam o tamanho do título/ícone (`isHighlighted`).
+- `isToday` → estilo verde ("Jogos do Dia").
+- `isLive` → estilo vermelho ("Ao Vivo"), com dot pulsante no lugar do ícone.
+- Ambos (`isHighlighted`) aumentam título/chevron e exibem o badge de
+  contagem (`N jogos`) à direita do header — não há mais um "hero" separado.

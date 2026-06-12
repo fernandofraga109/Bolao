@@ -65,7 +65,14 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
           }`}
       >
         <div className="flex items-center gap-3">
-          {icon}
+          {isLive ? (
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-red opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-red" />
+            </span>
+          ) : (
+            icon
+          )}
           <div className="text-left">
             <h3 className={`font-bold ${isHighlighted ? "text-lg" : "text-sm"}`}>
               {title}
@@ -77,11 +84,21 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
             )}
           </div>
         </div>
-        {isOpen ? (
-          <ChevronUp size={isHighlighted ? 20 : 16} />
-        ) : (
-          <ChevronDown size={isHighlighted ? 20 : 16} />
-        )}
+        <div className="flex items-center gap-3">
+          {isHighlighted && (
+            <span
+              className={`text-xs font-black px-2 py-0.5 rounded-full ${isLive ? "bg-brand-red/20 text-brand-red" : "bg-brand-green/20 text-brand-green"
+                }`}
+            >
+              {matches.length} {matches.length === 1 ? "jogo" : "jogos"}
+            </span>
+          )}
+          {isOpen ? (
+            <ChevronUp size={isHighlighted ? 20 : 16} />
+          ) : (
+            <ChevronDown size={isHighlighted ? 20 : 16} />
+          )}
+        </div>
       </button>
 
       {isOpen && (
@@ -284,33 +301,6 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
       )}
 
       {!isAdmin && <RulesSection minRankDiff={minRankDiff} ruleset={ruleset} />}
-
-      {/* Live Matches Hero */}
-      {liveMatches.length > 0 && (
-        <div className="bg-gradient-to-br from-brand-red/15 via-brand-red/8 to-transparent border border-brand-red/20 rounded-2xl p-5 relative overflow-hidden animate-fadeIn">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-brand-red/10 blur-2xl rounded-full -mr-8 -mt-8 pointer-events-none" />
-          <div className="relative flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-red opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-red" />
-                </span>
-                <span className="text-[10px] font-black text-brand-red uppercase tracking-[0.2em]">Ao Vivo</span>
-              </div>
-              <p className="text-white font-black text-lg tracking-tight leading-none">
-                Acontecendo agora
-              </p>
-            </div>
-            <div className="flex flex-col items-end gap-1">
-              <span className="text-3xl font-black text-brand-red leading-none">{liveMatches.length}</span>
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                {liveMatches.length === 1 ? "jogo" : "jogos"}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Live Matches */}
       <MatchGroup
