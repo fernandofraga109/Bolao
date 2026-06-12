@@ -1,6 +1,6 @@
 # Plano: Banner "Nova versão disponível — Atualizar" (staleness de UI)
 
-_Status: PLANEJADO — criado 2026-06-11 (aguardando aprovação para implementar)_
+_Status: DONE — 2026-06-11. Mergeado (PR #10) e deployado. Banner + Opção C (postbuild + RPC `publish_app_version` SECURITY DEFINER, sem service_role). Migrations 0028/0029. CURRENT_VERSION 1.32.0. Bootstrap conhecido: abas abertas no 1º deploy do banner não recebem aviso (sem o código ainda); ficam armadas após 1 reload._
 
 ## Problema
 
