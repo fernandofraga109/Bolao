@@ -8,7 +8,7 @@ _Read this first at the start of every session. Update after every significant t
 
 React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Supabase (PostgreSQL + Auth + Realtime) + Tailwind CSS.
 
-**Current version:** `1.30.0`
+**Current version:** `1.32.0`
 **Test suite:** ~188 passing / 2 pre-existing failures in `useLeaderboard.test.ts` (Vitest + RTL + happy-dom)
 **Feature memories:** `.claude/memory/features/sync-system.md`
 
@@ -23,10 +23,18 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 | Deferred | Large file refactor (5 phases) | `.claude/plans/large-file-refactors.md` | Planned, not started — branch `chore/structural-refactor` |
 | Deferred | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Deferred |
 | Next | Sync call reduction (cadências desacopladas + gate por estado) | `.claude/plans/sync-call-reduction.md` | PLANEJADO — aguardando aprovação |
-| In Progress | Banner "Nova versão disponível — Atualizar" (staleness de UI) | `.claude/plans/update-available-banner.md` | EM ANDAMENTO 2026-06-11. Código pronto: migration `0028` (`app_version`, JÁ aplicada), `useUpdateAvailable`, `UpdateAvailableBanner`, render em App, testes (10 verdes), changelog 1.32.0. **Opção C implementada SEM service_role**: `postbuild` (`scripts/publish-version.mjs`) chama RPC `publish_app_version` (`SECURITY DEFINER`, anon key) — migration `0029`. Pendente do usuário: rodar migration `0029` + adicionar `SUPABASE_SERVICE_ROLE_KEY`? NÃO (não usa). Branch `feat/update-available-banner`. |
 | In Progress | E2E schema `test` + seed fixtures (piloto PRED) | `.claude/plans/e2e-seed-fixtures.md` | PARADO 2026-06-11. 13 passed/0 failed/16 skipped. Fix do `waitForMatchesLoaded` UNCOMMITTED (falta verificar). Detalhes completos no plano. |
 
 ---
+
+## Completed — Banner "Nova versão disponível" + auto-publish (2026-06-11)
+
+PR #10, deployado. CURRENT_VERSION 1.32.0.
+
+- **Banner:** compara `system_config.app_version` (servidor, via Realtime) × `CURRENT_VERSION` (bundle). `useUpdateAvailable` + `UpdateAvailableBanner` (barra fixa, "Atualizar" → `location.reload()`, dismiss por versão). Render em `App.tsx` após `<Header>`. **Nunca auto-recarrega.** Migration `0028` (coluna `app_version`).
+- **Opção C (auto-publish no deploy), SEM service_role:** `postbuild` `scripts/publish-version.mjs` chama RPC `publish_app_version(v)` (`SECURITY DEFINER`, GRANT to anon/authenticated) com a anon key. Migration `0029`. Guarda: só `VERCEL_ENV=production`. Blast radius da anon: no máximo um banner.
+- **Bootstrap (não revisitar):** mudança server-side vale imediatamente p/ todos; mudança de UI/código só após reload. O 1º deploy do banner é silencioso p/ abas já abertas (sem o código ainda) — ficam armadas após 1 reload. Daí em diante, cada deploy que bumpa `CURRENT_VERSION` dispara o banner.
+- ⚠️ Operacional: migrations `0028`/`0029` precisam estar aplicadas no Supabase; sem `0029`, o postbuild loga erro não-fatal e o banner fica dormente.
 
 ## Completed — Política de `season` server-side nos proxies (2026-06-11)
 
@@ -193,8 +201,8 @@ After Phase 6: Phase 7 (StatsPage), Phase 8 (TournamentStandings), Phase 9 (docs
 
 ## Next Action
 
-1. **Commitar (branch+PR) os testes do fix de season** — `api/_lib/seasonPolicy.test.ts` + `services/liveScoreService.url.test.ts`, UNCOMMITTED no working tree da main (criados pós-merge #9). Mais o housekeeping de planos (moves p/ `completed/`, plano do banner, SESSION_MEMORY).
-2. **Banner de versão** (`.claude/plans/update-available-banner.md`) — aguardando aprovação para implementar.
+1. **Operacional do banner:** confirmar que as migrations `0028` (coluna) e `0029` (função `publish_app_version`) estão aplicadas no Supabase de produção, e validar no próximo deploy o log `[publish-version] app_version publicada: "1.32.0" ✅`.
+2. **Fix do teste `KnockoutClassificationsCard`** (pausado): teste desatualizado pelo commit `d2781a2` (lock da 2ª fase passou a ser "só quando a fase começa", não mais por `lockDate` global). O teste de linha ~110 ("Bloqueado"/"globally locked") precisa montar um cenário com 1º jogo da fase no passado em vez de `lockDate={pastLock}`. Domínio do `test-runner`. NÃO é bug do componente.
 3. Backlog deferido: sync-call-reduction, specials refactor Phase A, E2E Fase B/C.
 
 ## Completed — Players & Top Scorer Phases 1–4 (2026-06-06, commit `122f6ed`)
