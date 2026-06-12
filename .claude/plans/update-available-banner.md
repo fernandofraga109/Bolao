@@ -128,45 +128,40 @@ ALTER TABLE IF EXISTS v2_system_config ADD COLUMN IF NOT EXISTS app_version text
 4. O Realtime entrega → o banner aparece **na hora** na aba aberta (testar com 2 abas).
 5. Clicar "Atualizar" → reload → versões batem → banner some. Clicar no "X" → some até sair uma versão ainda mais nova.
 
-### Opção C — endpoint + Vercel Deploy Hook (passo a passo)
+### Opção C — IMPLEMENTADA via `postbuild` + RPC `SECURITY DEFINER` (2026-06-11)
 
-**a. Criar o endpoint** `api/publish-version.ts` (escreve via service role, fora do bundle):
-```ts
-export const config = { runtime: "edge" };
-import { createClient } from "@supabase/supabase-js";
-import { CURRENT_VERSION } from "../data/releases";
+Escolhida a variante **script de build + função Postgres** (NÃO usa `service_role_key`):
+zero rota pública, zero secret poderoso, dispara a cada deploy (o `postbuild` roda depois
+do `vite build`). A escrita no banco é feita por uma função `SECURITY DEFINER` chamada com
+a **anon key** (já pública). Se a anon key for mal-usada, o pior é setar a coluna de versão
+(um banner) — nenhum acesso a dados sensíveis.
 
-export default async function handler(req: Request) {
-  const url = new URL(req.url, "http://localhost");
-  if (url.searchParams.get("secret") !== process.env.PUBLISH_VERSION_SECRET)
-    return new Response("forbidden", { status: 403 });
+**Arquivos (já no repo):**
+- `database/migrations/0029_publish_app_version_function.sql` — função
+  `publish_app_version(v text)` `SECURITY DEFINER` que faz
+  `UPDATE system_config SET app_version = v WHERE app_version IS DISTINCT FROM v`
+  (só escreve se mudou). `GRANT EXECUTE ... TO anon, authenticated`.
+- `scripts/publish-version.mjs` — lê `CURRENT_VERSION` de `data/releases.ts` e chama
+  `supabase.rpc("publish_app_version", { v })` com a **anon key**.
+- `package.json` → `"postbuild": "node scripts/publish-version.mjs"`.
 
-  const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,        // server-side, NUNCA no bundle
-    { db: { schema: process.env.SUPABASE_SCHEMA || "public" } },
-  );
-  const table = `${process.env.DB_TABLE_PREFIX || ""}system_config`;
+**Guardas (não publica em build local):**
+- Só roda se `VERCEL_ENV === "production"`.
+- Nunca derruba o build (erros são logados, sai com 0).
 
-  // escreve só se mudou (evita evento Realtime redundante)
-  const { data } = await supabase.from(table).select("id, app_version").single();
-  if (data && data.app_version !== CURRENT_VERSION) {
-    await supabase.from(table).update({ app_version: CURRENT_VERSION }).eq("id", data.id);
-  }
-  return new Response(JSON.stringify({ ok: true, version: CURRENT_VERSION }), {
-    headers: { "Content-Type": "application/json" },
-  });
-}
-```
+**Passos manuais (uma vez só):**
+1. **Rodar a migration `0029`** no Supabase (cria a função). Sem ela, o script loga erro
+   não-fatal e o banner fica dormente.
+2. Conferir que `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SUPABASE_SCHEMA` já
+   estão nas env vars da Vercel (já estão — são as do app). **Nenhum segredo novo.**
+3. Bumpar `CURRENT_VERSION` (via `changelog-updater`) faz parte de cada release; o deploy
+   seguinte publica essa versão sozinho.
 
-**b. Env vars na Vercel** (Project Settings → Environment Variables):
-- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (server-only), `SUPABASE_SCHEMA` (ex.: `public`/`dev`), `DB_TABLE_PREFIX` (ex.: `v2_`), `PUBLISH_VERSION_SECRET` (string aleatória).
+**Validar:** após o próximo deploy de produção, conferir nos logs de build
+`[publish-version] app_version publicada: "x" ✅` e que `system_config.app_version` mudou.
+Uma aba antiga aberta deve receber o banner via Realtime.
 
-**c. Disparar pós-deploy** — Vercel → Project Settings → **Deploy Hooks** não serve (ele *inicia* deploy). Para rodar APÓS o deploy, usar **Webhooks da conta** (Vercel → Settings → Webhooks) no evento `deployment.succeeded`, apontando para `https://<app>/api/publish-version?secret=<PUBLISH_VERSION_SECRET>`. (Alternativa sem webhook: um passo de `postbuild` no `package.json`/CI que faz `curl` no endpoint.)
-
-**d. Validar num preview deploy:** subir um deploy, confirmar que `system_config.app_version` mudou sozinho e que uma aba antiga recebeu o banner.
-
-> A parte (a)+(b) é testável manualmente já (chamar `/api/publish-version?secret=...` com `curl`). Só o disparo automático (c) precisa do ambiente Vercel.
+> Fallback manual continua possível: `UPDATE v2_system_config SET app_version = '<versão>';`
 
 ## Reforço opcional (defesa em profundidade)
 - Capturar `ChunkLoadError` (chunk lazy removido no deploy) → forçar reload. Pega o
