@@ -14,8 +14,9 @@ A ordem de classificação importa — **ao vivo tem prioridade sobre a data**:
    contagem no header.
 2. **Jogos Anteriores** (`pastGroups`) — dia do jogo `< hoje`, agrupado por
    Rodada / Grupo / "Anteriores". Recolhido por padrão.
-3. **Jogos do Dia** (`todayMatches`) — dia do jogo `=== hoje`. Hero verde,
-   aberto por padrão.
+3. **Jogos do Dia** (`todayMatches`) — dia do jogo `=== hoje`. Accordion verde
+   único (`MatchGroup` com `isToday`), aberto por padrão, com a data por extenso
+   exibida como `subtitle` no header e badge de contagem.
 4. **Jogos Futuros** (`futureGroups`) — dia do jogo `> hoje`, agrupado por data.
 
 > `MatchStatus.LIVE` é o status interno; o sync converte `IN_PLAY`/`PAUSED`
@@ -45,5 +46,7 @@ Renderiza um accordion reutilizável. Props de destaque:
 
 - `isToday` → estilo verde ("Jogos do Dia").
 - `isLive` → estilo vermelho ("Ao Vivo"), com dot pulsante no lugar do ícone.
+- `subtitle` → linha secundária no header (ex.: data por extenso em "Jogos do Dia").
 - Ambos (`isHighlighted`) aumentam título/chevron e exibem o badge de
-  contagem (`N jogos`) à direita do header — não há mais um "hero" separado.
+  contagem (`N jogos`) à direita do header — não há mais "heroes" separados
+  (nem o de "Hoje" nem o de "Ao Vivo").

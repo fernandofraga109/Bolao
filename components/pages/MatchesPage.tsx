@@ -5,7 +5,7 @@ import AdminMatchCard from "../AdminMatchCard";
 import { getMatchPhase } from "../../utils/scoring";
 import { translateGroupName } from "../../utils/translations";
 import RulesSection from "../RulesSection";
-import { CalendarDays, History, ChevronDown, ChevronUp, Zap, Users, Radio } from "lucide-react";
+import { CalendarDays, History, ChevronDown, ChevronUp, Users, Radio } from "lucide-react";
 
 // --- Helper: Date Group Accordion ---
 interface MatchGroupProps {
@@ -22,6 +22,7 @@ interface MatchGroupProps {
   onAdminToggleSyncLock?: (matchId: string, locked: boolean) => void;
   isToday?: boolean;
   isLive?: boolean;
+  subtitle?: string;
   minRankDiff?: number;
   ruleset?: "regulamento_1" | "regulamento_2";
   eligibleGroups?: GroupDB[];
@@ -42,6 +43,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
   onAdminToggleSyncLock,
   isToday,
   isLive,
+  subtitle,
   minRankDiff,
   ruleset,
   eligibleGroups = [],
@@ -77,10 +79,16 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
             <h3 className={`font-bold ${isHighlighted ? "text-lg" : "text-sm"}`}>
               {title}
             </h3>
-            {!isOpen && (
-              <span className="text-[10px] opacity-70">
-                {matches.length} jogos
+            {subtitle ? (
+              <span className={`text-[11px] font-semibold capitalize ${isLive ? "text-brand-red/80" : isToday ? "text-brand-green/80" : "opacity-70"}`}>
+                {subtitle}
               </span>
+            ) : (
+              !isOpen && (
+                <span className="text-[10px] opacity-70">
+                  {matches.length} jogos
+                </span>
+              )
             )}
           </div>
         </div>
@@ -393,36 +401,13 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
         </div>
       )}
 
-      {/* Today's Matches Hero */}
-      {todayMatches.length > 0 && (
-        <div className="bg-gradient-to-br from-brand-green/15 via-brand-green/8 to-transparent border border-brand-green/20 rounded-2xl p-5 relative overflow-hidden animate-fadeIn">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-brand-green/10 blur-2xl rounded-full -mr-8 -mt-8 pointer-events-none" />
-          <div className="relative flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Zap size={14} className="text-brand-green fill-brand-green" />
-                <span className="text-[10px] font-black text-brand-green uppercase tracking-[0.2em]">Hoje</span>
-              </div>
-              <p className="text-white font-black text-lg tracking-tight leading-none">
-                {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
-              </p>
-            </div>
-            <div className="flex flex-col items-end gap-1">
-              <span className="text-3xl font-black text-brand-green leading-none">{todayMatches.length}</span>
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                {todayMatches.length === 1 ? "jogo" : "jogos"}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Today's Matches */}
       <MatchGroup
         title="Jogos do Dia"
         matches={todayMatches}
         isOpenDefault={true}
         isToday={true}
+        subtitle={new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
         icon={<CalendarDays size={20} className="text-brand-green" />}
         userPredictions={userPredictions}
         leaderboardData={leaderboardData}
