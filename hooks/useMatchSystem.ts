@@ -4,6 +4,7 @@ import { useDatabase } from "../contexts/DatabaseContext";
 import { usePointsProcessor } from "./usePointsProcessor";
 import { useSyncSystem, CompetitionSyncStatus } from "./useSyncSystem";
 import { useBackgroundSync } from "./useBackgroundSync";
+import { CURRENT_VERSION } from "../data/releases";
 export type { CompetitionSyncStatus };
 
 const normalizeCompetitionCode = (value?: string) =>
@@ -14,6 +15,7 @@ export const useMatchSystem = (
   canWriteData: boolean = false,
   onBackgroundSyncStart?: (code: string) => void,
   onBackgroundSyncEnd?: (code: string, success: boolean, message: string) => void,
+  onVersionOutdated?: () => void,
 ) => {
   const db = useDatabase();
   const dbRef = useRef(db);
@@ -255,6 +257,8 @@ export const useMatchSystem = (
     enabled: isAutoSyncEnabled,
     onSyncStart: onBackgroundSyncStart,
     onSyncEnd: onBackgroundSyncEnd,
+    currentVersion: CURRENT_VERSION,
+    onVersionOutdated,
   });
 
 

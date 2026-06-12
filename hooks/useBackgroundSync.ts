@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { CompetitionDB, GroupDB } from "../types";
+import { supabase, isSupabaseEnabled } from "../services/supabase";
 
 // Calcula o intervalo de checagem proporcional ao syncIntervalMs configurado pelo admin.
 // Checa com frequência suficiente para não perder o momento do sync, mas não gasta ciclos.
@@ -23,6 +24,10 @@ interface UseBackgroundSyncOptions {
   onSyncStart?: (competitionCode: string) => void;
   /** Callback chamado quando um sync termina (para exibir resultado). */
   onSyncEnd?: (competitionCode: string, success: boolean, message: string) => void;
+  /** Versão atual do app (para comparação com system_config.app_version). */
+  currentVersion: string;
+  /** Callback chamado quando detecta versão desatualizada (para forçar refetch de system_config). */
+  onVersionOutdated?: () => void;
 }
 
 /**
@@ -49,6 +54,8 @@ export const useBackgroundSync = ({
   enabled,
   onSyncStart,
   onSyncEnd,
+  currentVersion,
+  onVersionOutdated,
 }: UseBackgroundSyncOptions): void => {
   // Lock por código para evitar syncs concorrentes dentro do mesmo hook
   const syncLockRef = useRef<Set<string>>(new Set());
@@ -62,12 +69,16 @@ export const useBackgroundSync = ({
 
   const onSyncStartRef = useRef(onSyncStart);
   const onSyncEndRef = useRef(onSyncEnd);
+  const currentVersionRef = useRef(currentVersion);
+  const onVersionOutdatedRef = useRef(onVersionOutdated);
   useEffect(() => { competitionsRef.current = competitions; }, [competitions]);
   useEffect(() => { groupsRef.current = groups; }, [groups]);
   useEffect(() => { syncIntervalMsRef.current = syncIntervalMs; }, [syncIntervalMs]);
   useEffect(() => { syncFnRef.current = syncFn; }, [syncFn]);
   useEffect(() => { onSyncStartRef.current = onSyncStart; }, [onSyncStart]);
   useEffect(() => { onSyncEndRef.current = onSyncEnd; }, [onSyncEnd]);
+  useEffect(() => { currentVersionRef.current = currentVersion; }, [currentVersion]);
+  useEffect(() => { onVersionOutdatedRef.current = onVersionOutdated; }, [onVersionOutdated]);
 
   useEffect(() => {
     if (!enabled) {
@@ -79,8 +90,35 @@ export const useBackgroundSync = ({
     console.log(`⏰ Background Sync: ativo. Checando a cada ${Math.round(checkInterval / 1000)}s.`);
 
     const tick = async () => {
+      if (!isSupabaseEnabled() || !supabase) {
+        console.log("🚫 [BackgroundSync] Supabase não habilitado. Sync bloqueado.");
+        return;
+      }
+
+      // Guarda 0: carregar system_config para verificar versão mais recente
+      console.log("🔍 [BackgroundSync] Carregando system_config para verificar versão...");
+      const { data: configData, error: configError } = await supabase
+        .from("system_config")
+        .select("*")
+        .single();
+
+      if (configError) {
+        console.warn("⚠️ [BackgroundSync] Erro ao carregar system_config:", configError);
+        return;
+      }
+
+      console.log("✅ [BackgroundSync] system_config carregado:", configData);
+
       const now = Date.now();
       const dbInterval = syncIntervalMsRef.current;
+
+      // Guarda 1: versão do app está desatualizada? Bloqueia sync para evitar operações problemáticas.
+      const published = configData?.app_version;
+      if (published && published !== currentVersionRef.current) {
+        console.log(`🚫 [BackgroundSync] Versão desatualizada (local: ${currentVersionRef.current}, remota: ${published}). Sync bloqueado.`);
+        onVersionOutdatedRef.current?.();
+        return;
+      }
 
       // Descobre quais competições estão em uso nos grupos ativos
       const activeCodes = Array.from(

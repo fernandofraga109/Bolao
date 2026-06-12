@@ -35,7 +35,7 @@ import SpecialsPage from "./components/pages/SpecialsPage";
 import { DEFAULT_COMPETITION_CODE, getCompetitionByCode } from "./data/competitions";
 import { CURRENT_VERSION } from "./data/releases";
 import WhatsNewModal from "./components/ui/WhatsNewModal";
-import UpdateAvailableBanner from "./components/ui/UpdateAvailableBanner";
+import UpdateAvailableModal from "./components/ui/UpdateAvailableModal";
 import {
   ChevronsUpDown,
   PlusCircle,
@@ -128,6 +128,11 @@ const App: React.FC = () => {
     }
   }, [db.competitions, showResult, showWarning]);
 
+  const handleVersionOutdated = useCallback(() => {
+    console.log("[App] Versão desatualizada detectada. Forçando refetch de system_config...");
+    void db.refetchSystemConfig();
+  }, [db]);
+
   const {
     matches,
     tournamentResults,
@@ -139,7 +144,7 @@ const App: React.FC = () => {
     isAutoSyncEnabled,
     toggleAutoSync,
     adminControls,
-  } = useMatchSystem(activeCompetitionCode, canWriteCompetitionData, handleBgSyncStart, handleBgSyncEnd);
+  } = useMatchSystem(activeCompetitionCode, canWriteCompetitionData, handleBgSyncStart, handleBgSyncEnd, handleVersionOutdated);
 
   const {
     groups,
@@ -470,7 +475,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen pb-20 bg-brand-dark text-slate-100 font-sans selection:bg-brand-green selection:text-brand-dark">
-      <UpdateAvailableBanner />
       <Header
         currentUser={currentUser}
         onLogout={logout}
@@ -714,6 +718,9 @@ const App: React.FC = () => {
 
       {/* Regulamento Modal */}
       {isRegulamentoOpen && <RegulamentoModal onClose={() => setIsRegulamentoOpen(false)} />}
+
+      {/* Update Available Modal */}
+      <UpdateAvailableModal />
 
       {/* Sync Toast Notifications */}
       <SyncToastContainer toasts={toasts} onDismiss={dismiss} />

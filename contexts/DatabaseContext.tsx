@@ -151,6 +151,7 @@ interface DatabaseContextType {
   refetchTeamStandings: () => Promise<void>;
   refetchPredictions: () => Promise<void>;
   refetchUserGroups: () => Promise<void>;
+  refetchSystemConfig: () => Promise<void>;
   players: PlayerWithContextDB[];
   isSyncingPlayers: boolean;
   syncSquads: (competitionCodes: string[]) => Promise<{ synced: number; errors: string[] }>;
@@ -1593,6 +1594,12 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     }
   }, []);
 
+  const refetchSystemConfig = useCallback(async () => {
+    if (!isSupabaseEnabled() || !supabase) return;
+    const { data } = await supabase.from("system_config").select("*").single();
+    if (data) setSystemConfig(data);
+  }, []);
+
   return (
     <DatabaseContext.Provider
       value={useMemo(() => ({
@@ -1650,6 +1657,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         refetchTeamStandings,
         refetchPredictions,
         refetchUserGroups,
+        refetchSystemConfig,
         players,
         isSyncingPlayers,
         syncSquads,
@@ -1695,6 +1703,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         refetchTeamStandings,
         refetchPredictions,
         refetchUserGroups,
+        refetchSystemConfig,
         players,
         isSyncingPlayers,
         syncSquads,

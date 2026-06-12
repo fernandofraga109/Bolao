@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.33.0";
+export const CURRENT_VERSION = "1.34.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.34.0",
+    date: "2026-06-11",
+    changes: [
+      "Modal de atualização obrigatória agora aparece automaticamente quando o background sync detecta versão desatualizada",
+      "Background sync agora verifica versão do app antes de fazer sync com API externa, evitando operações problemáticas com código antigo",
+      "Adicionado refetchSystemConfig no DatabaseContext para forçar atualização do config quando necessário",
+    ],
+  },
   {
     version: "1.33.0",
     date: "2026-06-11",
