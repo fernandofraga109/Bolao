@@ -35,6 +35,7 @@ import SpecialsPage from "./components/pages/SpecialsPage";
 import { DEFAULT_COMPETITION_CODE, getCompetitionByCode } from "./data/competitions";
 import { CURRENT_VERSION } from "./data/releases";
 import WhatsNewModal from "./components/ui/WhatsNewModal";
+import UpdateAvailableBanner from "./components/ui/UpdateAvailableBanner";
 import {
   ChevronsUpDown,
   PlusCircle,
@@ -469,6 +470,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen pb-20 bg-brand-dark text-slate-100 font-sans selection:bg-brand-green selection:text-brand-dark">
+      <UpdateAvailableBanner />
       <Header
         currentUser={currentUser}
         onLogout={logout}

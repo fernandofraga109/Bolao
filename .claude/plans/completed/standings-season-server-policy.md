@@ -1,7 +1,6 @@
 # Plano: Política de `season` autoritativa no servidor (proxies football-data)
 
-_Status: EM ANDAMENTO — iniciado 2026-06-11_
-_Branch: `fix/season-server-policy` (a criar)_
+_Status: DONE — 2026-06-11. Mergeado na main (PR #9, commit `874ff39`) e validado em produção ("bombando"): logs sem `season=2026` da WC e `team_standings` não zera mais. CURRENT_VERSION 1.30.0._
 
 ## Problema
 
