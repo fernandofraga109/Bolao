@@ -93,9 +93,16 @@ const TopScoresPage: React.FC<TopScoresPageProps> = ({ competitionCode }) => {
       ) : (
         <>
           <div className="space-y-2">
-            {scorers.map((scorer, index) => (
-              <ScorerRow key={scorer.id} scorer={scorer} rank={index + 1} />
-            ))}
+            {scorers.map((scorer, index) => {
+              // Calculate rank with ties: same rank if goals equal to previous scorer
+              const rank =
+                index === 0 ||
+                scorer.tournamentEntry.goals !== scorers[index - 1].tournamentEntry.goals
+                  ? index + 1
+                  : (scorers[index - 1] as any).rank || index + 1;
+              (scorer as any).rank = rank;
+              return <ScorerRow key={scorer.id} scorer={scorer} rank={rank} />;
+            })}
           </div>
 
           {lastUpdated && (

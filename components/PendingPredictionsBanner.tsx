@@ -104,15 +104,15 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
     let bannerResult: { text: string; sub?: string; urgent: boolean; alert?: boolean } | null = null;
 
     if (ruleset === "regulamento_1") {
-      const todayStr = new Date().toISOString().slice(0, 10);
-      const todayMatches = schedulable.filter((m) => {
-        const mDate = new Date(m.date).toISOString().slice(0, 10);
-        return mDate === todayStr;
+      const nowMs = Date.now();
+      const next24hMatches = schedulable.filter((m) => {
+        const matchTime = new Date(m.date).getTime();
+        return matchTime >= nowMs && matchTime <= nowMs + 24 * 60 * 60 * 1000;
       });
-      const pending = todayMatches.filter((m) => !predictions[m.id]);
+      const pending = next24hMatches.filter((m) => !predictions[m.id]);
       if (pending.length > 0) {
         bannerResult = {
-          text: `Hoje tem ${todayMatches.length} jogo${todayMatches.length > 1 ? "s" : ""} — você ainda não palpitou em ${pending.length}`,
+          text: `Tem ${pending.length} jogo${pending.length > 1 ? "s" : ""} nas próximas 24h que você não palpitou`,
           urgent: true,
         };
       }

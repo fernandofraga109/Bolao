@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.32.0";
+export const CURRENT_VERSION = "1.33.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.33.0",
+    date: "2026-06-11",
+    changes: [
+      "Artilharia: jogadores com o mesmo número de gols agora têm o mesmo rank (ex: dois jogadores com 1 gol ambos aparecem como 1º)",
+      "Banner de palpites pendentes agora considera jogos nas próximas 24h em vez de apenas jogos de hoje",
+      "Mensagem de palpites pendentes atualizada para mostrar apenas os jogos que faltam palpitar",
+    ],
+  },
   {
     version: "1.32.0",
     date: "2026-06-11",
