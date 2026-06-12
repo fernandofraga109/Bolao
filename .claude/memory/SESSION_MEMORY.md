@@ -27,6 +27,14 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 
 ---
 
+## Completed — Seção "Ao Vivo" + Dense ranking (2026-06-12)
+
+Branch: `feat/dense-ranking-and-live-games` | Plano: `.claude/plans/completed/live-matches-section.md` | Confirmado pelo usuário.
+
+- **Dense ranking:** `Leaderboard.tsx` e `topscores/TopScoresPage.tsx` dividem a mesma posição em empates (1,1,2 em vez de 1,1,3). `currentRank += 1` só quando muda pontos/gols.
+- **Seção Ao Vivo:** `MatchesPage.tsx` extrai `status === MatchStatus.LIVE` ANTES de classificar por data. Resolve o jogo que cruza a meia-noite e sumia dos "Jogos do Dia" → ia para "Anteriores". É um único accordion `MatchGroup` com prop `isLive` (dot pulsante + badge de contagem no header; hero separado removido). Docs: `docs/features/matches-organization.md` (novo) + `leaderboard.md`.
+- **Pendente:** test-runner (testes de categorização do MatchesPage).
+
 ## Completed — Banner "Nova versão disponível" + auto-publish (2026-06-11)
 
 PR #10, deployado. CURRENT_VERSION 1.32.0.

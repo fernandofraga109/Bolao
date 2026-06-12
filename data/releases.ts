@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.34.0";
+export const CURRENT_VERSION = "1.35.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.35.0",
+    date: "2026-06-12",
+    changes: [
+      "Nova seção 'Jogos Ao Vivo' no topo da página de Jogos: as partidas em andamento aparecem juntas com um indicador pulsante, em destaque, não importa a data",
+      "Corrigido o problema em que jogos que começavam à noite e passavam da meia-noite sumiam dos 'Jogos do Dia' e iam parar nos 'Jogos Anteriores'",
+      "Classificação e Artilharia agora tratam empates de forma justa: quem está empatado divide a mesma posição e o próximo colocado vem logo em seguida (ex: 1º, 1º, 2º)",
+    ],
+  },
   {
     version: "1.34.0",
     date: "2026-06-11",

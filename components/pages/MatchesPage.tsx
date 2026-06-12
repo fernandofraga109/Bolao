@@ -5,7 +5,7 @@ import AdminMatchCard from "../AdminMatchCard";
 import { getMatchPhase } from "../../utils/scoring";
 import { translateGroupName } from "../../utils/translations";
 import RulesSection from "../RulesSection";
-import { CalendarDays, History, ChevronDown, ChevronUp, Zap, Users } from "lucide-react";
+import { CalendarDays, History, ChevronDown, ChevronUp, Users, Radio } from "lucide-react";
 
 // --- Helper: Date Group Accordion ---
 interface MatchGroupProps {
@@ -21,6 +21,8 @@ interface MatchGroupProps {
   onAdminSaveMatch: (id: string, status: "started" | "live" | "ended", h: number, a: number) => void;
   onAdminToggleSyncLock?: (matchId: string, locked: boolean) => void;
   isToday?: boolean;
+  isLive?: boolean;
+  subtitle?: string;
   minRankDiff?: number;
   ruleset?: "regulamento_1" | "regulamento_2";
   eligibleGroups?: GroupDB[];
@@ -40,6 +42,8 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
   onAdminSaveMatch,
   onAdminToggleSyncLock,
   isToday,
+  isLive,
+  subtitle,
   minRankDiff,
   ruleset,
   eligibleGroups = [],
@@ -49,33 +53,60 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
 
   if (matches.length === 0) return null;
 
+  const isHighlighted = isToday || isLive;
+
   return (
     <div className="mb-4">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${isToday
-            ? "bg-brand-green/10 border-brand-green/30 text-white mb-3 shadow-lg shadow-brand-green/5"
-            : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700/80"
+        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${isLive
+            ? "bg-brand-red/10 border-brand-red/30 text-white mb-3 shadow-lg shadow-brand-red/5"
+            : isToday
+              ? "bg-brand-green/10 border-brand-green/30 text-white mb-3 shadow-lg shadow-brand-green/5"
+              : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700/80"
           }`}
       >
         <div className="flex items-center gap-3">
-          {icon}
+          {isLive ? (
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-red opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-red" />
+            </span>
+          ) : (
+            icon
+          )}
           <div className="text-left">
-            <h3 className={`font-bold ${isToday ? "text-lg" : "text-sm"}`}>
+            <h3 className={`font-bold ${isHighlighted ? "text-lg" : "text-sm"}`}>
               {title}
             </h3>
-            {!isOpen && (
-              <span className="text-[10px] opacity-70">
-                {matches.length} jogos
+            {subtitle ? (
+              <span className={`text-[11px] font-semibold capitalize ${isLive ? "text-brand-red/80" : isToday ? "text-brand-green/80" : "opacity-70"}`}>
+                {subtitle}
               </span>
+            ) : (
+              !isOpen && (
+                <span className="text-[10px] opacity-70">
+                  {matches.length} jogos
+                </span>
+              )
             )}
           </div>
         </div>
-        {isOpen ? (
-          <ChevronUp size={isToday ? 20 : 16} />
-        ) : (
-          <ChevronDown size={isToday ? 20 : 16} />
-        )}
+        <div className="flex items-center gap-3">
+          {isHighlighted && (
+            <span
+              className={`text-xs font-black px-2 py-0.5 rounded-full ${isLive ? "bg-brand-red/20 text-brand-red" : "bg-brand-green/20 text-brand-green"
+                }`}
+            >
+              {matches.length} {matches.length === 1 ? "jogo" : "jogos"}
+            </span>
+          )}
+          {isOpen ? (
+            <ChevronUp size={isHighlighted ? 20 : 16} />
+          ) : (
+            <ChevronDown size={isHighlighted ? 20 : 16} />
+          )}
+        </div>
       </button>
 
       {isOpen && (
@@ -156,7 +187,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
 }) => {
   const [isPastMatchesOpen, setIsPastMatchesOpen] = useState(false);
 
-  const { pastGroups, todayMatches, futureGroups } = useMemo(() => {
+  const { liveMatches, pastGroups, todayMatches, futureGroups } = useMemo(() => {
     const now = new Date();
 
     const getDayString = (d: Date) => {
@@ -167,11 +198,19 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
     };
 
     const todayStr = getDayString(now);
+    const live: Match[] = [];
     const past: Record<string, Match[]> = {};
     const today: Match[] = [];
     const future: Record<string, Match[]> = {};
 
     matches.forEach((match) => {
+      // Jogos ao vivo aparecem só na seção "Ao Vivo", independente da data.
+      // Resolve o caso do jogo que cruza a meia-noite e sumiria dos "Jogos do Dia".
+      if (match.status === MatchStatus.LIVE) {
+        live.push(match);
+        return;
+      }
+
       const mDate = new Date(match.date);
       const mDateStr = getDayString(mDate);
 
@@ -196,7 +235,11 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
     );
 
-    return { pastGroups: past, todayMatches: today, futureGroups: future };
+    live.sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+    );
+
+    return { liveMatches: live, pastGroups: past, todayMatches: today, futureGroups: future };
   }, [matches]);
 
 
@@ -266,6 +309,26 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
       )}
 
       {!isAdmin && <RulesSection minRankDiff={minRankDiff} ruleset={ruleset} />}
+
+      {/* Live Matches */}
+      <MatchGroup
+        title="Jogos Ao Vivo"
+        matches={liveMatches}
+        isOpenDefault={true}
+        isLive={true}
+        icon={<Radio size={20} className="text-brand-red" />}
+        userPredictions={userPredictions}
+        leaderboardData={leaderboardData}
+        currentUserId={currentUser.id}
+        onPredict={onPredict}
+        isAdmin={isAdmin}
+        onAdminSaveMatch={onAdminSaveMatch}
+        onAdminToggleSyncLock={onAdminToggleSyncLock}
+        minRankDiff={minRankDiff}
+        ruleset={ruleset}
+        eligibleGroups={eligibleGroups}
+        phaseLockSet={phaseLockSet}
+      />
 
 
       {/* Past Matches */}
@@ -338,36 +401,13 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
         </div>
       )}
 
-      {/* Today's Matches Hero */}
-      {todayMatches.length > 0 && (
-        <div className="bg-gradient-to-br from-brand-green/15 via-brand-green/8 to-transparent border border-brand-green/20 rounded-2xl p-5 relative overflow-hidden animate-fadeIn">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-brand-green/10 blur-2xl rounded-full -mr-8 -mt-8 pointer-events-none" />
-          <div className="relative flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Zap size={14} className="text-brand-green fill-brand-green" />
-                <span className="text-[10px] font-black text-brand-green uppercase tracking-[0.2em]">Hoje</span>
-              </div>
-              <p className="text-white font-black text-lg tracking-tight leading-none">
-                {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
-              </p>
-            </div>
-            <div className="flex flex-col items-end gap-1">
-              <span className="text-3xl font-black text-brand-green leading-none">{todayMatches.length}</span>
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                {todayMatches.length === 1 ? "jogo" : "jogos"}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Today's Matches */}
       <MatchGroup
         title="Jogos do Dia"
         matches={todayMatches}
         isOpenDefault={true}
         isToday={true}
+        subtitle={new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
         icon={<CalendarDays size={20} className="text-brand-green" />}
         userPredictions={userPredictions}
         leaderboardData={leaderboardData}

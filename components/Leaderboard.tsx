@@ -22,9 +22,10 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, ruleset = "regulame
     let currentRank = 0;
     let lastPoints = -1;
     
-    const usersWithRanks = sorted.map((user, index) => {
+    const usersWithRanks = sorted.map((user) => {
+      // Dense ranking: empate divide a mesma posição e o próximo é +1 (1, 1, 2)
       if (user.totalPoints !== lastPoints) {
-        currentRank = index + 1;
+        currentRank += 1;
         lastPoints = user.totalPoints;
       }
       return { ...user, rank: currentRank };
