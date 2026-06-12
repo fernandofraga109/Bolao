@@ -47,6 +47,7 @@ interface MatchAuditRow {
   isDiffCorrect: boolean;
   resultLabel: string;
   classifiesBonus: number;
+  aloneBonus: boolean;
 }
 
 const UserAuditModal: React.FC<UserAuditModalProps> = ({
@@ -129,39 +130,10 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
     return byId;
   }, [auditMatches]);
 
-  // Reconstruct predictions for the clicked user scoped to their own activeGroupId.
-  // user.predictions was hydrated using viewerActiveGroupId (bug in useUserSystem for other users),
-  // so we must rebuild from raw DB predictions to get the correct scoped data.
-  const userPredictions = useMemo(() => {
-    const map: Record<string, { home: number; away: number; points?: number; whoClassifiesTeamId?: string }> = {};
-    rawPredictions
-      .filter((p) => p.userId === user.id && (activeGroupId ? p.groupId === activeGroupId : true))
-      .forEach((p) => {
-        // If multiple entries exist (legacy + group-scoped), group-scoped wins
-        const existing = map[p.matchId];
-        if (!existing || p.groupId === activeGroupId) {
-          map[p.matchId] = { home: p.homeScore, away: p.awayScore, points: p.points, whoClassifiesTeamId: p.tieWinnerTeamId };
-        }
-      });
-    return map;
-  }, [rawPredictions, user.id, activeGroupId]);
-
-  // Similarly rebuild predictions for all group members for reg2 placar-sozinho context
-  const groupUserPredictions = useMemo(() => {
-    const byUserId: Record<string, Record<string, { home: number; away: number }>> = {};
-    rawPredictions
-      .filter((p) => activeGroupId ? p.groupId === activeGroupId : true)
-      .forEach((p) => {
-        if (!byUserId[p.userId]) byUserId[p.userId] = {};
-        byUserId[p.userId][p.matchId] = { home: p.homeScore, away: p.awayScore };
-      });
-    return byUserId;
-  }, [rawPredictions, activeGroupId]);
-
   const matchAudit = useMemo((): MatchAuditRow[] => {
     const rows: MatchAuditRow[] = [];
 
-    Object.entries(userPredictions).forEach(([matchId, pred]) => {
+    Object.entries(user.predictions).forEach(([matchId, pred]) => {
       const match = canonicalMatchById.get(matchId);
       if (
         !match ||
@@ -176,12 +148,12 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
       let pointsSource: "db" | "calc" = "calc";
 
       if (ruleset === "regulamento_2") {
-        const matchPredictions = Object.entries(groupUserPredictions)
-          .filter(([, preds]) => !!preds[matchId])
-          .map(([userId, preds]) => ({
-            userId,
-            homeScore: preds[matchId].home,
-            awayScore: preds[matchId].away,
+        const matchPredictions = allUsers
+          .filter((u) => u.groupIds.includes(activeGroupId || "") && u.predictions && u.predictions[matchId])
+          .map((u) => ({
+            userId: u.id,
+            homeScore: u.predictions[matchId].home,
+            awayScore: u.predictions[matchId].away,
           }));
         pts = calculatePointsRegulamento2(
           pred.home,
@@ -226,9 +198,13 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
 
       if (ruleset === "regulamento_2") {
         const phase = getMatchPhase(match.stage, match.group);
-        const matchPredsForCat = Object.entries(groupUserPredictions)
-          .filter(([, preds]) => !!preds[matchId])
-          .map(([uid, preds]) => ({ userId: uid, homeScore: preds[matchId].home, awayScore: preds[matchId].away }));
+        const matchPredsForCat = allUsers
+          .filter((u) => u.groupIds.includes(activeGroupId || "") && u.predictions && u.predictions[matchId])
+          .map((u) => ({
+            userId: u.id,
+            homeScore: u.predictions[matchId].home,
+            awayScore: u.predictions[matchId].away,
+          }));
         const r2Cat = getScoreCategoryRegulamento2(
           pred.home, pred.away,
           match.result!.home, match.result!.away,
@@ -253,8 +229,26 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
       }
 
       let resultLabel = "";
+      let aloneBonus = false;
+      
       if (pts === 0) resultLabel = "Errou";
-      else if (isExact) resultLabel = "Placar exato";
+      else if (isExact) {
+        // Verificar se ganhou bônus de acertar sozinho no Regulamento 2
+        if (ruleset === "regulamento_2") {
+          const matchPredsForBonus = allUsers
+            .filter((u) => u.groupIds.includes(activeGroupId || "") && u.predictions && u.predictions[matchId])
+            .map((u) => ({
+              userId: u.id,
+              homeScore: u.predictions[matchId].home,
+              awayScore: u.predictions[matchId].away,
+            }));
+          const exactHits = matchPredsForBonus.filter(
+            (p) => p.homeScore === match.result!.home && p.awayScore === match.result!.away
+          );
+          aloneBonus = exactHits.length === 1 && exactHits[0].userId === user.id;
+        }
+        resultLabel = aloneBonus ? "Placar exato (só você)" : "Placar exato";
+      }
       else if (isOutcomeCorrect && isDiffCorrect) resultLabel = "Diferença certa";
       else if (isOutcomeCorrect) resultLabel = "Resultado certo";
 
@@ -278,12 +272,13 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
         isDiffCorrect,
         resultLabel,
         classifiesBonus,
+        aloneBonus,
       });
     });
 
     rows.sort((a, b) => new Date(b.match.date).getTime() - new Date(a.match.date).getTime());
     return rows;
-  }, [canonicalMatchById, userPredictions, groupUserPredictions, ruleset, activeCompCode, minRankDiff]);
+  }, [canonicalMatchById, user.predictions, allUsers, ruleset, activeCompCode, minRankDiff, activeGroupId, user.id]);
 
   const matchTotal = useMemo(
     () => matchAudit.reduce((sum, row) => sum + row.pts, 0),
@@ -566,15 +561,23 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
     return null;
   };
 
-  const getPointsBadge = (pts: number, isExact: boolean, isOutcomeCorrect: boolean) => {
+  const getPointsBadge = (pts: number, isExact: boolean, isOutcomeCorrect: boolean, aloneBonus: boolean = false) => {
     if (pts === 0)
       return <span className="text-slate-500 font-bold text-sm">0</span>;
-    if (isExact)
+    if (isExact) {
       return (
-        <span className="text-brand-gold font-black text-sm drop-shadow-[0_0_4px_rgba(245,158,11,0.5)]">
-          +{pts}
-        </span>
+        <div className="flex items-center gap-1">
+          <span className="text-brand-gold font-black text-sm drop-shadow-[0_0_4px_rgba(245,158,11,0.5)]">
+            +{pts}
+          </span>
+          {aloneBonus && (
+            <span className="text-[8px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/30 px-1 rounded-full">
+              SOZINHO
+            </span>
+          )}
+        </div>
       );
+    }
     if (isOutcomeCorrect)
       return <span className="text-brand-green font-bold text-sm">+{pts}</span>;
     return <span className="text-slate-400 font-bold text-sm">+{pts}</span>;
@@ -711,7 +714,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 ml-2">
                         {getMedalBadge(row.pts, row.isExact, row.isOutcomeCorrect, row.isDiffCorrect)}
-                        {getPointsBadge(row.pts, row.isExact, row.isOutcomeCorrect)}
+                        {getPointsBadge(row.pts, row.isExact, row.isOutcomeCorrect, row.aloneBonus)}
                         {isExpanded ? (
                           <ChevronUp size={14} className="text-slate-500" />
                         ) : (
@@ -783,6 +786,11 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
                             {row.classifiesBonus > 0 && (
                               <span className="text-[9px] font-black text-amber-300 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full">
                                 +{row.classifiesBonus} classifica
+                              </span>
+                            )}
+                            {row.aloneBonus && (
+                              <span className="text-[9px] font-black text-amber-300 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full">
+                                +5 bônus (só você)
                               </span>
                             )}
                           </div>
