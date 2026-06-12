@@ -23,6 +23,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
+import { resolveDeployTarget } from "./deploy-target.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -52,20 +53,24 @@ async function main() {
   }
   const version = match[1];
 
+  // Alvo do deploy derivado do dono do repo (Vercel injeta em build). Cada deploy
+  // publica só a sua própria chave em system_config.app_versions.
+  const target = resolveDeployTarget(process.env.VERCEL_GIT_REPO_OWNER);
+
   const schema = process.env.VITE_SUPABASE_SCHEMA || "public";
   const supabase = createClient(url, anonKey, {
     db: { schema },
     auth: { persistSession: false },
   });
 
-  // A função (SECURITY DEFINER) escreve só se a versão mudou.
-  const { error } = await supabase.rpc("publish_app_version", { v: version });
+  // A função (SECURITY DEFINER) escreve só se a versão daquele deploy mudou.
+  const { error } = await supabase.rpc("publish_app_version", { target, v: version });
   if (error) {
     log(`erro ao chamar publish_app_version:`, error.message);
     return;
   }
 
-  log(`app_version publicada: "${version}" (schema ${schema}). ✅`);
+  log(`app_version publicada: "${version}" para deploy "${target}" (schema ${schema}). ✅`);
 }
 
 main().catch((e) => {

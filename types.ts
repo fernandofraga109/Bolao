@@ -17,9 +17,14 @@ export interface SystemConfigDB {
   is_auto_sync_enabled: boolean;
   sync_interval_ms: number;
   underdog_min_rank_diff: number;
-  /** Versão da app publicada pelo servidor; alimenta o banner "Nova versão
-   *  disponível". NULL = nunca publicada → banner não dispara. */
+  /** @deprecated Versão única legada (compartilhada entre deploys). Substituída por
+   *  `app_versions` keyed por deploy. Mantida para bancos legados. */
   app_version?: string | null;
+  /** Versão publicada por deploy: `{ bolao: "1.36.0", miguelfork: "1.35.1" }`.
+   *  Cada deploy publica/lê só a sua chave, evitando que um deploy dispare o banner
+   *  "Nova versão" para o outro antes do build correspondente subir. Chave ausente
+   *  ou NULL = banner não dispara para aquele deploy. */
+  app_versions?: Record<string, string> | null;
 }
 
 export interface CompetitionDB {

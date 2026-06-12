@@ -2,20 +2,21 @@ import React, { useState } from "react";
 import { ArrowUpCircle, X } from "lucide-react";
 import { useDatabase } from "../../contexts/DatabaseContext";
 import { useUpdateAvailable } from "../../hooks/useUpdateAvailable";
+import { DEPLOY_TARGET } from "../../utils/deployTarget";
 
 /**
  * Banner não-bloqueante "Nova versão disponível — Atualizar".
  *
- * Aparece quando a versão publicada pelo servidor (via Realtime em
- * `system_config.app_version`) diverge da versão embutida no bundle em execução.
- * NUNCA recarrega sozinho (evita perder um palpite em digitação): o reload só
- * acontece no clique do usuário. Dispensável — mas se uma versão AINDA mais nova
- * for publicada depois, reaparece (o dismiss é por versão).
+ * Aparece quando a versão publicada pelo PRÓPRIO deploy (via Realtime em
+ * `system_config.app_versions[DEPLOY_TARGET]`) diverge da versão embutida no bundle
+ * em execução. NUNCA recarrega sozinho (evita perder um palpite em digitação): o
+ * reload só acontece no clique do usuário. Dispensável — mas se uma versão AINDA
+ * mais nova for publicada depois, reaparece (o dismiss é por versão).
  */
 const UpdateAvailableBanner: React.FC = () => {
   const isStale = useUpdateAvailable();
   const { systemConfig } = useDatabase();
-  const published = systemConfig.app_version ?? null;
+  const published = systemConfig.app_versions?.[DEPLOY_TARGET] ?? null;
   const [dismissedVersion, setDismissedVersion] = useState<string | null>(null);
 
   if (!isStale || published === dismissedVersion) return null;

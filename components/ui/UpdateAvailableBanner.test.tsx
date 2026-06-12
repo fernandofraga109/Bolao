@@ -34,7 +34,7 @@ beforeEach(() => {
 
 describe("UpdateAvailableBanner", () => {
   it("não renderiza nada quando a versão em execução é a mais recente", () => {
-    fakeDb.systemConfig = { app_version: "1.31.0" };
+    fakeDb.systemConfig = { app_versions: { bolao: "1.31.0" } };
     render(<UpdateAvailableBanner />);
     expect(screen.queryByText(TEXT)).not.toBeInTheDocument();
   });
@@ -46,7 +46,7 @@ describe("UpdateAvailableBanner", () => {
   });
 
   it("mostra o aviso e o botão Atualizar quando há versão mais nova", () => {
-    fakeDb.systemConfig = { app_version: "1.32.0" };
+    fakeDb.systemConfig = { app_versions: { bolao: "1.32.0" } };
     render(<UpdateAvailableBanner />);
     expect(screen.getByText(TEXT)).toBeInTheDocument();
     expect(
@@ -58,7 +58,7 @@ describe("UpdateAvailableBanner", () => {
     const reload = vi.fn();
 
     beforeEach(() => {
-      fakeDb.systemConfig = { app_version: "1.32.0" };
+      fakeDb.systemConfig = { app_versions: { bolao: "1.32.0" } };
       reload.mockClear();
       // happy-dom: location.reload não é trivialmente espionável; redefinimos location.
       Object.defineProperty(window, "location", {

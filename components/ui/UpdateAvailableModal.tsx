@@ -4,19 +4,20 @@ import ModalShell from "./ModalShell";
 import { useDatabase } from "../../contexts/DatabaseContext";
 import { useUpdateAvailable } from "../../hooks/useUpdateAvailable";
 import { CURRENT_VERSION } from "../../data/releases";
+import { DEPLOY_TARGET } from "../../utils/deployTarget";
 
 /**
  * Modal obrigatório "Nova versão disponível — Atualizar".
  *
- * Aparece quando a versão publicada pelo servidor (via Realtime em
- * `system_config.app_version`) diverge da versão embutida no bundle em execução.
- * Bloqueia o uso do app até que o usuário clique em "Atualizar Agora".
+ * Aparece quando a versão publicada pelo PRÓPRIO deploy (via Realtime em
+ * `system_config.app_versions[DEPLOY_TARGET]`) diverge da versão embutida no bundle
+ * em execução. Bloqueia o uso do app até que o usuário clique em "Atualizar Agora".
  * Não há opção de dispensar — atualização é forçada.
  */
 const UpdateAvailableModal: React.FC = () => {
   const isStale = useUpdateAvailable();
   const { systemConfig } = useDatabase();
-  const published = systemConfig.app_version ?? null;
+  const published = systemConfig.app_versions?.[DEPLOY_TARGET] ?? null;
 
   if (!isStale || !published) return null;
 

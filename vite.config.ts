@@ -1,11 +1,18 @@
 import path from "path";
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
+import { resolveDeployTarget } from "./scripts/deploy-target.mjs";
 /// <reference types="vitest" />
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, ".", "");
   const footballDataToken = env.FOOTBALL_DATA_TOKEN;
+  // Alvo do deploy derivado do dono do repo (Vercel injeta em build). Embutido no
+  // bundle para o banner "Nova versão" ler só a versão do próprio deploy.
+  // Override opcional `VITE_DEPLOY_TARGET` só para teste local (ex.: simular o
+  // miguelfork). Em produção a Vercel não define isso → deriva do dono do repo.
+  const deployTarget =
+    env.VITE_DEPLOY_TARGET || resolveDeployTarget(process.env.VERCEL_GIT_REPO_OWNER);
 
   const apiProxy = {
     "/api/matches": {
@@ -141,6 +148,9 @@ export default defineConfig(({ mode }) => {
       proxy: apiProxy,
     },
     plugins: [react()],
+    define: {
+      "import.meta.env.VITE_DEPLOY_TARGET": JSON.stringify(deployTarget),
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "."),

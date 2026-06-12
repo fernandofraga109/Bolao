@@ -3,6 +3,7 @@ import { User } from "../types";
 import { Trophy, Shield, Star, RefreshCw, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
 import AvatarPicker from "./ui/AvatarPicker";
+import { CURRENT_VERSION } from "../data/releases";
 
 interface SyncInfo {
   lastSuccessAt?: string;
@@ -119,7 +120,10 @@ const Header: React.FC<HeaderProps> = ({
             </div>
             <div className="flex flex-col">
               <h1 className="font-black text-lg tracking-tighter text-white leading-none">BOLÃO</h1>
-              <span className="text-[10px] font-black text-brand-green tracking-[0.2em] leading-none mt-1">2026</span>
+              <div className="flex items-baseline gap-1.5 mt-1">
+                <span className="text-[10px] font-black text-brand-green tracking-[0.2em] leading-none">2026</span>
+                <span className="text-[9px] font-bold text-slate-600 leading-none tracking-tight">v{CURRENT_VERSION}</span>
+              </div>
             </div>
           </div>
           

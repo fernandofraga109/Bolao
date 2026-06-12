@@ -1,4 +1,71 @@
-# Sistema de Verificação de Versão com Modal Obrigatório e Refresh Agressivo
+> **⚠️ Estado atual (autoritativo) — ver seção "Implementação Atual" abaixo.**
+> O texto histórico a partir de "## Objetivo" descreve um plano inicial (tabela
+> `app_versions` separada + polling `useVersionChecker`) que NÃO reflete o código
+> atual. A implementação real usa Supabase Realtime sobre `system_config`, sem
+> polling, e a versão é publicada **por deploy**.
+
+## Implementação Atual
+
+### Como funciona
+
+1. O bundle carrega com `CURRENT_VERSION` (de `data/releases.ts`) embutido.
+2. No `postbuild` de produção da Vercel, `scripts/publish-version.mjs` chama a RPC
+   `publish_app_version(target, version)` → grava `system_config.app_versions[target]`.
+3. O Supabase Realtime propaga a mudança para as abas abertas (`DatabaseContext`
+   atualiza `systemConfig`).
+4. `hooks/useUpdateAvailable.ts` compara `app_versions[DEPLOY_TARGET]` com
+   `CURRENT_VERSION`; se divergir, mostra o banner/modal de atualização.
+
+### Versão POR deploy (anti-corrida)
+
+Os deploys `bolao` (Vercel do Fernando) e `miguelfork` (Vercel do Miguel)
+compartilham o **mesmo banco**. Se a versão fosse única, quem deployasse primeiro
+sinalizaria "nova versão" para o outro **antes** do build correspondente subir →
+usuário preso no modal recarregando um bundle que ainda não existe.
+
+Solução: cada deploy publica/lê **só a sua chave** em `app_versions`
+(`{ "bolao": "1.36.0", "miguelfork": "1.35.1" }`).
+
+**Identificação automática do deploy (sem env var manual na Vercel):** o alvo é
+derivado de `VERCEL_GIT_REPO_OWNER` (injetado pela Vercel em build) por
+`scripts/deploy-target.mjs`:
+
+| Dono do repo | `DEPLOY_TARGET` |
+|---|---|
+| `Miguel-de-Castro` | `miguelfork` |
+| `fernandofraga109` / local / outro | `bolao` |
+
+- Build: `vite.config.ts` injeta `import.meta.env.VITE_DEPLOY_TARGET`; o cliente lê
+  via `utils/deployTarget.ts` (fallback `bolao` em dev/test).
+- Publish: `publish-version.mjs` deriva o mesmo target e chama
+  `publish_app_version(target, version)`.
+
+### Workflow de release (atual)
+
+1. Bumpar `CURRENT_VERSION` em `data/releases.ts` (agente `changelog-updater`).
+2. Deploy. O `postbuild` publica `app_versions[<seu deploy>]` automaticamente.
+3. Cada app notifica seus usuários quando o **próprio** deploy subiu — sem corrida.
+
+### Passo manual de banco
+
+Aplicar a migration `0030_per_deploy_app_versions.sql` no Supabase compartilhado
+(adiciona `app_versions jsonb` + função `publish_app_version(target, v)`). Coluna
+nullable → enquanto a chave do deploy estiver ausente, nenhum banner dispara.
+
+### Arquivos
+
+| Arquivo | Responsabilidade |
+|---|---|
+| `scripts/deploy-target.mjs` | `resolveDeployTarget(owner)` (build) |
+| `utils/deployTarget.ts` | `DEPLOY_TARGET` para o cliente |
+| `vite.config.ts` | injeta `import.meta.env.VITE_DEPLOY_TARGET` |
+| `scripts/publish-version.mjs` | publica `app_versions[target]` no postbuild |
+| `hooks/useUpdateAvailable.ts` | compara a versão do deploy com o bundle |
+| `database/migrations/0030_per_deploy_app_versions.sql` | coluna + RPC keyed |
+
+---
+
+# (Histórico) Sistema de Verificação de Versão com Modal Obrigatório e Refresh Agressivo
 
 Implementar um sistema que detecta atualizações do app comparando a versão local com a versão armazenada no Supabase, bloqueia sync automático se a versão estiver desatualizada e exibe modal obrigatório com refresh agressivo para forçar atualização do frontend.
 

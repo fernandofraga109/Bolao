@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { CompetitionDB, GroupDB } from "../types";
 import { supabase, isSupabaseEnabled } from "../services/supabase";
+import { DEPLOY_TARGET } from "../utils/deployTarget";
 
 // Calcula o intervalo de checagem proporcional ao syncIntervalMs configurado pelo admin.
 // Checa com frequência suficiente para não perder o momento do sync, mas não gasta ciclos.
@@ -24,7 +25,7 @@ interface UseBackgroundSyncOptions {
   onSyncStart?: (competitionCode: string) => void;
   /** Callback chamado quando um sync termina (para exibir resultado). */
   onSyncEnd?: (competitionCode: string, success: boolean, message: string) => void;
-  /** Versão atual do app (para comparação com system_config.app_version). */
+  /** Versão atual do app (para comparação com system_config.app_versions[DEPLOY_TARGET]). */
   currentVersion: string;
   /** Callback chamado quando detecta versão desatualizada (para forçar refetch de system_config). */
   onVersionOutdated?: () => void;
@@ -113,7 +114,9 @@ export const useBackgroundSync = ({
       const dbInterval = syncIntervalMsRef.current;
 
       // Guarda 1: versão do app está desatualizada? Bloqueia sync para evitar operações problemáticas.
-      const published = configData?.app_version;
+      // Lê a versão do PRÓPRIO deploy (app_versions[DEPLOY_TARGET]) — assim o sync de
+      // um deploy não é bloqueado pela versão publicada pelo outro deploy.
+      const published = configData?.app_versions?.[DEPLOY_TARGET];
       if (published && published !== currentVersionRef.current) {
         console.log(`🚫 [BackgroundSync] Versão desatualizada (local: ${currentVersionRef.current}, remota: ${published}). Sync bloqueado.`);
         onVersionOutdatedRef.current?.();

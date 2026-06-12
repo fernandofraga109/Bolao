@@ -207,9 +207,17 @@ After Phase 6: Phase 7 (StatsPage), Phase 8 (TournamentStandings), Phase 9 (docs
 - Gated `(canWriteData || isBackgroundSync)` + try/catch (non-fatal). RLS (migration 0020) allows INSERT/UPDATE on `v2_players`/`v2_tournament_players` for any `authenticated` user → background sync by normal users writes scorers fine.
 - **Sync external API call audit** (per-run): `/api/teams`, `/api/matches`, `/api/standings`, `/api/scorers` (always, parallel) + `/api/live-matches` (only when IN_PLAY/PAUSED matches exist). `team-ranking.json` is a local bundled file, not external. Admin "Sync Players" button still calls `/api/teams` (squads) separately.
 
+## Completed — Versão por deploy (anti-corrida do banner) (2026-06-12)
+
+- Problema: `bolao` e `miguelfork` compartilham banco; `system_config.app_version` único era sobrescrito por quem deployasse primeiro → o outro app dizia "atualize" antes do próprio build subir, prendendo o usuário no modal e bloqueando o sync.
+- Fix: versão **por deploy** em `system_config.app_versions` (JSONB keyed). Alvo derivado de `VERCEL_GIT_REPO_OWNER` (sem env var manual na Vercel): `Miguel-de-Castro→miguelfork`, resto→`bolao`. `scripts/deploy-target.mjs` + `utils/deployTarget.ts` (`DEPLOY_TARGET`), injetado em build via `vite.config` (`import.meta.env.VITE_DEPLOY_TARGET`, override local possível).
+- Migration `0030`: coluna `app_versions jsonb` + função `publish_app_version(target, v)` (jsonb_set só na chave do target; preserva a do outro deploy). Função legada 1-arg de 0029 fica órfã.
+- Consumidores migrados para `app_versions[DEPLOY_TARGET]`: `useUpdateAvailable`, `UpdateAvailableBanner`, `UpdateAvailableModal`, guarda de versão do `useBackgroundSync`. Campo legado `app_version` mantido só em `types.ts`.
+- Também: label `v{CURRENT_VERSION}` no `Header`. Docs: `docs/features/version-checker.md` (seção "Implementação Atual"). **Passo manual: aplicar `0030` no Supabase compartilhado.**
+
 ## Next Action
 
-1. **Operacional do banner:** confirmar que as migrations `0028` (coluna) e `0029` (função `publish_app_version`) estão aplicadas no Supabase de produção, e validar no próximo deploy o log `[publish-version] app_version publicada: "1.32.0" ✅`.
+1. **Operacional do banner:** aplicar a migration `0030_per_deploy_app_versions.sql` no Supabase de produção (compartilhado) — aditiva/segura. Validar no próximo deploy o log `[publish-version] app_version publicada: "..." para deploy "bolao|miguelfork" ✅`.
 2. **Fix do teste `KnockoutClassificationsCard`** (pausado): teste desatualizado pelo commit `d2781a2` (lock da 2ª fase passou a ser "só quando a fase começa", não mais por `lockDate` global). O teste de linha ~110 ("Bloqueado"/"globally locked") precisa montar um cenário com 1º jogo da fase no passado em vez de `lockDate={pastLock}`. Domínio do `test-runner`. NÃO é bug do componente.
 3. Backlog deferido: sync-call-reduction, specials refactor Phase A, E2E Fase B/C.
 
