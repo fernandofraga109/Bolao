@@ -134,7 +134,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const isZebraCandidate = ruleset !== "regulamento_2" && match.status === MatchStatus.SCHEDULED && zebraBonus > 0;
 
   // --- CENTRALIZED SCORING HELPER ---
-  const getScoringDetails = (home: number, away: number, predWhoClassifiesId?: string) => {
+  const getScoringDetails = (home: number, away: number, predWhoClassifiesId?: string, userId?: string) => {
     if (!match.result) return { points: 0, bonus: 0, category: 'wrong' as const, classifiesBonus: 0 };
 
     if (ruleset === "regulamento_2") {
@@ -155,8 +155,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       }
 
       const phase = getMatchPhase(match.stage, match.group);
-      const points = calculatePointsRegulamento2(home, away, match.result.home, match.result.away, phase, matchPredictions, currentUserId || "");
-      const cat = getScoreCategoryRegulamento2(home, away, match.result.home, match.result.away, phase, matchPredictions, currentUserId || "");
+      const targetUserId = userId || currentUserId || "";
+      const points = calculatePointsRegulamento2(home, away, match.result.home, match.result.away, phase, matchPredictions, targetUserId);
+      const cat = getScoreCategoryRegulamento2(home, away, match.result.home, match.result.away, phase, matchPredictions, targetUserId);
 
       return { points, bonus: 0, category: cat.type, aloneBonus: cat.aloneBonus ?? false, classifiesBonus: 0 };
     }
@@ -575,7 +576,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               .filter((f) => f.predictions[match.id] && f.id !== currentUserId)
               .map((f) => {
                 const pred = f.predictions[match.id];
-                const friendScoring = getScoringDetails(pred.home, pred.away);
+                const friendScoring = getScoringDetails(pred.home, pred.away, undefined, f.id);
                 const pts = friendScoring.points + friendScoring.bonus;
                 return (
                 <div
