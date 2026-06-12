@@ -1,6 +1,6 @@
 # Plano — Seção "Ao Vivo" em MatchesPage
 
-_Status_: EM IMPLEMENTAÇÃO — 2026-06-12
+_Status_: DONE — 2026-06-12
 _Branch_: `feat/dense-ranking-and-live-games`
 
 ## Problema
