@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.35.0";
+export const CURRENT_VERSION = "1.35.1";
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.35.1",
+    date: "2026-06-12",
+    changes: [
+      "Corrigido o cálculo de pontos dos palpites dos amigos em 'O que a galera acha', que mostrava pontos a mais em jogos com zebra",
+    ],
+  },
   {
     version: "1.35.0",
     date: "2026-06-12",
