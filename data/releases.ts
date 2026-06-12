@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.35.2';
+export const CURRENT_VERSION = '1.35.3';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.35.3',
+    date: '2026-06-12',
+    changes: [
+      'No detalhamento dos seus pontos (auditoria), agora aparece quanto você ganhou de bônus de zebra em cada jogo, igual já aparecia no card da partida',
+    ],
+  },
   {
     version: '1.35.2',
     date: '2026-06-12',

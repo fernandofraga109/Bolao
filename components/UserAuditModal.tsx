@@ -18,6 +18,7 @@ import {
   getR1MatchScoringResult,
   getKnockoutAdvancingTeamId,
   getMatchDuration,
+  calculateUnderdogBonus,
 } from "../utils/scoring";
 import { translateGroupName } from "../utils/translations";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
@@ -47,6 +48,7 @@ interface MatchAuditRow {
   isDiffCorrect: boolean;
   resultLabel: string;
   classifiesBonus: number;
+  zebraBonus: number;
   aloneBonus: boolean;
 }
 
@@ -262,6 +264,18 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
           ? POINTS_CLASSIFIES_BONUS
           : 0;
 
+      // Bônus zebra (só R1): recalculado a partir do placar do tempo regular +
+      // rankings, igual ao MatchCard. Só conta quando pontuou e não foi empate real.
+      let zebraBonus = 0;
+      if (ruleset !== "regulamento_2" && pts > 0) {
+        const s = getR1MatchScoringResult(match, match.result!.home, match.result!.away);
+        if (s.home !== s.away) {
+          const winnerRank = s.home > s.away ? match.homeTeam.ranking : match.awayTeam.ranking;
+          const loserRank = s.home > s.away ? match.awayTeam.ranking : match.homeTeam.ranking;
+          zebraBonus = calculateUnderdogBonus(winnerRank, loserRank, minRankDiff);
+        }
+      }
+
       rows.push({
         match,
         pred,
@@ -272,6 +286,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
         isDiffCorrect,
         resultLabel,
         classifiesBonus,
+        zebraBonus,
         aloneBonus,
       });
     });
@@ -786,6 +801,11 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
                             {row.classifiesBonus > 0 && (
                               <span className="text-[9px] font-black text-amber-300 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full">
                                 +{row.classifiesBonus} classifica
+                              </span>
+                            )}
+                            {row.zebraBonus > 0 && (
+                              <span className="text-[9px] font-black text-yellow-300 bg-yellow-500/10 border border-yellow-500/20 px-1.5 py-0.5 rounded-full">
+                                +{row.zebraBonus} zebra
                               </span>
                             )}
                             {row.aloneBonus && (
