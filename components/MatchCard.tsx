@@ -577,7 +577,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               .map((f) => {
                 const pred = f.predictions[match.id];
                 const friendScoring = getScoringDetails(pred.home, pred.away, undefined, f.id);
-                const pts = friendScoring.points + friendScoring.bonus;
+                // friendScoring.points já inclui underdogBonus + classifiesBonus (R1) ou aloneBonus (R2).
+                // Não somar friendScoring.bonus aqui — isso duplicava o bônus zebra no R1.
+                const pts = friendScoring.points;
                 return (
                 <div
                   key={f.id}

@@ -338,6 +338,14 @@ Placar Exato!
 ✨ +5 Placar Isolado   ← em text-amber-300
 ```
 
+### Seção "O que a galera acha" (MatchCard)
+
+O bloco de palpites dos amigos exibe os pontos de cada um via `getScoringDetails(...)`. O valor retornado em `points` **já inclui** todos os bônus:
+- **R1:** `calculatePoints` soma `underdogBonus + classifiesBonus` ao base.
+- **R2:** `calculatePointsRegulamento2` soma `aloneBonus (+5)` ao base.
+
+⚠️ **Nunca** somar `friendScoring.bonus` ao `friendScoring.points` para exibir o total — `bonus` é apenas o underdogBonus recalculado para uso em labels. Somá-lo duplicava o bônus zebra no R1. O total correto é simplesmente `friendScoring.points`.
+
 ### Consistência DB / UI
 
 | Contexto | `tieWinnerTeamId` incluído? | Classifica bônus funciona? |
