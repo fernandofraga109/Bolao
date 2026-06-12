@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = "1.31.0";
+export const CURRENT_VERSION = "1.32.0";
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: "1.32.0",
+    date: "2026-06-11",
+    changes: [
+      "Quando uma nova versão do app é publicada, aparece um aviso 'Nova versão disponível' com um botão para atualizar — assim você não fica preso numa versão antiga sem perceber",
+    ],
+  },
   {
     version: "1.31.0",
     date: "2026-06-11",
