@@ -39,6 +39,8 @@ import {
 } from "lucide-react";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
 import ReplicatePredictionModal from "./ReplicatePredictionModal";
+import LiveMatchTimeline from "./LiveMatchTimeline";
+import { useLiveMatchClock } from "../hooks/useLiveMatchClock";
 
 interface MatchCardProps {
   match: Match;
@@ -81,6 +83,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const [whoClassifiesTeamId, setWhoClassifiesTeamId] = useState<string | null>(
     userPrediction?.whoClassifiesTeamId ?? null
   );
+
+  // Relógio ao vivo (api-sports) — ticka localmente sem gastar chamadas de API.
+  const liveClock = useLiveMatchClock(match.liveDetails);
 
   // Initialize inputs
   useEffect(() => {
@@ -229,7 +234,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-red/10 border border-brand-red/30">
                <span className="w-1.5 h-1.5 rounded-full bg-brand-red animate-pulse"></span>
                <span className="text-[10px] font-black text-brand-red uppercase tracking-tighter">
-                 {match.minute ? `AO VIVO • ${match.minute}'` : "AO VIVO"}
+                 {liveClock?.label
+                   ? `AO VIVO • ${liveClock.label}`
+                   : match.minute
+                     ? `AO VIVO • ${match.minute}'`
+                     : "AO VIVO"}
                </span>
             </div>
           )}
@@ -289,7 +298,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   </div>
                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">
                     {isLive
-                      ? (match.minute ? `Minuto ${match.minute}'` : "Ao Vivo")
+                      ? (liveClock?.label ?? (match.minute ? `Minuto ${match.minute}'` : "Ao Vivo"))
                       : ruleset === "regulamento_1" && getMatchDuration(match) !== 'REGULAR'
                         ? "Tempo Regular"
                         : "Resultado"}
@@ -564,6 +573,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
         </div>
       </div>
+
+      {/* Minuto a minuto (api-sports) — só ao vivo e quando houver dados */}
+      {isLive && match.liveDetails && <LiveMatchTimeline match={match} />}
 
       {/* Friends predictions section would go here, simplified or kept from original */}
       {showFriends && (

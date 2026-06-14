@@ -5,6 +5,8 @@ import {
   fetchExternalMatches,
   fetchCompetitionTeams,
   fetchLiveMatchMinutes,
+  fetchLiveMatchDetails,
+  matchLiveFixtureToInternal,
   fetchCompetitionScorers,
   findInternalMatch,
   getCurrentSeason,
@@ -884,6 +886,57 @@ export const useSyncSystem = (
           }
         }
         profiler.mark("matches_upsert", "db_write");
+
+        // ── FASE 3.5: Detalhes ao vivo (api-sports) — minuto a minuto ────────
+        // Segunda API, SÓ cosmética (relógio, eventos, árbitro, estádio). NÃO
+        // entra em pontuação. Throttle próprio (independente do sync_interval)
+        // para respeitar o orçamento de ~20 chamadas por jogo.
+        const LIVE_DETAILS_INTERVAL_MS = 5 * 60 * 1000;
+        if (hasLiveMatches && (canWriteData || isBackgroundSync)) {
+          const comp = (dbRef.current.competitions as any[] | undefined)?.find(
+            (c) => normalizeCompetitionCode(c.code) === normalizedCode,
+          );
+          const lastLiveSync = comp?.liveDetailsLastSync
+            ? new Date(comp.liveDetailsLastSync).getTime()
+            : 0;
+          const elapsedSinceLive = Date.now() - lastLiveSync;
+
+          if (elapsedSinceLive >= LIVE_DETAILS_INTERVAL_MS) {
+            try {
+              const liveFixtures = await fetchLiveMatchDetails();
+              let liveMatched = 0;
+              for (const fx of liveFixtures) {
+                const internal = matchLiveFixtureToInternal(
+                  fx,
+                  hydratedInternalMatches,
+                );
+                if (internal && dbRef.current.updateMatch) {
+                  await dbRef.current.updateMatch(internal.id, {
+                    liveDetails: fx.details,
+                  });
+                  liveMatched++;
+                }
+              }
+              console.log(
+                `[SYNC] Detalhes ao vivo: ${liveFixtures.length} fixtures da api-sports, ${liveMatched} casados com jogos internos.`,
+              );
+              // Atualiza o throttle mesmo sem match (evita refazer a chamada no próximo tick).
+              if (dbRef.current.updateCompetitionLiveDetailsSync) {
+                await dbRef.current.updateCompetitionLiveDetailsSync(
+                  normalizedCode,
+                  new Date().toISOString(),
+                );
+              }
+            } catch (liveErr) {
+              console.warn("[SYNC] Falha ao processar detalhes ao vivo:", liveErr);
+            }
+          } else {
+            console.log(
+              `[SYNC] Detalhes ao vivo: throttle ativo (${Math.round(elapsedSinceLive / 1000)}s < ${LIVE_DETAILS_INTERVAL_MS / 1000}s). Pulando api-sports.`,
+            );
+          }
+        }
+        profiler.mark("live_details", "api");
 
         // ── FASE 4b: Calcular pontos das predictions ─────────────────────────
         // IMPORTANTE: Processa TODOS os jogos FINISHED do banco local, não apenas

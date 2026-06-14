@@ -7,6 +7,21 @@ import { resolveDeployTarget } from "./scripts/deploy-target.mjs";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, ".", "");
   const footballDataToken = env.FOOTBALL_DATA_TOKEN;
+
+  // api-sports.io (detalhes ao vivo / minuto a minuto). URL completa vem do .env
+  // (ex.: https://v3.football.api-sports.io/fixtures?live=all&league=1).
+  const liveDataToken = env.FOOTBALL_API_LIVE_DATA_TOKEN;
+  const liveDataDefaultUrl =
+    "https://v3.football.api-sports.io/fixtures?live=all&league=1";
+  let liveDataOrigin = "https://v3.football.api-sports.io";
+  let liveDataPath = "/fixtures?live=all&league=1";
+  try {
+    const parsed = new URL(env.FOOTBALL_API_LIVE_DATA || liveDataDefaultUrl);
+    liveDataOrigin = parsed.origin;
+    liveDataPath = parsed.pathname + parsed.search;
+  } catch {
+    // mantém defaults
+  }
   // Alvo do deploy derivado do dono do repo (Vercel injeta em build). Embutido no
   // bundle para o banner "Nova versão" ler só a versão do próprio deploy.
   // Override opcional `VITE_DEPLOY_TARGET` só para teste local (ex.: simular o
@@ -136,6 +151,21 @@ export default defineConfig(({ mode }) => {
             proxyReq.setHeader("X-Auth-Token", footballDataToken);
           }
           proxyReq.setHeader("Content-Type", "application/json");
+        });
+      },
+    },
+    "/api/live-details": {
+      target: liveDataOrigin,
+      changeOrigin: true,
+      secure: true,
+      rewrite: () => liveDataPath,
+      configure: (proxy: any) => {
+        proxy.on("proxyReq", (proxyReq: any) => {
+          if (liveDataToken) {
+            proxyReq.setHeader("x-apisports-key", liveDataToken);
+          }
+          proxyReq.setHeader("Content-Type", "application/json");
+          proxyReq.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         });
       },
     },

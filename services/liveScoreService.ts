@@ -1,4 +1,10 @@
-import { Match, MatchStatus, CompetitionDB } from "../types";
+import {
+  Match,
+  MatchStatus,
+  CompetitionDB,
+  LiveMatchDetails,
+  LiveMatchEvent,
+} from "../types";
 import { DEFAULT_COMPETITION_CODE } from "../data/competitions";
 
 /**
@@ -530,5 +536,189 @@ export const findInternalMatch = (
       m.awayTeam?.code === awayCode
     );
   });
+};
+
+// ===========================================================================
+// LIVE DETAILS (api-sports.io) — minuto a minuto
+// ---------------------------------------------------------------------------
+// Estes dados NÃO entram em nenhum cálculo de pontos. Servem só para a UI ao
+// vivo (relógio, eventos, árbitro, estádio). O placar oficial continua vindo
+// da football-data.org.
+// ===========================================================================
+
+/** Fixture parseado da api-sports, com campos auxiliares para casamento. */
+export interface ParsedLiveFixture {
+  details: LiveMatchDetails;
+  homeName: string;
+  awayName: string;
+  homeApiId: number | null;
+  awayApiId: number | null;
+  utcDate: string; // ISO
+}
+
+/**
+ * Normaliza nome de time para comparação entre APIs distintas:
+ * minúsculas, sem acentos, só alfanumérico.
+ */
+export const normalizeTeamName = (name: string | null | undefined): string =>
+  (name || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+// Mapa de aliases: nomes que diferem entre football-data e api-sports.
+// Chave e valor já normalizados (sem acento/espaço/minúsculo).
+const TEAM_NAME_ALIASES: Record<string, string> = {
+  southkorea: "korea",
+  korearepublic: "korea",
+  republicofkorea: "korea",
+  unitedstates: "usa",
+  unitedstatesofamerica: "usa",
+  iriran: "iran",
+  cotedivoire: "ivorycoast",
+  czechrepublic: "czechia",
+  caboverde: "capeverde",
+  turkiye: "turkey",
+  bosniaandherzegovina: "bosnia",
+  congodr: "drcongo",
+  drcongo: "drcongo",
+  northmacedonia: "macedonia",
+};
+
+/** Aplica o alias map sobre o nome normalizado. */
+export const canonicalTeamName = (name: string | null | undefined): string => {
+  const n = normalizeTeamName(name);
+  return TEAM_NAME_ALIASES[n] ?? n;
+};
+
+/**
+ * Converte o payload bruto da api-sports (fixtures?live=all) numa lista
+ * normalizada de fixtures, prontos para casar com os jogos internos.
+ */
+export const parseApiSportsFixtures = (payload: any): ParsedLiveFixture[] => {
+  const response = Array.isArray(payload?.response) ? payload.response : [];
+  const out: ParsedLiveFixture[] = [];
+
+  for (const item of response) {
+    const fixture = item?.fixture;
+    if (!fixture?.id) continue;
+
+    const events: LiveMatchEvent[] = Array.isArray(item?.events)
+      ? item.events.map((ev: any) => ({
+          elapsed: ev?.time?.elapsed ?? 0,
+          extra: ev?.time?.extra ?? null,
+          teamApiId: ev?.team?.id ?? null,
+          teamName: ev?.team?.name ?? null,
+          player: ev?.player?.name ?? null,
+          assist: ev?.assist?.name ?? null,
+          type: ev?.type ?? "",
+          detail: ev?.detail ?? "",
+          comments: ev?.comments ?? null,
+        }))
+      : [];
+
+    const details: LiveMatchDetails = {
+      apiSportsFixtureId: fixture.id,
+      statusShort: fixture?.status?.short ?? "",
+      statusLong: fixture?.status?.long ?? null,
+      elapsed: fixture?.status?.elapsed ?? null,
+      extra: fixture?.status?.extra ?? null,
+      periods: {
+        first: fixture?.periods?.first ?? null,
+        second: fixture?.periods?.second ?? null,
+      },
+      referee: fixture?.referee ?? null,
+      venue: fixture?.venue
+        ? { name: fixture.venue.name ?? null, city: fixture.venue.city ?? null }
+        : null,
+      round: item?.league?.round ?? null,
+      events,
+      syncedAt: new Date().toISOString(),
+    };
+
+    out.push({
+      details,
+      homeName: item?.teams?.home?.name ?? "",
+      awayName: item?.teams?.away?.name ?? "",
+      homeApiId: item?.teams?.home?.id ?? null,
+      awayApiId: item?.teams?.away?.id ?? null,
+      utcDate: fixture?.date ?? "",
+    });
+  }
+
+  return out;
+};
+
+const sameUtcDay = (a: string, b: string): boolean => {
+  if (!a || !b) return false;
+  return (
+    new Date(a).toISOString().slice(0, 10) ===
+    new Date(b).toISOString().slice(0, 10)
+  );
+};
+
+/**
+ * Casa um fixture da api-sports com um jogo interno.
+ * Prioridade:
+ *  1. apiSportsFixtureId já persistido (match anterior).
+ *  2. Mesmo dia (UTC) + nomes de times batendo (com aliases). Aceita ordem
+ *     invertida (home/away trocados) como fallback para sedes neutras.
+ */
+export const matchLiveFixtureToInternal = (
+  fixture: ParsedLiveFixture,
+  internalMatches: Match[],
+): Match | undefined => {
+  // 1. Por id já persistido
+  const byId = internalMatches.find(
+    (m) =>
+      m.liveDetails?.apiSportsFixtureId === fixture.details.apiSportsFixtureId,
+  );
+  if (byId) return byId;
+
+  // 2. Por data + nomes
+  const fHome = canonicalTeamName(fixture.homeName);
+  const fAway = canonicalTeamName(fixture.awayName);
+  if (!fHome || !fAway) return undefined;
+
+  return internalMatches.find((m) => {
+    if (!sameUtcDay(m.date, fixture.utcDate)) return false;
+    const mHome = canonicalTeamName(m.homeTeam?.name);
+    const mAway = canonicalTeamName(m.awayTeam?.name);
+    const direct = mHome === fHome && mAway === fAway;
+    const swapped = mHome === fAway && mAway === fHome;
+    return direct || swapped;
+  });
+};
+
+/**
+ * Busca os detalhes ao vivo via proxy /api/live-details (api-sports).
+ * Retorna [] em qualquer erro — os dados são puramente cosméticos.
+ */
+export const fetchLiveMatchDetails = async (): Promise<ParsedLiveFixture[]> => {
+  try {
+    const response = await fetch("/api/live-details");
+    const contentType = response.headers.get("content-type") || "";
+
+    if (!contentType.includes("application/json")) {
+      console.warn("[LIVE DETAILS] Resposta não-JSON do proxy.");
+      return [];
+    }
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      console.warn(
+        `[LIVE DETAILS] Erro (${response.status}):`,
+        (payload as any)?.message,
+      );
+      return [];
+    }
+
+    return parseApiSportsFixtures(payload);
+  } catch (error) {
+    console.warn("[LIVE DETAILS] Falha ao buscar /api/live-details:", error);
+    return [];
+  }
 };
 

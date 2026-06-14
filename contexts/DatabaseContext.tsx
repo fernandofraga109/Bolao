@@ -122,6 +122,7 @@ interface DatabaseContextType {
 
   upsertCompetitions: (competitionsList: CompetitionDB[]) => Promise<void>;
   updateCompetitionSync: (code: string, timestamp: string) => Promise<void>;
+  updateCompetitionLiveDetailsSync: (code: string, timestamp: string) => Promise<void>;
   updateCompetitionAutoSync: (code: string, enabled: boolean) => Promise<void>;
   acquireSyncLock: (code: string) => Promise<boolean>;
   releaseSyncLock: (code: string) => Promise<void>;
@@ -238,6 +239,8 @@ const mapCompetitionRow = (row: any): CompetitionDB => ({
   groupClassifications: row.groupClassifications || undefined,
   knockoutClassifications: row.knockoutClassifications || undefined,
   biggestGoalDiffMatches: row.biggestGoalDiffMatches || undefined,
+  liveDetailsLastSync:
+    row.liveDetailsLastSync || row.live_details_last_sync || undefined,
 });
 
 const mergeCompetitionIntoList = (
@@ -1251,6 +1254,29 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
+  const updateCompetitionLiveDetailsSync = async (
+    code: string,
+    timestamp: string,
+  ) => {
+    setCompetitions((prev) =>
+      prev.map((c) =>
+        c.code === code ? { ...c, liveDetailsLastSync: timestamp } : c,
+      ),
+    );
+    if (isSupabaseEnabled() && supabase) {
+      const { error } = await supabase
+        .from("competitions")
+        .update({ liveDetailsLastSync: timestamp })
+        .eq("code", code);
+      if (error) {
+        console.error(
+          "Erro ao atualizar liveDetailsLastSync da competição:",
+          error.message,
+        );
+      }
+    }
+  };
+
   const updateCompetitionSync = async (code: string, timestamp: string) => {
     setCompetitions((prev) =>
       prev.map((c) => (c.code === code ? { ...c, lastSync: timestamp } : c)),
@@ -1642,6 +1668,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         },
         upsertCompetitions,
         updateCompetitionSync,
+        updateCompetitionLiveDetailsSync,
         updateCompetitionAutoSync,
         acquireSyncLock,
         releaseSyncLock,
@@ -1688,6 +1715,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         removeUserFromGroup,
         upsertCompetitions,
         updateCompetitionSync,
+        updateCompetitionLiveDetailsSync,
         updateCompetitionAutoSync,
         acquireSyncLock,
         releaseSyncLock,

@@ -10,6 +10,47 @@ export enum MatchStatus {
   CANCELLED = "CANCELLED",
 }
 
+// --- LIVE MATCH DETAILS (api-sports.io — minuto a minuto) ---
+// Estes dados NÃO entram em nenhum cálculo de pontos/ranking. Servem apenas
+// para enriquecer a UI ao vivo (relógio tickando, eventos, árbitro, estádio).
+
+export type LiveMatchEventType = "Goal" | "Card" | "subst" | "Var" | string;
+
+export interface LiveMatchEvent {
+  /** Minuto do evento (status.elapsed da api-sports). */
+  elapsed: number;
+  /** Acréscimos no momento do evento (status.extra), quando houver. */
+  extra: number | null;
+  /** externalTeamId NÃO — é o id de time da api-sports (namespace próprio). */
+  teamApiId: number | null;
+  teamName: string | null;
+  player: string | null;
+  assist: string | null;
+  type: LiveMatchEventType; // "Goal", "Card", "subst", "Var"
+  detail: string; // "Normal Goal", "Yellow Card", "Red Card", etc.
+  comments: string | null;
+}
+
+export interface LiveMatchDetails {
+  /** Id do fixture na api-sports (namespace diferente do football-data). */
+  apiSportsFixtureId: number;
+  /** Código curto do status: 1H, HT, 2H, ET, BT, P, FT, AET, PEN, etc. */
+  statusShort: string;
+  statusLong?: string | null;
+  /** Minuto corrente reportado pela API (fallback quando não dá pra tickar). */
+  elapsed: number | null;
+  /** Acréscimos correntes reportados pela API. */
+  extra: number | null;
+  /** Timestamps Unix (segundos) de início de cada tempo — base do relógio. */
+  periods: { first: number | null; second: number | null };
+  referee: string | null;
+  venue: { name: string | null; city: string | null } | null;
+  round?: string | null;
+  events: LiveMatchEvent[];
+  /** ISO do momento em que estes dados foram buscados/persistidos. */
+  syncedAt: string;
+}
+
 // --- DATABASE SCHEMAS (Normalized Data) ---
 
 export interface SystemConfigDB {
@@ -45,6 +86,8 @@ export interface CompetitionDB {
   knockoutClassifications?: Record<string, string[]>;
   biggestGoalDiffMatches?: Record<string, string>;
   syncLockedAt?: string;
+  /** Último fetch dos detalhes ao vivo (api-sports). Usado para throttle do orçamento de chamadas. */
+  liveDetailsLastSync?: string;
 }
 
 export interface StadiumDB {
@@ -109,6 +152,8 @@ export interface MatchDB {
   regularAway?: number;
   extraTimeHome?: number;
   extraTimeAway?: number;
+  /** Detalhes ao vivo da api-sports (minuto a minuto). NÃO usado em pontuação. */
+  liveDetails?: LiveMatchDetails | null;
 }
 
 export interface PredictionDB {
@@ -309,6 +354,8 @@ export interface Match {
   regularAway?: number;
   extraTimeHome?: number;
   extraTimeAway?: number;
+  /** Detalhes ao vivo da api-sports (minuto a minuto). NÃO usado em pontuação. */
+  liveDetails?: LiveMatchDetails | null;
 }
 
 export type Group = GroupDB;
