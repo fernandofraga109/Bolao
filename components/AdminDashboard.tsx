@@ -397,6 +397,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     db.updateSystemConfig({ sync_interval_ms: ms });
   };
 
+  const handleUpdateLiveDetailsInterval = (
+    e: React.ChangeEvent<HTMLSelectElement>,
+  ) => {
+    const ms = parseInt(e.target.value);
+    db.updateSystemConfig({ live_details_interval_ms: ms });
+  };
+
   const handleSeed = async () => {
     if (!isSupabaseEnabled()) {
       setSeedLogs([
@@ -953,6 +960,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <p className="text-[10px] text-indigo-200 leading-relaxed">
                         A atualização consome cotas da API. Use "15 segundos"
                         apenas durante jogos importantes.
+                      </p>
+                    </div>
+
+                    {/* Live Details (Minuto a Minuto) — api-sports */}
+                    <div className="space-y-2 pt-4 border-t border-slate-700">
+                      <label className="text-xs text-slate-500 uppercase font-bold flex items-center gap-2">
+                        <Zap size={12} /> Minuto a Minuto (api-sports)
+                      </label>
+                      <select
+                        value={
+                          db.systemConfig.live_details_interval_ms ?? 300000
+                        }
+                        onChange={handleUpdateLiveDetailsInterval}
+                        className="w-full bg-slate-900 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-brand-green"
+                      >
+                        <option value={30000}>30 segundos (Muito Rápido)</option>
+                        <option value={60000}>1 minuto</option>
+                        <option value={120000}>2 minutos</option>
+                        <option value={180000}>3 minutos</option>
+                        <option value={300000}>5 minutos (Padrão)</option>
+                      </select>
+                      <p className="text-[10px] text-slate-500 leading-relaxed">
+                        Relógio/eventos ao vivo (cosmético, não afeta pontuação).
+                        Cota separada (free = 100/dia por token). Intervalos
+                        curtos só são seguros com rotação de tokens configurada.
                       </p>
                     </div>
 

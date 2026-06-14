@@ -10,7 +10,14 @@ export default defineConfig(({ mode }) => {
 
   // api-sports.io (detalhes ao vivo / minuto a minuto). URL completa vem do .env
   // (ex.: https://v3.football.api-sports.io/fixtures?live=all&league=1).
-  const liveDataToken = env.FOOTBALL_API_LIVE_DATA_TOKEN;
+  // Tokens da api-sports para rotação (multiplica a cota diária). Ordem:
+  // FOOTBALL_API_LIVE_DATA_TOKEN, _TOKEN_2, _TOKEN_3, ... Basta adicionar env.
+  const liveDataTokens: string[] = [];
+  if (env.FOOTBALL_API_LIVE_DATA_TOKEN) liveDataTokens.push(env.FOOTBALL_API_LIVE_DATA_TOKEN);
+  for (let i = 2; i <= 10; i++) {
+    const t = env[`FOOTBALL_API_LIVE_DATA_TOKEN_${i}`];
+    if (t) liveDataTokens.push(t);
+  }
   const liveDataDefaultUrl =
     "https://v3.football.api-sports.io/fixtures?live=all&league=1";
   let liveDataOrigin = "https://v3.football.api-sports.io";
@@ -164,9 +171,13 @@ export default defineConfig(({ mode }) => {
       secure: true,
       rewrite: () => liveDataPath,
       configure: (proxy: any) => {
-        proxy.on("proxyReq", (proxyReq: any) => {
-          if (liveDataToken) {
-            proxyReq.setHeader("x-apisports-key", liveDataToken);
+        proxy.on("proxyReq", (proxyReq: any, req: any) => {
+          if (liveDataTokens.length > 0) {
+            // ?t=N seleciona o token (rotação: token = N % nº de tokens).
+            let idx = 0;
+            const match = /[?&]t=(\d+)/.exec(req.url || "");
+            if (match) idx = Number(match[1]) % liveDataTokens.length;
+            proxyReq.setHeader("x-apisports-key", liveDataTokens[idx]);
           }
           proxyReq.setHeader("Content-Type", "application/json");
           proxyReq.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
