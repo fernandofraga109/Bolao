@@ -917,8 +917,12 @@ export const useSyncSystem = (
                   liveMatched++;
                 }
               }
+              const liveUnmatched = liveFixtures.length - liveMatched;
+              const nextInMin = Math.round(LIVE_DETAILS_INTERVAL_MS / 60000);
               console.log(
-                `[SYNC] Detalhes ao vivo: ${liveFixtures.length} fixtures da api-sports, ${liveMatched} casados com jogos internos.`,
+                `[SYNC][LIVE DETAILS] ✅ api-sports OK — ${liveFixtures.length} jogo(s) ao vivo · ${liveMatched} casado(s) com o bolão${
+                  liveUnmatched > 0 ? ` · ${liveUnmatched} sem correspondência` : ""
+                } · próxima chamada em ~${nextInMin}min`,
               );
               // Atualiza o throttle mesmo sem match (evita refazer a chamada no próximo tick).
               if (dbRef.current.updateCompetitionLiveDetailsSync) {

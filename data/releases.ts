@@ -26,9 +26,7 @@ export const RELEASES: Release[] = [
   {
     version: '1.36.0',
     date: '2026-06-14',
-    changes: [
-      'Implementação de minuto a minuto com detalhes dos gols marcados e stats de cartões',
-    ],
+    changes: ['Implementação de minuto a minuto com detalhes dos gols marcados e stats de cartões'],
   },
   {
     version: '1.35.4',
@@ -47,9 +45,7 @@ export const RELEASES: Release[] = [
   {
     version: '1.35.2',
     date: '2026-06-12',
-    changes: [
-      'Agora você pode ver a versão do app no topo da tela',
-    ],
+    changes: ['Agora você pode ver a versão do app no topo da tela'],
   },
   {
     version: '1.35.1',
