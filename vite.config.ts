@@ -140,10 +140,14 @@ export default defineConfig(({ mode }) => {
         const params = new URLSearchParams(search);
         const competition = (params.get("competition") || "WC").toUpperCase();
         const season = params.get("season");
-        const seasonQuery = season
-          ? `?season=${encodeURIComponent(season)}`
-          : "";
-        return `/v4/competitions/${competition}/scorers${seasonQuery}`;
+        // A football-data devolve só 10 artilheiros por padrão e não tem
+        // paginação por offset. Em produção `api/scorers.ts` pagina via `limit`;
+        // o proxy de dev é só um rewrite, então fixamos um `limit` alto para
+        // paridade (cobre todos os artilheiros de uma copa numa única chamada).
+        const query = new URLSearchParams();
+        if (season) query.set("season", season);
+        query.set("limit", "300");
+        return `/v4/competitions/${competition}/scorers?${query.toString()}`;
       },
       configure: (proxy: any) => {
         proxy.on("proxyReq", (proxyReq: any) => {

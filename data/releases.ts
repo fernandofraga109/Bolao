@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.37.0';
+export const CURRENT_VERSION = '1.38.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,14 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.38.0',
+    date: '2026-06-14',
+    changes: [
+      'A artilharia agora mostra todos os goleadores da competição, e não apenas os 10 primeiros',
+      'Corrigidas as bandeiras de alguns times que não apareciam na lista de artilheiros',
+    ],
+  },
   {
     version: '1.37.0',
     date: '2026-06-14',

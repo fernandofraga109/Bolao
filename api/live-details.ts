@@ -35,6 +35,8 @@ export default async function handler(_req: Request) {
   }
 
   try {
+    console.log(`[PROXY LIVE-DETAILS] Chamando api-sports: ${targetUrl}`);
+    const startedAt = Date.now();
     const res = await fetch(targetUrl, {
       method: "GET",
       headers: {
@@ -42,6 +44,9 @@ export default async function handler(_req: Request) {
         "Content-Type": "application/json",
       },
     });
+    console.log(
+      `[PROXY LIVE-DETAILS] api-sports respondeu status ${res.status} em ${Date.now() - startedAt}ms`,
+    );
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -55,6 +60,12 @@ export default async function handler(_req: Request) {
     }
 
     const data = await res.json();
+    const fixtureCount = Array.isArray((data as any)?.response)
+      ? (data as any).response.length
+      : 0;
+    console.log(
+      `[PROXY LIVE-DETAILS] api-sports devolveu ${fixtureCount} fixture(s) ao vivo.`,
+    );
 
     return new Response(JSON.stringify(data), {
       status: 200,

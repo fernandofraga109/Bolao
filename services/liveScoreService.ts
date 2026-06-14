@@ -319,6 +319,9 @@ export interface ExternalScorerPlayer {
 export interface ExternalScorerTeam {
   id: number;
   name: string;
+  shortName?: string;
+  tla?: string;
+  crest?: string;
 }
 
 export interface ExternalScorer {
@@ -697,6 +700,8 @@ export const matchLiveFixtureToInternal = (
  */
 export const fetchLiveMatchDetails = async (): Promise<ParsedLiveFixture[]> => {
   try {
+    console.log("[LIVE DETAILS] Chamando nova API (api-sports) via /api/live-details…");
+    const startedAt = Date.now();
     const response = await fetch("/api/live-details");
     const contentType = response.headers.get("content-type") || "";
 
@@ -715,7 +720,11 @@ export const fetchLiveMatchDetails = async (): Promise<ParsedLiveFixture[]> => {
       return [];
     }
 
-    return parseApiSportsFixtures(payload);
+    const fixtures = parseApiSportsFixtures(payload);
+    console.log(
+      `[LIVE DETAILS] api-sports OK (${response.status}) em ${Date.now() - startedAt}ms — ${fixtures.length} fixture(s) ao vivo.`,
+    );
+    return fixtures;
   } catch (error) {
     console.warn("[LIVE DETAILS] Falha ao buscar /api/live-details:", error);
     return [];
