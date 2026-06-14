@@ -127,6 +127,13 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const awayInputNum = parseInt(awayInput);
   const isPredictingDraw = !isPredictionDisabled && isKnockoutMatch && !isNaN(homeInputNum) && !isNaN(awayInputNum) && homeInputNum === awayInputNum;
 
+  // Open friends panel by default when match is live
+  useEffect(() => {
+    if (isLive) {
+      setShowFriends(true);
+    }
+  }, [isLive]);
+
   const underdogTeam = (match.homeTeam?.ranking ?? 0) > (match.awayTeam?.ranking ?? 0)
     ? match.homeTeam
     : match.awayTeam;
@@ -586,6 +593,12 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           <div className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
             {friends
               .filter((f) => f.predictions[match.id] && f.id !== currentUserId)
+              .sort((a, b) => {
+                if (!isLive) return 0;
+                const aScoring = getScoringDetails(a.predictions[match.id].home, a.predictions[match.id].away, undefined, a.id);
+                const bScoring = getScoringDetails(b.predictions[match.id].home, b.predictions[match.id].away, undefined, b.id);
+                return bScoring.points - aScoring.points;
+              })
               .map((f) => {
                 const pred = f.predictions[match.id];
                 const friendScoring = getScoringDetails(pred.home, pred.away, undefined, f.id);
