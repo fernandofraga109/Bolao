@@ -891,7 +891,9 @@ export const useSyncSystem = (
         // Segunda API, SÓ cosmética (relógio, eventos, árbitro, estádio). NÃO
         // entra em pontuação. Throttle próprio (independente do sync_interval)
         // para respeitar o orçamento de ~20 chamadas por jogo.
-        const LIVE_DETAILS_INTERVAL_MS = 5 * 60 * 1000;
+        // Intervalo configurável pelo admin (system_config). Default 5min.
+        const LIVE_DETAILS_INTERVAL_MS =
+          dbRef.current.systemConfig?.live_details_interval_ms ?? 5 * 60 * 1000;
         if (hasLiveMatches && (canWriteData || isBackgroundSync)) {
           const comp = (dbRef.current.competitions as any[] | undefined)?.find(
             (c) => normalizeCompetitionCode(c.code) === normalizedCode,
@@ -903,7 +905,11 @@ export const useSyncSystem = (
 
           if (elapsedSinceLive >= LIVE_DETAILS_INTERVAL_MS) {
             try {
-              const liveFixtures = await fetchLiveMatchDetails();
+              // Índice de rotação de tokens. O contador é incrementado abaixo,
+              // sob o sync lock (serializado globalmente), então não há race.
+              // O proxy escolhe o token = índice % (nº de tokens no env).
+              const tokenIndex = Number(comp?.liveDetailsCallCount ?? 0);
+              const liveFixtures = await fetchLiveMatchDetails(tokenIndex);
               let liveMatched = 0;
               for (const fx of liveFixtures) {
                 const internal = matchLiveFixtureToInternal(
@@ -925,10 +931,12 @@ export const useSyncSystem = (
                 } · próxima chamada em ~${nextInMin}min`,
               );
               // Atualiza o throttle mesmo sem match (evita refazer a chamada no próximo tick).
+              // Incrementa o contador de rotação na mesma escrita (1 chamada = 1 token avançado).
               if (dbRef.current.updateCompetitionLiveDetailsSync) {
                 await dbRef.current.updateCompetitionLiveDetailsSync(
                   normalizedCode,
                   new Date().toISOString(),
+                  tokenIndex + 1,
                 );
               }
             } catch (liveErr) {

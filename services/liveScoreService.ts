@@ -698,11 +698,18 @@ export const matchLiveFixtureToInternal = (
  * Busca os detalhes ao vivo via proxy /api/live-details (api-sports).
  * Retorna [] em qualquer erro — os dados são puramente cosméticos.
  */
-export const fetchLiveMatchDetails = async (): Promise<ParsedLiveFixture[]> => {
+export const fetchLiveMatchDetails = async (
+  tokenIndex?: number,
+): Promise<ParsedLiveFixture[]> => {
   try {
     console.log("[LIVE DETAILS] Chamando nova API (api-sports) via /api/live-details…");
     const startedAt = Date.now();
-    const response = await fetch("/api/live-details");
+    // `t` seleciona o token no proxy (rotação: token = t % nº de tokens no env).
+    const url =
+      typeof tokenIndex === "number"
+        ? `/api/live-details?t=${tokenIndex}`
+        : "/api/live-details";
+    const response = await fetch(url);
     const contentType = response.headers.get("content-type") || "";
 
     if (!contentType.includes("application/json")) {

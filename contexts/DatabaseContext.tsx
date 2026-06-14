@@ -122,7 +122,7 @@ interface DatabaseContextType {
 
   upsertCompetitions: (competitionsList: CompetitionDB[]) => Promise<void>;
   updateCompetitionSync: (code: string, timestamp: string) => Promise<void>;
-  updateCompetitionLiveDetailsSync: (code: string, timestamp: string) => Promise<void>;
+  updateCompetitionLiveDetailsSync: (code: string, timestamp: string, callCount?: number) => Promise<void>;
   updateCompetitionAutoSync: (code: string, enabled: boolean) => Promise<void>;
   acquireSyncLock: (code: string) => Promise<boolean>;
   releaseSyncLock: (code: string) => Promise<void>;
@@ -172,6 +172,7 @@ const DEFAULT_CONFIG: SystemConfigDB = {
   id: SYSTEM_CONFIG_ID,
   is_auto_sync_enabled: false,
   sync_interval_ms: 20000,
+  live_details_interval_ms: 300000,
   underdog_min_rank_diff: 0,
 };
 
@@ -1257,16 +1258,19 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   const updateCompetitionLiveDetailsSync = async (
     code: string,
     timestamp: string,
+    callCount?: number,
   ) => {
+    const patch: { liveDetailsLastSync: string; liveDetailsCallCount?: number } =
+      { liveDetailsLastSync: timestamp };
+    if (typeof callCount === "number") patch.liveDetailsCallCount = callCount;
+
     setCompetitions((prev) =>
-      prev.map((c) =>
-        c.code === code ? { ...c, liveDetailsLastSync: timestamp } : c,
-      ),
+      prev.map((c) => (c.code === code ? { ...c, ...patch } : c)),
     );
     if (isSupabaseEnabled() && supabase) {
       const { error } = await supabase
         .from("competitions")
-        .update({ liveDetailsLastSync: timestamp })
+        .update(patch)
         .eq("code", code);
       if (error) {
         console.error(

@@ -57,6 +57,8 @@ export interface SystemConfigDB {
   id: string; // UUID singleton
   is_auto_sync_enabled: boolean;
   sync_interval_ms: number;
+  /** Intervalo (ms) entre buscas do minuto-a-minuto (api-sports). Controla a cota; default 5min. */
+  live_details_interval_ms?: number;
   underdog_min_rank_diff: number;
   /** @deprecated Versão única legada (compartilhada entre deploys). Substituída por
    *  `app_versions` keyed por deploy. Mantida para bancos legados. */
@@ -88,6 +90,8 @@ export interface CompetitionDB {
   syncLockedAt?: string;
   /** Último fetch dos detalhes ao vivo (api-sports). Usado para throttle do orçamento de chamadas. */
   liveDetailsLastSync?: string;
+  /** Contador monotônico de chamadas ao minuto-a-minuto. Usado para revezar tokens (count % N). */
+  liveDetailsCallCount?: number;
 }
 
 export interface StadiumDB {
