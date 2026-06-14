@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Friend } from "../types";
-import { Trophy, Medal, TrendingUp, TrendingDown, Minus, Search, BarChart3 } from "lucide-react";
+import { Trophy, Medal, TrendingUp, TrendingDown, Minus, Search, BarChart3, Info, ChevronDown, ChevronUp } from "lucide-react";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
 import LeaderboardDetails from "./LeaderboardDetails";
 
@@ -17,19 +17,62 @@ interface LeaderboardProps {
 
 const Leaderboard: React.FC<LeaderboardProps> = ({ sections, ruleset = "regulamento_1", onUserClick }) => {
   const [activeView, setActiveView] = useState<"ranking" | "details">("ranking");
+  const [showTieBreakerInfo, setShowTieBreakerInfo] = useState(false);
   const sectionsWithSortedUsers = sections.map((section) => {
-    const sorted = [...section.users].sort((a, b) => b.totalPoints - a.totalPoints);
+    const sorted = [...section.users].sort((a, b) => {
+      if (b.totalPoints !== a.totalPoints) {
+        return b.totalPoints - a.totalPoints;
+      }
+      
+      // Tie-breaker for Regulamento 2
+      if (ruleset === "regulamento_2" && a.tieBreakStats && b.tieBreakStats) {
+        if (b.tieBreakStats.championHit !== a.tieBreakStats.championHit) {
+          return b.tieBreakStats.championHit - a.tieBreakStats.championHit;
+        }
+        if (b.tieBreakStats.exactHits !== a.tieBreakStats.exactHits) {
+          return b.tieBreakStats.exactHits - a.tieBreakStats.exactHits;
+        }
+        if (b.tieBreakStats.resultHits !== a.tieBreakStats.resultHits) {
+          return b.tieBreakStats.resultHits - a.tieBreakStats.resultHits;
+        }
+        if (b.tieBreakStats.diffHits !== a.tieBreakStats.diffHits) {
+          return b.tieBreakStats.diffHits - a.tieBreakStats.diffHits;
+        }
+      }
+      
+      return 0;
+    });
+
     let currentRank = 0;
     let lastPoints = -1;
+    let lastTieStats: any = null;
 
     const usersWithRanks = sorted.map((user, index) => {
       // Standard competition ranking ("1224"): empatados dividem a mesma
       // posição e a próxima posição pula pela quantidade de empatados.
-      // Ex.: 2 em 1º, próximo é 3º (não 2º).
-      if (user.totalPoints !== lastPoints) {
-        currentRank = index + 1;
-        lastPoints = user.totalPoints;
+      
+      let isSameAsPrevious = false;
+      if (index > 0) {
+        const prevUser = sorted[index - 1];
+        const pointsEqual = user.totalPoints === prevUser.totalPoints;
+        
+        if (ruleset === "regulamento_2" && user.tieBreakStats && prevUser.tieBreakStats) {
+          const tieEqual = 
+            user.tieBreakStats.championHit === prevUser.tieBreakStats.championHit &&
+            user.tieBreakStats.exactHits === prevUser.tieBreakStats.exactHits &&
+            user.tieBreakStats.resultHits === prevUser.tieBreakStats.resultHits &&
+            user.tieBreakStats.diffHits === prevUser.tieBreakStats.diffHits;
+          
+          isSameAsPrevious = pointsEqual && tieEqual;
+        } else {
+          isSameAsPrevious = pointsEqual;
+        }
       }
+
+      if (!isSameAsPrevious) {
+        currentRank = index + 1;
+      }
+
       return { ...user, rank: currentRank };
     });
 
@@ -118,10 +161,45 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, ruleset = "regulame
               : "Detalhamento de acertos por jogador"}
           </p>
           {activeView === "ranking" && (
-            <div className="mt-4 flex items-center gap-2">
-              <span className="text-[10px] text-brand-green font-bold uppercase tracking-widest px-2 py-0.5 bg-brand-green/10 rounded-full border border-brand-green/20">
-                * Barra indica % de pontos em relação ao 1º colocado
-              </span>
+            <div className="mt-4 flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-brand-green font-bold uppercase tracking-widest px-2 py-0.5 bg-brand-green/10 rounded-full border border-brand-green/20">
+                  * Barra indica % de pontos em relação ao 1º colocado
+                </span>
+              </div>
+
+              {ruleset === "regulamento_2" && (
+                <div>
+                  <button
+                    onClick={() => setShowTieBreakerInfo(!showTieBreakerInfo)}
+                    className="flex items-center gap-2 text-[10px] font-bold text-slate-400 hover:text-white transition-colors uppercase tracking-widest px-1"
+                  >
+                    <Info size={12} className="text-brand-green" />
+                    <span>Critérios de Desempate</span>
+                    {showTieBreakerInfo ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  </button>
+                  
+                  {showTieBreakerInfo && (
+                    <div className="mt-2 p-3 bg-slate-900/60 rounded-xl border border-slate-700/50 space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <p className="text-[10px] text-slate-300 font-medium">Em caso de igualdade na pontuação, os critérios são aplicados nesta ordem:</p>
+                      <ol className="list-decimal list-inside text-[10px] text-slate-400 space-y-1.5 font-bold uppercase tracking-tighter">
+                        <li className="flex items-center gap-2">
+                          <span className="text-brand-green">1.</span> Acerto do campeão
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="text-brand-green">2.</span> Maior número de placares exatos
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="text-brand-green">3.</span> Maior número de acerto de resultados
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="text-brand-green">4.</span> Maior número de acerto de diferença de gols
+                        </li>
+                      </ol>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

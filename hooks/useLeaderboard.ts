@@ -210,7 +210,17 @@ export const useLeaderboard = (
           }
         }
 
-        return { ...user, totalPoints: total, scoreBreakdown: breakdown };
+        return { 
+          ...user, 
+          totalPoints: total, 
+          scoreBreakdown: breakdown,
+          tieBreakStats: activeRuleset === "regulamento_2" ? {
+            championHit: (user.tournamentPredictions?.championTeamId && tournamentResults?.championTeamId && user.tournamentPredictions.championTeamId === tournamentResults.championTeamId) ? 1 : 0,
+            exactHits: breakdown.exactCount,
+            resultHits: breakdown.exactCount + breakdown.diffCount + breakdown.outcomeCount,
+            diffHits: breakdown.exactCount + breakdown.diffCount
+          } : undefined
+        };
       });
   }, [matches, users, tournamentResults, currentUser, groups, db.userGroups, db.extraPhasePredictions, db.competitions]);
 

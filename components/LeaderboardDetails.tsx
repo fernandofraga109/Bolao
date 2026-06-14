@@ -47,15 +47,55 @@ const LeaderboardDetails: React.FC<LeaderboardDetailsProps> = ({
   onUserClick,
 }) => {
   const sectionsWithSortedUsers = sections.map((section) => {
-    const sorted = [...section.users].sort((a, b) => b.totalPoints - a.totalPoints);
+    const sorted = [...section.users].sort((a, b) => {
+      if (b.totalPoints !== a.totalPoints) {
+        return b.totalPoints - a.totalPoints;
+      }
+      
+      // Tie-breaker for Regulamento 2
+      if (ruleset === "regulamento_2" && a.tieBreakStats && b.tieBreakStats) {
+        if (b.tieBreakStats.championHit !== a.tieBreakStats.championHit) {
+          return b.tieBreakStats.championHit - a.tieBreakStats.championHit;
+        }
+        if (b.tieBreakStats.exactHits !== a.tieBreakStats.exactHits) {
+          return b.tieBreakStats.exactHits - a.tieBreakStats.exactHits;
+        }
+        if (b.tieBreakStats.resultHits !== a.tieBreakStats.resultHits) {
+          return b.tieBreakStats.resultHits - a.tieBreakStats.resultHits;
+        }
+        if (b.tieBreakStats.diffHits !== a.tieBreakStats.diffHits) {
+          return b.tieBreakStats.diffHits - a.tieBreakStats.diffHits;
+        }
+      }
+      
+      return 0;
+    });
+
     let currentRank = 0;
-    let lastPoints = -1;
 
     const usersWithRanks = sorted.map((user, index) => {
-      if (user.totalPoints !== lastPoints) {
-        currentRank = index + 1;
-        lastPoints = user.totalPoints;
+      let isSameAsPrevious = false;
+      if (index > 0) {
+        const prevUser = sorted[index - 1];
+        const pointsEqual = user.totalPoints === prevUser.totalPoints;
+        
+        if (ruleset === "regulamento_2" && user.tieBreakStats && prevUser.tieBreakStats) {
+          const tieEqual = 
+            user.tieBreakStats.championHit === prevUser.tieBreakStats.championHit &&
+            user.tieBreakStats.exactHits === prevUser.tieBreakStats.exactHits &&
+            user.tieBreakStats.resultHits === prevUser.tieBreakStats.resultHits &&
+            user.tieBreakStats.diffHits === prevUser.tieBreakStats.diffHits;
+          
+          isSameAsPrevious = pointsEqual && tieEqual;
+        } else {
+          isSameAsPrevious = pointsEqual;
+        }
       }
+
+      if (!isSameAsPrevious) {
+        currentRank = index + 1;
+      }
+
       return { ...user, rank: currentRank };
     });
 
@@ -186,36 +226,54 @@ const LeaderboardDetails: React.FC<LeaderboardDetailsProps> = ({
                         colorClass="text-brand-green"
                         bgClass="bg-brand-green/5"
                       />
-                      <StatBadge
-                        icon={<TrendingUp size={16} />}
-                        label="Diff"
-                        value={bd.diffCount}
-                        colorClass="text-brand-blue"
-                        bgClass="bg-brand-blue/5"
-                      />
-                      <StatBadge
-                        icon={<Award size={16} />}
-                        label="Resultado"
-                        value={bd.outcomeCount}
-                        colorClass="text-indigo-400"
-                        bgClass="bg-indigo-500/5"
-                      />
                       {ruleset === "regulamento_2" ? (
-                        <StatBadge
-                          icon={<Zap size={16} />}
-                          label="Sozinho"
-                          value={bd.aloneBonusCount ?? 0}
-                          colorClass="text-yellow-400"
-                          bgClass="bg-yellow-500/5"
-                        />
+                        <>
+                          <StatBadge
+                            icon={<Award size={16} />}
+                            label="Resultado"
+                            value={bd.outcomeCount}
+                            colorClass="text-indigo-400"
+                            bgClass="bg-indigo-500/5"
+                          />
+                          <StatBadge
+                            icon={<TrendingUp size={16} />}
+                            label="Diferença"
+                            value={bd.diffCount}
+                            colorClass="text-brand-blue"
+                            bgClass="bg-brand-blue/5"
+                          />
+                          <StatBadge
+                            icon={<Zap size={16} />}
+                            label="Sozinho"
+                            value={bd.aloneBonusCount ?? 0}
+                            colorClass="text-yellow-400"
+                            bgClass="bg-yellow-500/5"
+                          />
+                        </>
                       ) : (
-                        <StatBadge
-                          icon={<Zap size={16} />}
-                          label="Zebra"
-                          value={bd.underdogBonusCount ?? 0}
-                          colorClass="text-yellow-400"
-                          bgClass="bg-yellow-500/5"
-                        />
+                        <>
+                          <StatBadge
+                            icon={<TrendingUp size={16} />}
+                            label="Diff"
+                            value={bd.diffCount}
+                            colorClass="text-brand-blue"
+                            bgClass="bg-brand-blue/5"
+                          />
+                          <StatBadge
+                            icon={<Award size={16} />}
+                            label="Resultado"
+                            value={bd.outcomeCount}
+                            colorClass="text-indigo-400"
+                            bgClass="bg-indigo-500/5"
+                          />
+                          <StatBadge
+                            icon={<Zap size={16} />}
+                            label="Zebra"
+                            value={bd.underdogBonusCount ?? 0}
+                            colorClass="text-yellow-400"
+                            bgClass="bg-yellow-500/5"
+                          />
+                        </>
                       )}
                     </div>
 

@@ -298,6 +298,13 @@ export interface ScoreBreakdown {
   aloneBonusTotal?: number;
 }
 
+export interface TieBreakStats {
+  championHit: number;
+  exactHits: number;
+  resultHits: number;
+  diffHits: number;
+}
+
 export interface TournamentPredictions {
   championTeamId?: string;
   topScorer?: {
@@ -330,6 +337,7 @@ export interface User {
   totalPoints: number;
   predictionsCount?: number;
   scoreBreakdown?: ScoreBreakdown;
+  tieBreakStats?: TieBreakStats;
 }
 
 export interface Match {
