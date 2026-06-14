@@ -1,6 +1,6 @@
 import React from "react";
 import { User } from "../types";
-import { Trophy, Shield, Star, RefreshCw, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
+import { Trophy, Shield, Star, RefreshCw, CheckCircle2, AlertTriangle, Clock, Target } from "lucide-react";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
 import AvatarPicker from "./ui/AvatarPicker";
 import { CURRENT_VERSION } from "../data/releases";
@@ -129,17 +129,16 @@ const Header: React.FC<HeaderProps> = ({
           
           <div className="flex items-center gap-2 sm:gap-4">
             {currentUser.role !== "ADMIN" && (
-              <div className="flex items-center gap-2 sm:gap-3 pr-2 sm:pr-4 border-r border-white/10">
-                <div className="flex flex-col items-end">
-                  <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase tracking-widest">Pontos</span>
-                  <span className="text-xs sm:text-sm font-black text-brand-green leading-none">{userPoints}</span>
+              <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-3 pr-2 sm:pr-4 border-r border-white/10">
+                <div className="flex items-center gap-1">
+                  <Star size={8} className="text-yellow-400 fill-yellow-400" />
+                  <span className="hidden sm:inline text-[10px] font-black text-slate-500 uppercase tracking-widest">Rank</span>
+                  <span className="text-xs sm:text-sm font-black text-white leading-none">{userRank}º</span>
                 </div>
-                <div className="flex flex-col items-end">
-                  <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase tracking-widest">Rank</span>
-                  <div className="flex items-center gap-0.5 sm:gap-1">
-                    <Star size={8} className="text-yellow-400 fill-yellow-400" />
-                    <span className="text-xs sm:text-sm font-black text-white leading-none">{userRank}º</span>
-                  </div>
+                <div className="flex items-center gap-1">
+                  <Target size={8} className="text-brand-green" />
+                  <span className="hidden sm:inline text-[10px] font-black text-slate-500 uppercase tracking-widest">Pontos</span>
+                  <span className="text-xs sm:text-sm font-black text-brand-green leading-none">{userPoints}</span>
                 </div>
               </div>
             )}
