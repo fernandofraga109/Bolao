@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.35.3';
+export const CURRENT_VERSION = '1.35.4';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.35.4',
+    date: '2026-06-13',
+    changes: [
+      'Melhoria do Rank conforme solicitação dos usuários: agora o ranking usa standard competition ranking (1,1,3,4...) em vez de dense ranking (1,1,2,3...), garantindo consistência entre a lista de ranking, a aba de detalhes e o badge do header',
+    ],
+  },
   {
     version: '1.35.3',
     date: '2026-06-12',

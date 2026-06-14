@@ -21,16 +21,18 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, ruleset = "regulame
     const sorted = [...section.users].sort((a, b) => b.totalPoints - a.totalPoints);
     let currentRank = 0;
     let lastPoints = -1;
-    
-    const usersWithRanks = sorted.map((user) => {
-      // Dense ranking: empate divide a mesma posição e o próximo é +1 (1, 1, 2)
+
+    const usersWithRanks = sorted.map((user, index) => {
+      // Standard competition ranking ("1224"): empatados dividem a mesma
+      // posição e a próxima posição pula pela quantidade de empatados.
+      // Ex.: 2 em 1º, próximo é 3º (não 2º).
       if (user.totalPoints !== lastPoints) {
-        currentRank += 1;
+        currentRank = index + 1;
         lastPoints = user.totalPoints;
       }
       return { ...user, rank: currentRank };
     });
-    
+
     return { ...section, users: usersWithRanks };
   });
 
