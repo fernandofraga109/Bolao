@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.37.0';
+export const CURRENT_VERSION = '1.38.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,14 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.38.0',
+    date: '2026-06-14',
+    changes: [
+      'A artilharia agora mostra todos os goleadores da competição, e não apenas os 10 primeiros',
+      'Corrigidas as bandeiras de alguns times que não apareciam na lista de artilheiros',
+    ],
+  },
   {
     version: '1.37.0',
     date: '2026-06-14',
@@ -18,9 +26,7 @@ export const RELEASES: Release[] = [
   {
     version: '1.36.0',
     date: '2026-06-14',
-    changes: [
-      'Implementação de minuto a minuto com detalhes dos gols marcados e stats de cartões',
-    ],
+    changes: ['Implementação de minuto a minuto com detalhes dos gols marcados e stats de cartões'],
   },
   {
     version: '1.35.4',
@@ -39,9 +45,7 @@ export const RELEASES: Release[] = [
   {
     version: '1.35.2',
     date: '2026-06-12',
-    changes: [
-      'Agora você pode ver a versão do app no topo da tela',
-    ],
+    changes: ['Agora você pode ver a versão do app no topo da tela'],
   },
   {
     version: '1.35.1',

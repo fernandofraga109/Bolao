@@ -57,28 +57,28 @@ const EventCell: React.FC<{ ev: LiveMatchEvent; side: "home" | "away" }> = ({
 
   const text = (
     <div className={`flex flex-col min-w-0 ${isHome ? "items-end" : "items-start"}`}>
-      <span className="flex items-center gap-1">
+      <span className="flex items-center gap-1 min-w-0 max-w-full">
         {goal && (
-          <span className="text-[9px] font-black text-brand-green uppercase tracking-wider">
+          <span className="text-[9px] font-black text-brand-green uppercase tracking-wider shrink-0">
             Gol
           </span>
         )}
-        <span className="text-xs font-bold text-slate-200 truncate max-w-[120px]">
+        <span className="text-xs font-bold text-slate-200 truncate min-w-0">
           {ev.player || (goal ? "Gol" : "Cartão")}
         </span>
       </span>
       {goal && ev.assist && (
-        <span className="text-[10px] text-slate-500 truncate max-w-[130px]">
+        <span className="text-[10px] text-slate-500 truncate max-w-full">
           assist. {ev.assist}
         </span>
       )}
       {goal && !ev.assist && ev.detail !== "Normal Goal" && (
-        <span className="text-[10px] text-slate-500 truncate max-w-[130px]">
+        <span className="text-[10px] text-slate-500 truncate max-w-full">
           {translateDetail(ev.detail)}
         </span>
       )}
       {isCard(ev) && (
-        <span className="text-[10px] text-slate-500 truncate max-w-[130px]">
+        <span className="text-[10px] text-slate-500 truncate max-w-full">
           {translateDetail(ev.detail)}
         </span>
       )}
@@ -87,7 +87,7 @@ const EventCell: React.FC<{ ev: LiveMatchEvent; side: "home" | "away" }> = ({
 
   return (
     <div
-      className={`flex items-center gap-1.5 rounded-lg px-2 py-1 ${goal ? "bg-brand-green/10 border border-brand-green/20" : ""}`}
+      className={`flex items-center gap-1.5 rounded-lg px-1.5 sm:px-2 py-1 min-w-0 max-w-full ${goal ? "bg-brand-green/10 border border-brand-green/20" : ""}`}
     >
       {isHome ? (
         <>
@@ -142,20 +142,20 @@ export const LiveMatchTimeline: React.FC<LiveMatchTimelineProps> = ({
   const hasMeta = Boolean(ld.referee || ld.venue?.name);
 
   return (
-    <div className="px-5 pb-5 border-t border-slate-700/50 bg-slate-900/20 pt-4 animate-slideDown">
+    <div className="px-3 sm:px-5 pb-5 border-t border-slate-700/50 bg-slate-900/20 pt-4 animate-slideDown">
       {/* Cabeçalho: árbitro + estádio */}
       {hasMeta && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-4">
           {ld.referee && (
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
-              <Flag size={12} className="text-slate-500" />
-              <span className="truncate max-w-[180px]">{ld.referee}</span>
+            <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 min-w-0 max-w-full">
+              <Flag size={12} className="text-slate-500 shrink-0" />
+              <span className="truncate min-w-0 sm:max-w-[180px]">{ld.referee}</span>
             </div>
           )}
           {ld.venue?.name && (
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
-              <MapPin size={12} className="text-slate-500" />
-              <span className="truncate max-w-[200px]">
+            <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 min-w-0 max-w-full">
+              <MapPin size={12} className="text-slate-500 shrink-0" />
+              <span className="truncate min-w-0 sm:max-w-[200px]">
                 {ld.venue.name}
                 {ld.venue.city ? ` · ${ld.venue.city}` : ""}
               </span>

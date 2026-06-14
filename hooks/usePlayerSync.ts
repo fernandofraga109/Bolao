@@ -55,6 +55,11 @@ export const persistScorers = async (
       competitionCode: code,
       externalTeamId: scorer.team.id,
       teamName: scorer.team.name,
+      // A resposta de /scorers traz `team.crest`. Sem isso, o upsert (onConflict,
+      // ignoreDuplicates:false) sobrescreveria a linha que o syncSquads gravou,
+      // zerando o crest — daí algumas bandeiras sumirem na view de artilheiros
+      // mesmo aparecendo no MatchCard (que lê o crest da tabela `teams`).
+      teamCrest: scorer.team.crest,
       goals: scorer.goals ?? 0,
       assists: scorer.assists ?? 0,
       penalties: scorer.penalties ?? 0,
