@@ -37,7 +37,14 @@ const NavButton: React.FC<{
 
 const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, userRole }) => {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 pb-safe z-40">
+    // Sobe o conteúdo do nav: mínimo de 10px sempre, e o recorte da safe area
+    // (notch/home indicator) em telas curvas. Antes usava `pb-safe`, que não
+    // existe neste projeto (Tailwind via CDN) → ficava sem padding e os labels
+    // ("Jogos"/"Stats") encostavam na borda curva.
+    <nav
+      className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 z-40"
+      style={{ paddingBottom: "max(env(safe-area-inset-bottom), 10px)" }}
+    >
       <div className="max-w-2xl mx-auto flex justify-around">
         <NavButton
           tab="matches"

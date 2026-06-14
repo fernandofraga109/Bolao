@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.40.0';
+export const CURRENT_VERSION = '1.41.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.41.0',
+    date: '2026-06-14',
+    changes: [
+      'Barra de navegação inferior agora respeita a área segura do aparelho: em celulares com tela curva, os rótulos "Jogos" e "Stats" não ficam mais cortados na borda',
+    ],
+  },
   {
     version: '1.40.0',
     date: '2026-06-14',
