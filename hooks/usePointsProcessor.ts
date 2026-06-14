@@ -8,6 +8,7 @@ import {
   calculateTournamentPoints,
   calculateTournamentPointsRegulamento2,
   calculateExtraPhasePoints,
+  getExtraPhaseKey,
   getMatchPhase,
 } from '../utils/scoring';
 import { supabase } from '../services/supabase';
@@ -343,9 +344,9 @@ export const usePointsProcessor = (dbRef: any) => {
             if (!pointsByUser[ep.userId]) pointsByUser[ep.userId] = 0;
 
             // Filter matches belonging to this phase
-            const epPhase = ep.phase; // e.g. 'groups', 'oitavas', 'quartas', 'semi'
+            const epPhase = ep.phase; // e.g. 'groups', 'oitavas', 'quartas', 'semis'
             const phaseMatchesFiltered = phaseMatches.filter((m) => {
-              const phaseMapped = getMatchPhase(m.stage, m.group);
+              const phaseMapped = getExtraPhaseKey(m.stage, m.group);
               return phaseMapped === epPhase;
             });
 

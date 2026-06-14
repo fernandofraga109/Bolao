@@ -19,6 +19,8 @@ import {
   getKnockoutAdvancingTeamId,
   getMatchDuration,
   calculateUnderdogBonus,
+  calculateExtraPhasePoints,
+  getExtraPhaseKey,
 } from "../utils/scoring";
 import { translateGroupName } from "../utils/translations";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
@@ -358,10 +360,17 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
   }, [auditTab, isPreCupSpecialVisible]);
 
   const tournamentAudit = useMemo(() => {
-    if (!tournamentResults || !user.tournamentPredictions) return null;
+    // Extra phase predictions (R2) are scored from match results alone, so they may
+    // exist before any tournamentResults are set. Don't bail out if those exist.
+    const hasExtraPhasePreds =
+      ruleset === "regulamento_2" &&
+      (db.extraPhasePredictions || []).some(
+        (ep) => ep.userId === user.id && ep.groupId === activeGroupId
+      );
+    if ((!tournamentResults || !user.tournamentPredictions) && !hasExtraPhasePreds) return null;
 
-    const pred = user.tournamentPredictions;
-    const actual = tournamentResults;
+    const pred = user.tournamentPredictions || ({} as TournamentPredictions);
+    const actual = tournamentResults || ({} as TournamentPredictions);
     const items: { label: string; predicted: string; actual: string; pts: number }[] = [];
 
     if (ruleset === "regulamento_2") {
@@ -470,6 +479,82 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
           }
         });
       }
+
+      // Extra phase predictions (jogo com maior diferença de gols por fase)
+      const userExtraPhasePreds = (db.extraPhasePredictions || []).filter(
+        (ep) => ep.userId === user.id && ep.groupId === activeGroupId
+      );
+
+      if (userExtraPhasePreds.length > 0) {
+        const activeCompetition = db.competitions.find(
+          (c) => (c.code || "").toUpperCase() === activeCompCode
+        );
+        const biggestGoalDiffOverrides: Record<string, string> =
+          activeCompetition?.biggestGoalDiffMatches || {};
+
+        const matchLabelById = (matchId?: string) => {
+          if (!matchId) return "–";
+          const m = auditMatches.find((am) => am.id === matchId);
+          if (!m) return "–";
+          return `${m.homeTeam.name} x ${m.awayTeam.name}`;
+        };
+
+        const phaseLabels: Record<string, string> = {
+          groups: "Fase de Grupos",
+          oitavas: "Oitavas de Final",
+          quartas: "Quartas de Final",
+          semis: "Semifinais",
+        };
+        const phaseOrder = ["groups", "oitavas", "quartas", "semis"];
+
+        phaseOrder.forEach((phaseKey) => {
+          const ep = userExtraPhasePreds.find((p) => p.phase === phaseKey);
+          if (!ep || !ep.matchId) return;
+          if (!phaseStarted(phaseKey)) return;
+
+          const phaseMatches = auditMatches
+            .filter((m) => getExtraPhaseKey(m.stage, m.group) === phaseKey)
+            .map((m) => ({
+              id: m.id,
+              resultHome: m.result?.home ?? null,
+              resultAway: m.result?.away ?? null,
+              status: m.status,
+            }));
+
+          const overrideMatchId = biggestGoalDiffOverrides[phaseKey] || undefined;
+          const pts = calculateExtraPhasePoints(
+            { phase: phaseKey, matchId: ep.matchId },
+            phaseMatches,
+            overrideMatchId
+          );
+
+          // Resolve the actual "biggest goal diff" match(es) for display
+          let actualLabel = "–";
+          if (overrideMatchId) {
+            actualLabel = matchLabelById(overrideMatchId);
+          } else {
+            const finished = phaseMatches.filter(
+              (m) => m.status === "FINISHED" && m.resultHome != null && m.resultAway != null
+            );
+            if (finished.length > 0) {
+              const maxDiff = Math.max(
+                ...finished.map((m) => Math.abs((m.resultHome ?? 0) - (m.resultAway ?? 0)))
+              );
+              actualLabel = finished
+                .filter((m) => Math.abs((m.resultHome ?? 0) - (m.resultAway ?? 0)) === maxDiff)
+                .map((m) => matchLabelById(m.id))
+                .join(", ");
+            }
+          }
+
+          items.push({
+            label: `Maior diferença de gols – ${phaseLabels[phaseKey] || phaseKey}`,
+            predicted: matchLabelById(ep.matchId),
+            actual: actualLabel,
+            pts,
+          });
+        });
+      }
     } else {
       // Regulamento 1
       if (isPreCupSpecialVisible && pred.topScorer?.player) {
@@ -546,7 +631,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
 
     const total = items.reduce((sum, i) => sum + i.pts, 0);
     return { items, total };
-  }, [tournamentResults, user, allUsers, activeGroupId, ruleset, isPreCupSpecialVisible, teamNameById, auditMatches]);
+  }, [tournamentResults, user, allUsers, activeGroupId, ruleset, isPreCupSpecialVisible, teamNameById, auditMatches, db.extraPhasePredictions, db.competitions, activeCompCode]);
 
   const grandTotal = matchTotal + (tournamentAudit?.total ?? 0);
 

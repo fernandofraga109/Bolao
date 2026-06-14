@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { User, Match, MatchStatus, TournamentPredictions, Group } from "../types";
-import { calculatePoints, calculateTournamentPoints, calculatePointsRegulamento2, getMatchPhase, calculateTournamentPointsRegulamento2, getScoreCategoryRegulamento1, getScoreCategoryRegulamento2, getR1MatchScoringResult, getKnockoutAdvancingTeamId } from "../utils/scoring";
+import { User, Match, MatchStatus, TournamentPredictions, Group, ExtraPhasePredictionDB, CompetitionDB } from "../types";
+import { calculatePoints, calculateTournamentPoints, calculatePointsRegulamento2, getMatchPhase, calculateTournamentPointsRegulamento2, getScoreCategoryRegulamento1, getScoreCategoryRegulamento2, getR1MatchScoringResult, getKnockoutAdvancingTeamId, calculateExtraPhasePoints, getExtraPhaseKey } from "../utils/scoring";
 import { DEFAULT_COMPETITION_CODE } from "../data/competitions";
 
 interface UserGroupDB {
@@ -23,6 +23,8 @@ export const useLeaderboard = (
   db: {
     userGroups: UserGroupDB[];
     predictions: PredictionDB[];
+    extraPhasePredictions?: ExtraPhasePredictionDB[];
+    competitions?: CompetitionDB[];
   },
   groups: Group[]
 ) => {
@@ -173,9 +175,44 @@ export const useLeaderboard = (
           }
         }
 
+        // REGULAMENTO 2: extra phase predictions (jogo com maior diferença de gols por fase)
+        if (activeRuleset === "regulamento_2") {
+          const userExtraPhasePreds = (db.extraPhasePredictions || []).filter(
+            (ep) => ep.userId === user.id && ep.groupId === activeGroupId
+          );
+
+          if (userExtraPhasePreds.length > 0) {
+            const phaseMatchContexts = groupMatches.map((m) => ({
+              id: m.id,
+              resultHome: m.result?.home ?? null,
+              resultAway: m.result?.away ?? null,
+              status: m.status,
+              stage: m.stage,
+              group: m.group,
+            }));
+
+            const activeCompetition = (db.competitions || []).find(
+              (c) => (c.code || "").toUpperCase() === activeCompCode
+            );
+            const biggestGoalDiffOverrides: Record<string, string> =
+              activeCompetition?.biggestGoalDiffMatches || {};
+
+            userExtraPhasePreds.forEach((ep) => {
+              const phaseMatches = phaseMatchContexts.filter(
+                (m) => getExtraPhaseKey(m.stage, m.group) === ep.phase
+              );
+              total += calculateExtraPhasePoints(
+                { phase: ep.phase, matchId: ep.matchId || undefined },
+                phaseMatches,
+                biggestGoalDiffOverrides[ep.phase] || undefined
+              );
+            });
+          }
+        }
+
         return { ...user, totalPoints: total, scoreBreakdown: breakdown };
       });
-  }, [matches, users, tournamentResults, currentUser, groups, db.userGroups]);
+  }, [matches, users, tournamentResults, currentUser, groups, db.userGroups, db.extraPhasePredictions, db.competitions]);
 
   const leaderboardData = useMemo(() => {
     if (!currentUser) return [];

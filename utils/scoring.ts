@@ -50,6 +50,25 @@ export const getMatchPhase = (stage?: string, group?: string): MatchPhase => {
   return 'groups';
 };
 
+export type ExtraPhaseKey = 'groups' | 'oitavas' | 'quartas' | 'semis';
+
+/**
+ * Maps a match to the "maior diferença de gols por fase" phase key (Regulamento 2).
+ * Mirrors the bucketing used in ExtraPhasePredictionsCard so scoring stays consistent.
+ * Unlike getMatchPhase, this distinguishes oitavas/quartas/semis (getMatchPhase
+ * collapses them all into 'ko').
+ */
+export const getExtraPhaseKey = (stage?: string, group?: string): ExtraPhaseKey | null => {
+  const s = (stage || '').toUpperCase();
+  const g = (group || '').toUpperCase();
+
+  if (s.includes('SEMI') || g.includes('SEMI')) return 'semis';
+  if (s.includes('QUARTER') || g.includes('QUARTAS')) return 'quartas';
+  if (s.includes('ROUND_OF_16') || g.includes('OITAVAS')) return 'oitavas';
+  if (s.includes('REGULAR') || s.includes('GROUP') || g.includes('GRUPO')) return 'groups';
+  return null;
+};
+
 /**
  * Calculates the potential bonus points if the underdog wins.
  */

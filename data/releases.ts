@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.42.0';
+export const CURRENT_VERSION = '1.43.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.43.0',
+    date: '2026-06-14',
+    changes: [
+      'Ajuste nos palpites especiais para contabilizar maior diferença de gols por fase automaticamente (Regulamento 2)',
+    ],
+  },
   {
     version: '1.42.0',
     date: '2026-06-14',
