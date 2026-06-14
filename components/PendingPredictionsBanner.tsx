@@ -94,14 +94,15 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
     return () => clearInterval(id);
   }, []);
 
-  const { banner, missedSpecials, missedLabels } = useMemo(() => {
-    if (isAdmin) return { banner: null, missedSpecials: 0, missedLabels: [] as string[] };
+  const { banner, missedSpecials, missedLabels, pendingMatches } = useMemo(() => {
+    if (isAdmin) return { banner: null, missedSpecials: 0, missedLabels: [] as string[], pendingMatches: [] as Match[] };
 
     const schedulable = matches.filter(
       (m) => m.status === MatchStatus.SCHEDULED
     );
 
     let bannerResult: { text: string; sub?: string; urgent: boolean; alert?: boolean } | null = null;
+    let pendingMatchesList: Match[] = [];
 
     if (ruleset === "regulamento_1") {
       const nowMs = Date.now();
@@ -111,6 +112,7 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
       });
       const pending = next24hMatches.filter((m) => !predictions[m.id]);
       if (pending.length > 0) {
+        pendingMatchesList = pending;
         bannerResult = {
           text: `Tem ${pending.length} jogo${pending.length > 1 ? "s" : ""} nas próximas 24h que você não palpitou`,
           urgent: true,
@@ -225,7 +227,7 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
       }
     }
 
-    return { banner: bannerResult, missedSpecials: labels.length, missedLabels: labels };
+    return { banner: bannerResult, missedSpecials: labels.length, missedLabels: labels, pendingMatches: pendingMatchesList };
   }, [matches, predictions, ruleset, phaseLockSet, isAdmin, now, tournamentPredictions, extraPhasePredictions, lockDate, groupId, userId]);
 
   if (!banner && missedLabels.length === 0) return null;
@@ -259,6 +261,26 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
                 <Hourglass size={10} />
                 {banner.sub}
               </span>
+            )}
+            {ruleset === "regulamento_1" && pendingMatches.length > 0 && (
+              <div className={`mt-2 pt-2 border-t border-slate-600/30`}>
+                <div className="flex flex-col gap-1.5">
+                  {pendingMatches.map((m) => {
+                    const matchDate = new Date(m.date);
+                    const formattedDate = matchDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                    const formattedTime = matchDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                    return (
+                      <div
+                        key={m.id}
+                        className={`inline-flex items-center gap-2 px-2 py-0.5 rounded-md text-[10px] font-bold border ${accent.subBg} ${accent.subText} border-slate-600/40`}
+                      >
+                        <span>{m.homeTeam.name} vs {m.awayTeam.name}</span>
+                        <span className="opacity-75">• {formattedDate} {formattedTime}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </>
         )}
