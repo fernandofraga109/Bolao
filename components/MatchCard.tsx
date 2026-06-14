@@ -36,6 +36,7 @@ import {
   Loader2,
   Calendar,
   RefreshCw,
+  Activity,
 } from "lucide-react";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
 import ReplicatePredictionModal from "./ReplicatePredictionModal";
@@ -72,6 +73,17 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   phaseLockSet,
 }) => {
   const [showFriends, setShowFriends] = useState(false);
+  // Timeline ao vivo abre por padrão durante a partida; fica recolhida quando finalizada.
+  const [showTimeline, setShowTimeline] = useState(
+    match.status === MatchStatus.LIVE,
+  );
+
+  // Quando a partida sai do ao vivo (finaliza), recolhe a timeline automaticamente.
+  useEffect(() => {
+    if (match.status === MatchStatus.FINISHED) {
+      setShowTimeline(false);
+    }
+  }, [match.status]);
   const [homeInput, setHomeInput] = useState<string>("");
   const [awayInput, setAwayInput] = useState<string>("");
   const [isSavingPrediction, setIsSavingPrediction] = useState(false);
@@ -508,6 +520,16 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 <Users size={20} />
               </button>
 
+              {match.liveDetails && (
+                <button
+                  onClick={() => setShowTimeline(!showTimeline)}
+                  title="Minuto a minuto da partida"
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all ${showTimeline ? "bg-slate-700 border-slate-600 text-white" : "bg-slate-800 border-slate-700 text-slate-500 hover:text-white"}`}
+                >
+                  <Activity size={20} />
+                </button>
+              )}
+
               {eligibleGroups.length > 0 && !isPredictionDisabled && (
                 <button
                   onClick={() => {
@@ -581,8 +603,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         </div>
       </div>
 
-      {/* Minuto a minuto (api-sports) — só ao vivo e quando houver dados */}
-      {isLive && match.liveDetails && <LiveMatchTimeline match={match} />}
+      {/* Minuto a minuto (api-sports) — ao vivo abre por padrão; finalizada via botão.
+          Sempre depende de haver liveDetails. */}
+      {match.liveDetails && showTimeline && <LiveMatchTimeline match={match} />}
 
       {/* Friends predictions section would go here, simplified or kept from original */}
       {showFriends && (

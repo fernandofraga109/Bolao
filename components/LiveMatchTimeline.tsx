@@ -167,7 +167,7 @@ export const LiveMatchTimeline: React.FC<LiveMatchTimelineProps> = ({
       {/* Linha do tempo de eventos — eixo central com o minuto.
           Mandante (home) à esquerda, visitante (away) à direita. */}
       {events.length > 0 ? (
-        <div className="relative space-y-1">
+        <div className="relative space-y-1 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
           {/* Linha vertical central */}
           <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-slate-700/50" />
           {events.map(({ ev, isHome }, idx) => (
