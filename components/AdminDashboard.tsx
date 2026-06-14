@@ -983,8 +983,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </select>
                       <p className="text-[10px] text-slate-500 leading-relaxed">
                         Relógio/eventos ao vivo (cosmético, não afeta pontuação).
-                        Cota separada (free = 100/dia por token). Intervalos
-                        curtos só são seguros com rotação de tokens configurada.
+                        Cota separada da api-sports. Intervalos curtos consomem
+                        mais cota — ajuste conforme o plano contratado.
                       </p>
                     </div>
 
