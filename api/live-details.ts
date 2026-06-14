@@ -19,28 +19,11 @@ export const config = { runtime: "edge" };
 
 const DEFAULT_URL = "https://v3.football.api-sports.io/fixtures?live=all&league=1";
 
-/**
- * Coleta os tokens da api-sports do ambiente, em ordem:
- *   FOOTBALL_API_LIVE_DATA_TOKEN, _TOKEN_2, _TOKEN_3, ...
- * Basta adicionar env vars para habilitar mais tokens — nenhum código muda.
- * A rotação multiplica a cota diária (free = 100/dia por token).
- */
-function collectTokens(): string[] {
-  const tokens: string[] = [];
-  const first = process.env.FOOTBALL_API_LIVE_DATA_TOKEN;
-  if (first) tokens.push(first);
-  for (let i = 2; i <= 10; i++) {
-    const t = process.env[`FOOTBALL_API_LIVE_DATA_TOKEN_${i}`];
-    if (t) tokens.push(t);
-  }
-  return tokens;
-}
-
-export default async function handler(req: Request) {
-  const tokens = collectTokens();
+export default async function handler(_req: Request) {
+  const TOKEN = process.env.FOOTBALL_API_LIVE_DATA_TOKEN;
   const targetUrl = process.env.FOOTBALL_API_LIVE_DATA || DEFAULT_URL;
 
-  if (tokens.length === 0) {
+  if (!TOKEN) {
     return new Response(
       JSON.stringify({
         error: "Configuração Incompleta",
@@ -51,22 +34,9 @@ export default async function handler(req: Request) {
     );
   }
 
-  // Índice de rotação vindo do cliente (?t=N). O cliente coordena o contador no
-  // banco (serializado pelo sync lock), aqui só mapeamos índice → token.
-  let tokenIdx = 0;
-  try {
-    const t = new URL(req.url).searchParams.get("t");
-    if (t !== null && Number.isFinite(Number(t))) {
-      tokenIdx = ((Number(t) % tokens.length) + tokens.length) % tokens.length;
-    }
-  } catch {
-    // sem ?t válido → usa o primeiro token
-  }
-  const TOKEN = tokens[tokenIdx];
-
   try {
     console.log(
-      `[PROXY LIVE-DETAILS] Chamando api-sports: ${targetUrl} · token ${tokenIdx + 1}/${tokens.length}`,
+      `[PROXY LIVE-DETAILS] Chamando api-sports: ${targetUrl}`,
     );
     const startedAt = Date.now();
     const res = await fetch(targetUrl, {

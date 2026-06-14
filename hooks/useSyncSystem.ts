@@ -905,11 +905,7 @@ export const useSyncSystem = (
 
           if (elapsedSinceLive >= LIVE_DETAILS_INTERVAL_MS) {
             try {
-              // Índice de rotação de tokens. O contador é incrementado abaixo,
-              // sob o sync lock (serializado globalmente), então não há race.
-              // O proxy escolhe o token = índice % (nº de tokens no env).
-              const tokenIndex = Number(comp?.liveDetailsCallCount ?? 0);
-              const liveFixtures = await fetchLiveMatchDetails(tokenIndex);
+              const liveFixtures = await fetchLiveMatchDetails();
               let liveMatched = 0;
               for (const fx of liveFixtures) {
                 const internal = matchLiveFixtureToInternal(
@@ -931,12 +927,10 @@ export const useSyncSystem = (
                 } · próxima chamada em ~${nextInMin}min`,
               );
               // Atualiza o throttle mesmo sem match (evita refazer a chamada no próximo tick).
-              // Incrementa o contador de rotação na mesma escrita (1 chamada = 1 token avançado).
               if (dbRef.current.updateCompetitionLiveDetailsSync) {
                 await dbRef.current.updateCompetitionLiveDetailsSync(
                   normalizedCode,
                   new Date().toISOString(),
-                  tokenIndex + 1,
                 );
               }
             } catch (liveErr) {

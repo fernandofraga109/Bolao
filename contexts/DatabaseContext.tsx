@@ -122,7 +122,7 @@ interface DatabaseContextType {
 
   upsertCompetitions: (competitionsList: CompetitionDB[]) => Promise<void>;
   updateCompetitionSync: (code: string, timestamp: string) => Promise<void>;
-  updateCompetitionLiveDetailsSync: (code: string, timestamp: string, callCount?: number) => Promise<void>;
+  updateCompetitionLiveDetailsSync: (code: string, timestamp: string) => Promise<void>;
   updateCompetitionAutoSync: (code: string, enabled: boolean) => Promise<void>;
   acquireSyncLock: (code: string) => Promise<boolean>;
   releaseSyncLock: (code: string) => Promise<void>;
@@ -1258,11 +1258,10 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   const updateCompetitionLiveDetailsSync = async (
     code: string,
     timestamp: string,
-    callCount?: number,
   ) => {
-    const patch: { liveDetailsLastSync: string; liveDetailsCallCount?: number } =
-      { liveDetailsLastSync: timestamp };
-    if (typeof callCount === "number") patch.liveDetailsCallCount = callCount;
+    const patch: { liveDetailsLastSync: string } = {
+      liveDetailsLastSync: timestamp,
+    };
 
     setCompetitions((prev) =>
       prev.map((c) => (c.code === code ? { ...c, ...patch } : c)),

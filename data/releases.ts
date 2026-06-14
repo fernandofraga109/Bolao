@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.41.0';
+export const CURRENT_VERSION = '1.42.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,14 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.42.0',
+    date: '2026-06-14',
+    changes: [
+      'O minuto a minuto agora pode ser recolhido ou expandido por um botão no card do jogo: abre sozinho durante a partida ao vivo, recolhe ao terminar e pode ser reaberto para rever os lances de jogos finalizados',
+      'A lista de lances do minuto a minuto ganhou rolagem própria e não estica mais o card em jogos com muitos gols e cartões',
+    ],
+  },
   {
     version: '1.41.0',
     date: '2026-06-14',

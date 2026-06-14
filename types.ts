@@ -90,8 +90,6 @@ export interface CompetitionDB {
   syncLockedAt?: string;
   /** Último fetch dos detalhes ao vivo (api-sports). Usado para throttle do orçamento de chamadas. */
   liveDetailsLastSync?: string;
-  /** Contador monotônico de chamadas ao minuto-a-minuto. Usado para revezar tokens (count % N). */
-  liveDetailsCallCount?: number;
 }
 
 export interface StadiumDB {
