@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.38.0';
+export const CURRENT_VERSION = '1.39.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,14 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.39.0',
+    date: '2026-06-14',
+    changes: [
+      'Ajustes de layout para mostrar Pontos e Rank no header em dispositivos móveis',
+      'Botão "Sair da Conta" movido para dentro do modal de Configurações (clicar no avatar)',
+    ],
+  },
   {
     version: '1.38.0',
     date: '2026-06-14',

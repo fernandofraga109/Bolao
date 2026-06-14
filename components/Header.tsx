@@ -127,18 +127,18 @@ const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             {currentUser.role !== "ADMIN" && (
-              <div className="hidden sm:flex items-center gap-3 pr-4 border-r border-white/10">
+              <div className="flex items-center gap-2 sm:gap-3 pr-2 sm:pr-4 border-r border-white/10">
                 <div className="flex flex-col items-end">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Pontos</span>
-                  <span className="text-sm font-black text-brand-green leading-none">{userPoints}</span>
+                  <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase tracking-widest">Pontos</span>
+                  <span className="text-xs sm:text-sm font-black text-brand-green leading-none">{userPoints}</span>
                 </div>
                 <div className="flex flex-col items-end">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Rank</span>
-                  <div className="flex items-center gap-1">
-                    <Star size={10} className="text-yellow-400 fill-yellow-400" />
-                    <span className="text-sm font-black text-white leading-none">{userRank}º</span>
+                  <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase tracking-widest">Rank</span>
+                  <div className="flex items-center gap-0.5 sm:gap-1">
+                    <Star size={8} className="text-yellow-400 fill-yellow-400" />
+                    <span className="text-xs sm:text-sm font-black text-white leading-none">{userRank}º</span>
                   </div>
                 </div>
               </div>
@@ -183,13 +183,6 @@ const Header: React.FC<HeaderProps> = ({
                 </div>
               </button>
             </div>
-            
-            <button
-              onClick={onLogout}
-              className="text-[10px] font-black text-red-500 hover:text-red-400 uppercase tracking-widest ml-1 transition-colors"
-            >
-              Sair
-            </button>
           </div>
         </div>
       </header>
@@ -197,7 +190,7 @@ const Header: React.FC<HeaderProps> = ({
       {isAvatarModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/90 backdrop-blur-sm px-4 py-6 overflow-y-auto animate-fadeIn">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 w-full max-w-sm shadow-2xl my-auto">
-            <h2 className="text-2xl font-black mb-6 text-white tracking-tight">EDITAR PERFIL</h2>
+            <h2 className="text-2xl font-black mb-6 text-white tracking-tight">CONFIGURAÇÕES</h2>
 
             {currentUser.role !== "ADMIN" && (
               <div className="flex items-center justify-center gap-8 mb-6 pb-6 border-b border-slate-800">
@@ -302,6 +295,13 @@ const Header: React.FC<HeaderProps> = ({
                 {isUpdatingProfile ? "Salvando..." : "Confirmar"}
               </button>
             </div>
+
+            <button
+              onClick={onLogout}
+              className="w-full mt-4 py-3 rounded-2xl font-black text-xs uppercase tracking-widest bg-red-950/50 border border-red-900/50 text-red-400 hover:bg-red-950 transition-all"
+            >
+              Sair da Conta
+            </button>
 
             {/* Sync Status Panel */}
             {(syncInfo || competitionLastSync) && (
