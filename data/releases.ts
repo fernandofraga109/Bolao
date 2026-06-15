@@ -8,6 +8,15 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.46.0',
+    date: '2026-06-15',
+    changes: [
+      'Simplificado sync do live-details (api-sports): removido lock próprio, agora usa gate simples dentro do lock principal do sync',
+      'Adicionadas opções de intervalo para o admin: 40s, 45s, 50s e 55s (além de 30s e 1min)',
+      'Default do intervalo de live-details alterado de 5min para 50s',
+    ],
+  },
+  {
     version: '1.45.0',
     date: '2026-06-14',
     changes: [
