@@ -1,6 +1,6 @@
 import React from "react";
 import { User } from "../types";
-import { Trophy, Shield, Star, RefreshCw, CheckCircle2, AlertTriangle, Clock, Target } from "lucide-react";
+import { Trophy, Shield, Star, RefreshCw, CheckCircle2, AlertTriangle, Clock, Target, Info, Copy, Check } from "lucide-react";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
 import AvatarPicker from "./ui/AvatarPicker";
 import { CURRENT_VERSION } from "../data/releases";
@@ -44,11 +44,13 @@ const Header: React.FC<HeaderProps> = ({
   competitionLastSync,
 }) => {
   const [isAvatarModalOpen, setIsAvatarModalOpen] = React.useState(false);
+  const [isAboutModalOpen, setIsAboutModalOpen] = React.useState(false);
   const [newName, setNewName] = React.useState(currentUser.name || "");
   const [newAvatarUrl, setNewAvatarUrl] = React.useState(currentUser.avatar || "");
   const [isUpdatingProfile, setIsUpdatingProfile] = React.useState(false);
   const [isFetchingGravatar, setIsFetchingGravatar] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState("");
+  const [pixCopied, setPixCopied] = React.useState(false);
 
   // SHA-256 hash for Gravatar support
   const getGravatarHash = async (email: string) => {
@@ -109,15 +111,24 @@ const Header: React.FC<HeaderProps> = ({
       setIsUpdatingProfile(false);
     }
   };
+
+  const handleCopyPix = () => {
+    navigator.clipboard.writeText("697ba4c9-3a03-4ce1-b8c8-82c8df3a7790");
+    setPixCopied(true);
+    setTimeout(() => setPixCopied(false), 2000);
+  };
   
   return (
     <>
       <header className="sticky top-0 z-40 bg-brand-dark/80 backdrop-blur-xl border-b border-white/5 shadow-2xl">
         <div className="max-w-2xl mx-auto px-5 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-br from-brand-green to-emerald-600 w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg shadow-brand-green/20 rotate-3">
+            <button
+              onClick={() => setIsAboutModalOpen(true)}
+              className="bg-gradient-to-br from-brand-green to-emerald-600 w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg shadow-brand-green/20 rotate-3 hover:scale-105 active:scale-95 transition-all focus:outline-none"
+            >
               <Trophy size={20} className="text-brand-dark" />
-            </div>
+            </button>
             <div className="flex flex-col">
               <h1 className="font-black text-lg tracking-tighter text-white leading-none">BOLÃO</h1>
               <div className="flex items-baseline gap-1.5 mt-1">
@@ -354,6 +365,74 @@ const Header: React.FC<HeaderProps> = ({
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {isAboutModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/90 backdrop-blur-sm px-4 py-6 overflow-y-auto animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 w-full max-w-sm shadow-2xl my-auto">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-gradient-to-br from-brand-green to-emerald-600 w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shadow-brand-green/20">
+                <Trophy size={24} className="text-brand-dark" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-black text-white tracking-tight">SOBRE</h2>
+                <p className="text-[10px] font-black text-brand-green tracking-[0.2em]">BOLÃO 2026</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <p className="text-sm text-slate-300 leading-relaxed">
+                Projeto desenvolvido para uma competição amigável entre amigos durante a Copa do Mundo 2026.
+              </p>
+
+              <div className="bg-slate-950/50 rounded-2xl p-4 border border-slate-800">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Desenvolvido por</p>
+                <p className="text-sm font-bold text-white">Miguel Castro</p>
+                <p className="text-sm font-bold text-white">Fernando Fraga</p>
+              </div>
+
+              <div className="bg-slate-950/50 rounded-2xl p-4 border border-slate-800">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Infraestrutura</p>
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  O app utiliza APIs externas para atualização de dados em tempo real. Toda a infraestrutura é mantida pelos desenvolvedores.
+                </p>
+              </div>
+
+              <div className="bg-gradient-to-br from-brand-green/10 to-emerald-600/10 rounded-2xl p-4 border border-brand-green/20">
+                <p className="text-[10px] font-black text-brand-green uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                  <Info size={12} />
+                  Apoie o projeto
+                </p>
+                <p className="text-sm text-slate-300 leading-relaxed mb-3">
+                  Caso esteja gostando do app e queira fazer uma doação:
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 bg-slate-950 text-xs text-brand-green font-mono px-3 py-2 rounded-xl truncate">
+                    697ba4c9-3a03-4ce1-b8c8-82c8df3a7790
+                  </code>
+                  <button
+                    onClick={handleCopyPix}
+                    className="p-2 bg-brand-green rounded-xl hover:scale-105 active:scale-95 transition-all focus:outline-none"
+                  >
+                    {pixCopied ? (
+                      <Check size={16} className="text-brand-dark" />
+                    ) : (
+                      <Copy size={16} className="text-brand-dark" />
+                    )}
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-500 font-bold mt-2">Chave Pix (copia e cola)</p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsAboutModalOpen(false)}
+              className="w-full py-3 rounded-2xl font-black text-xs uppercase tracking-widest bg-brand-green text-brand-dark hover:scale-105 active:scale-95 transition-all"
+            >
+              Fechar
+            </button>
           </div>
         </div>
       )}

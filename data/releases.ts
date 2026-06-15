@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.44.1';
+export const CURRENT_VERSION = '1.45.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.45.0',
+    date: '2026-06-14',
+    changes: [
+      'Adicionado modal "Sobre" ao clicar no ícone do bolão no header',
+      'Modal exibe informações sobre o projeto, desenvolvedores e infraestrutura',
+      'Inclui chave Pix para doações com botão de copiar',
+    ],
+  },
   {
     version: '1.44.1',
     date: '2026-06-14',
