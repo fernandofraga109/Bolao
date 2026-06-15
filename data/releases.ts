@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.45.0';
+export const CURRENT_VERSION = '1.46.1';
 
 export interface Release {
   version: string;
@@ -8,7 +8,7 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
-    version: '1.46.0',
+    version: '1.46.1',
     date: '2026-06-15',
     changes: [
       'Simplificado sync do live-details (api-sports): removido lock próprio, agora usa gate simples dentro do lock principal do sync',
