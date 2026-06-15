@@ -825,6 +825,7 @@ export const useSyncSystem = (
                 regularAway: regularAway ?? null,
                 extraTimeHome: extraTimeHome ?? null,
                 extraTimeAway: extraTimeAway ?? null,
+                liveDetails: undefined, // Novo jogo: sem liveDetails ainda
               });
             } else {
               // Times com id/tla nulos = jogos de fase eliminatória ainda não definidos (TBD).
