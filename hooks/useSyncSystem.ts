@@ -895,15 +895,18 @@ export const useSyncSystem = (
         const LIVE_DETAILS_INTERVAL_MS =
           dbRef.current.systemConfig?.live_details_interval_ms ?? 5 * 60 * 1000;
         if (hasLiveMatches && (canWriteData || isBackgroundSync)) {
-          const comp = (dbRef.current.competitions as any[] | undefined)?.find(
-            (c) => normalizeCompetitionCode(c.code) === normalizedCode,
-          );
-          const lastLiveSync = comp?.liveDetailsLastSync
-            ? new Date(comp.liveDetailsLastSync).getTime()
-            : 0;
-          const elapsedSinceLive = Date.now() - lastLiveSync;
+          // Lock ATÔMICO no banco (check-and-set em liveDetailsLastSync). Substitui
+          // o throttle antigo em estado local, que não era atômico entre clientes:
+          // dois clientes com timestamp desatualizado podiam ambos chamar a
+          // api-football no mesmo intervalo. Ver migration 0033.
+          const liveLockAcquired = dbRef.current.acquireLiveDetailsLock
+            ? await dbRef.current.acquireLiveDetailsLock(
+                normalizedCode,
+                LIVE_DETAILS_INTERVAL_MS,
+              )
+            : false;
 
-          if (elapsedSinceLive >= LIVE_DETAILS_INTERVAL_MS) {
+          if (liveLockAcquired) {
             try {
               const liveFixtures = await fetchLiveMatchDetails();
               let liveMatched = 0;
@@ -926,19 +929,14 @@ export const useSyncSystem = (
                   liveUnmatched > 0 ? ` · ${liveUnmatched} sem correspondência` : ""
                 } · próxima chamada em ~${nextInMin}min`,
               );
-              // Atualiza o throttle mesmo sem match (evita refazer a chamada no próximo tick).
-              if (dbRef.current.updateCompetitionLiveDetailsSync) {
-                await dbRef.current.updateCompetitionLiveDetailsSync(
-                  normalizedCode,
-                  new Date().toISOString(),
-                );
-              }
+              // O lock atômico (RPC) já gravou liveDetailsLastSync no banco — não
+              // é preciso atualizar o throttle aqui.
             } catch (liveErr) {
               console.warn("[SYNC] Falha ao processar detalhes ao vivo:", liveErr);
             }
           } else {
             console.log(
-              `[SYNC] Detalhes ao vivo: throttle ativo (${Math.round(elapsedSinceLive / 1000)}s < ${LIVE_DETAILS_INTERVAL_MS / 1000}s). Pulando api-sports.`,
+              `[SYNC] Detalhes ao vivo: lock não adquirido (throttle de ${LIVE_DETAILS_INTERVAL_MS / 1000}s ativo ou outra instância já buscou). Pulando api-sports.`,
             );
           }
         }

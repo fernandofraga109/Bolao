@@ -5,7 +5,8 @@
       "Bash(npm test *)",
       "Bash(npx vitest *)",
       "Bash(npx playwright *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(node espn.js catar)"
     ]
   }
 }
