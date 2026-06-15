@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.43.0';
+export const CURRENT_VERSION = '1.44.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.44.0',
+    date: '2026-06-14',
+    changes: [
+      'Relógio ao vivo sincronizado minuto a minuto: exibe apenas os minutos sem segundos (ex: AO VIVO - 55\u0027)',
+      'Removido o tick local do relógio ao vivo que fazia o tempo adiantar',
+      'Simplificada a exibição do placar ao vivo: removido o temporizador central abaixo dos gols',
+    ],
+  },
   {
     version: '1.43.0',
     date: '2026-06-14',

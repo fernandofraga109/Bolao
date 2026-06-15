@@ -34,42 +34,25 @@ describe("getLiveClock", () => {
     expect(c?.running).toBe(false);
   });
 
-  it("ticka a partir de elapsed + tempo desde o syncedAt", () => {
-    const syncedAt = "2026-06-14T03:00:00.000Z";
-    const now = Date.parse(syncedAt) + 65 * 1000; // 1min05s após o fetch
-    const c = getLiveClock(base({ statusShort: "2H", elapsed: 90, syncedAt }), now);
-    expect(c?.running).toBe(true);
-    expect(c?.label).toBe("91:05"); // 90:00 + 1:05
+  it("mostra o minuto autoritativo (elapsed), sem tick local", () => {
+    const c = getLiveClock(base({ statusShort: "2H", elapsed: 90 }));
+    expect(c?.running).toBe(false);
+    expect(c?.label).toBe("90'");
   });
 
-  it("no instante do fetch mostra o elapsed cheio (MM:00)", () => {
-    const syncedAt = "2026-06-14T03:00:00.000Z";
-    const c = getLiveClock(
-      base({ statusShort: "1H", elapsed: 45, syncedAt }),
-      Date.parse(syncedAt),
-    );
-    expect(c?.label).toBe("45:00");
+  it("mostra o elapsed exato", () => {
+    const c = getLiveClock(base({ statusShort: "1H", elapsed: 45 }));
+    expect(c?.label).toBe("45'");
   });
 
   it("mostra acréscimos (+extra)", () => {
-    const syncedAt = "2026-06-14T03:00:00.000Z";
-    const c = getLiveClock(
-      base({ statusShort: "2H", elapsed: 90, extra: 4, syncedAt }),
-      Date.parse(syncedAt),
-    );
-    expect(c?.label).toBe("90:00 (+4)");
+    const c = getLiveClock(base({ statusShort: "2H", elapsed: 90, extra: 4 }));
+    expect(c?.label).toBe("90' (+4)");
   });
 
   it("pênaltis em andamento", () => {
     const c = getLiveClock(base({ statusShort: "P", elapsed: 120 }));
     expect(c?.label).toBe("Pênaltis");
     expect(c?.running).toBe(false);
-  });
-
-  it("não deixa o relógio voltar (clamp em now < syncedAt)", () => {
-    const syncedAt = "2026-06-14T03:00:00.000Z";
-    const now = Date.parse(syncedAt) - 10_000; // skew negativo
-    const c = getLiveClock(base({ statusShort: "2H", elapsed: 90, syncedAt }), now);
-    expect(c?.label).toBe("90:00");
   });
 });

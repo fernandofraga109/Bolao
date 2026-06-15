@@ -254,9 +254,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                <span className="w-1.5 h-1.5 rounded-full bg-brand-red animate-pulse"></span>
                <span className="text-[10px] font-black text-brand-red uppercase tracking-tighter">
                  {liveClock?.label
-                   ? `AO VIVO • ${liveClock.label}`
+                   ? `AO VIVO - ${liveClock.label}`
                    : match.minute
-                     ? `AO VIVO • ${match.minute}'`
+                     ? `AO VIVO - ${match.minute}'`
                      : "AO VIVO"}
                </span>
             </div>
@@ -315,13 +315,13 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                       {displayResult?.away ?? 0}
                     </span>
                   </div>
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">
-                    {isLive
-                      ? (liveClock?.label ?? (match.minute ? `Minuto ${match.minute}'` : "Ao Vivo"))
-                      : ruleset === "regulamento_1" && getMatchDuration(match) !== 'REGULAR'
+                  {!isLive && (
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">
+                      {ruleset === "regulamento_1" && getMatchDuration(match) !== 'REGULAR'
                         ? "Tempo Regular"
                         : "Resultado"}
-                  </span>
+                    </span>
+                  )}
                 </div>
 
                 {/* User prediction */}

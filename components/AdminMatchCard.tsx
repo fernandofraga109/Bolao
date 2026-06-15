@@ -125,7 +125,7 @@ const AdminMatchCard: React.FC<Props> = ({ match, onAdminSaveMatch, onAdminToggl
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-red/10 border border-brand-red/30">
               <span className="w-1.5 h-1.5 rounded-full bg-brand-red animate-pulse" />
               <span className="text-[10px] font-black text-brand-red uppercase tracking-tighter">
-                {match.minute ? `AO VIVO • ${match.minute}'` : "AO VIVO"}
+                {match.minute ? `AO VIVO - ${match.minute}'` : "AO VIVO"}
               </span>
             </div>
           )}
