@@ -889,24 +889,25 @@ export const useSyncSystem = (
 
         // ── FASE 3.5: Detalhes ao vivo (api-sports) — minuto a minuto ────────
         // Segunda API, SÓ cosmética (relógio, eventos, árbitro, estádio). NÃO
-        // entra em pontuação. Throttle próprio (independente do sync_interval)
-        // para respeitar o orçamento de ~20 chamadas por jogo.
-        // Intervalo configurável pelo admin (system_config). Default 5min.
+        // entra em pontuação. Roda DENTRO do lock principal do sync, que já é
+        // serializado por competição entre instâncias (acquireSyncLock). Por
+        // isso NÃO precisa de lock próprio: basta um gate simples — só chama a
+        // api-sports se há jogo ao vivo E já passou o intervalo mínimo desde o
+        // último fetch (liveDetailsLastSync). Intervalo configurável pelo admin
+        // (system_config). Default 50s.
         const LIVE_DETAILS_INTERVAL_MS =
-          dbRef.current.systemConfig?.live_details_interval_ms ?? 5 * 60 * 1000;
+          dbRef.current.systemConfig?.live_details_interval_ms ?? 50 * 1000;
         if (hasLiveMatches && (canWriteData || isBackgroundSync)) {
-          // Lock ATÔMICO no banco (check-and-set em liveDetailsLastSync). Substitui
-          // o throttle antigo em estado local, que não era atômico entre clientes:
-          // dois clientes com timestamp desatualizado podiam ambos chamar a
-          // api-football no mesmo intervalo. Ver migration 0033.
-          const liveLockAcquired = dbRef.current.acquireLiveDetailsLock
-            ? await dbRef.current.acquireLiveDetailsLock(
-                normalizedCode,
-                LIVE_DETAILS_INTERVAL_MS,
-              )
-            : false;
+          const competition = (dbRef.current.competitions as any[])?.find(
+            (c) => c.code === normalizedCode,
+          );
+          const lastSyncMs = competition?.liveDetailsLastSync
+            ? new Date(competition.liveDetailsLastSync).getTime()
+            : 0;
+          const elapsedMs = Date.now() - lastSyncMs;
+          const shouldFetchLive = elapsedMs >= LIVE_DETAILS_INTERVAL_MS;
 
-          if (liveLockAcquired) {
+          if (shouldFetchLive) {
             try {
               const liveFixtures = await fetchLiveMatchDetails();
               let liveMatched = 0;
@@ -922,21 +923,27 @@ export const useSyncSystem = (
                   liveMatched++;
                 }
               }
+              // Persiste o timestamp do fetch — gate do próximo tick deste cliente
+              // e das demais instâncias (todas leem liveDetailsLastSync).
+              if (dbRef.current.updateCompetitionLiveDetailsSync) {
+                await dbRef.current.updateCompetitionLiveDetailsSync(
+                  normalizedCode,
+                  new Date().toISOString(),
+                );
+              }
               const liveUnmatched = liveFixtures.length - liveMatched;
-              const nextInMin = Math.round(LIVE_DETAILS_INTERVAL_MS / 60000);
+              const nextInSec = Math.round(LIVE_DETAILS_INTERVAL_MS / 1000);
               console.log(
                 `[SYNC][LIVE DETAILS] ✅ api-sports OK — ${liveFixtures.length} jogo(s) ao vivo · ${liveMatched} casado(s) com o bolão${
                   liveUnmatched > 0 ? ` · ${liveUnmatched} sem correspondência` : ""
-                } · próxima chamada em ~${nextInMin}min`,
+                } · próxima chamada em ~${nextInSec}s`,
               );
-              // O lock atômico (RPC) já gravou liveDetailsLastSync no banco — não
-              // é preciso atualizar o throttle aqui.
             } catch (liveErr) {
               console.warn("[SYNC] Falha ao processar detalhes ao vivo:", liveErr);
             }
           } else {
             console.log(
-              `[SYNC] Detalhes ao vivo: lock não adquirido (throttle de ${LIVE_DETAILS_INTERVAL_MS / 1000}s ativo ou outra instância já buscou). Pulando api-sports.`,
+              `[SYNC] Detalhes ao vivo: throttle ativo (${Math.round(elapsedMs / 1000)}s desde o último fetch, mínimo ${Math.round(LIVE_DETAILS_INTERVAL_MS / 1000)}s). Pulando api-sports.`,
             );
           }
         }

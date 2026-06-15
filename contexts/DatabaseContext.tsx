@@ -125,7 +125,6 @@ interface DatabaseContextType {
   updateCompetitionLiveDetailsSync: (code: string, timestamp: string) => Promise<void>;
   updateCompetitionAutoSync: (code: string, enabled: boolean) => Promise<void>;
   acquireSyncLock: (code: string) => Promise<boolean>;
-  acquireLiveDetailsLock: (code: string, intervalMs: number) => Promise<boolean>;
   releaseSyncLock: (code: string) => Promise<void>;
   updateCompetitionAwards: (code: string, awards: { 
     championTeamId?: string | null;
@@ -1338,46 +1337,6 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     return lockAcquired;
   };
 
-  // Lock ATÔMICO do minuto-a-minuto (api-football). Faz check-and-set em
-  // competitions."liveDetailsLastSync" no banco numa única operação — quem ganha o
-  // UPDATE ganha o direito de chamar a api-football agora. Substitui o throttle
-  // antigo em estado local (que não era atômico entre clientes). Ver migration 0033.
-  const acquireLiveDetailsLock = async (
-    code: string,
-    intervalMs: number,
-  ): Promise<boolean> => {
-    const prefix = import.meta.env.VITE_DB_TABLE_PREFIX || "";
-    const rpcName = prefix
-      ? `${prefix}acquire_live_details_lock`
-      : "acquire_live_details_lock";
-
-    const { data, error } = await supabase.rpc(rpcName, {
-      p_competition_code: code,
-      p_interval_ms: intervalMs,
-    });
-
-    if (error) {
-      console.error(`[acquireLiveDetailsLock] ERRO ao chamar RPC:`, error);
-      return false;
-    }
-
-    const lockAcquired = data === true;
-    if (lockAcquired) {
-      // A RPC já gravou o timestamp no banco; reflete no estado local para o
-      // próximo tick deste cliente não tentar de novo desnecessariamente.
-      const nowIso = new Date().toISOString();
-      setCompetitions((prev) =>
-        prev.map((c) =>
-          c.code === code ? { ...c, liveDetailsLastSync: nowIso } : c,
-        ),
-      );
-    }
-    console.log(
-      `[acquireLiveDetailsLock] Lock ${lockAcquired ? "✅ ADQUIRIDO" : "🔒 BLOQUEADO"} para ${code} (intervalo: ${Math.round(intervalMs / 1000)}s)`,
-    );
-    return lockAcquired;
-  };
-
   const releaseSyncLock = async (code: string): Promise<void> => {
     console.log(`[releaseSyncLock] Liberando lock para ${code}`);
     const { data, error } = await supabase
@@ -1715,7 +1674,6 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         updateCompetitionLiveDetailsSync,
         updateCompetitionAutoSync,
         acquireSyncLock,
-        acquireLiveDetailsLock,
         releaseSyncLock,
         updateCompetitionAwards,
         upsertTeam,
@@ -1763,7 +1721,6 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         updateCompetitionLiveDetailsSync,
         updateCompetitionAutoSync,
         acquireSyncLock,
-        acquireLiveDetailsLock,
         releaseSyncLock,
         updateCompetitionAwards,
         upsertTeam,

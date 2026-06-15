@@ -976,6 +976,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         className="w-full bg-slate-900 border border-slate-600 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-brand-green"
                       >
                         <option value={30000}>30 segundos (Muito Rápido)</option>
+                        <option value={40000}>40 segundos</option>
+                        <option value={45000}>45 segundos</option>
+                        <option value={50000}>50 segundos</option>
+                        <option value={55000}>55 segundos</option>
                         <option value={60000}>1 minuto</option>
                         <option value={120000}>2 minutos</option>
                         <option value={180000}>3 minutos</option>

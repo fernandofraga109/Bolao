@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS public.system_config (
     id uuid NOT NULL PRIMARY KEY,
     is_auto_sync_enabled boolean DEFAULT false,
     sync_interval_ms integer DEFAULT 60000,
-    -- Intervalo (ms) entre buscas do minuto-a-minuto (api-sports). Default 5min.
-    live_details_interval_ms integer DEFAULT 300000,
+    -- Intervalo (ms) entre buscas do minuto-a-minuto (api-sports). Default 50s.
+    live_details_interval_ms integer DEFAULT 50000,
     -- Versão publicada por deploy: { "bolao": "1.36.0", "miguelfork": "1.35.1" }.
     -- Alimenta o banner "Nova versão disponível"; cada deploy lê só a sua chave.
     app_versions jsonb

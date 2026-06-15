@@ -57,7 +57,7 @@ export interface SystemConfigDB {
   id: string; // UUID singleton
   is_auto_sync_enabled: boolean;
   sync_interval_ms: number;
-  /** Intervalo (ms) entre buscas do minuto-a-minuto (api-sports). Controla a cota; default 5min. */
+  /** Intervalo (ms) entre buscas do minuto-a-minuto (api-sports). Controla a cota; default 50s. */
   live_details_interval_ms?: number;
   underdog_min_rank_diff: number;
   /** @deprecated Versão única legada (compartilhada entre deploys). Substituída por
