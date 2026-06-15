@@ -1,6 +1,6 @@
 # Plano — Lock atômico para a api-football (minuto-a-minuto)
 
-_Status_: IN PROGRESS — iniciado 2026-06-14
+_Status_: DONE — 2026-06-14
 
 ## Problema
 

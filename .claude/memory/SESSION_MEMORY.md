@@ -23,10 +23,17 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 | Deferred | Large file refactor (5 phases) | `.claude/plans/large-file-refactors.md` | Planned, not started — branch `chore/structural-refactor` |
 | Deferred | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Deferred |
 | Next | Sync call reduction (cadências desacopladas + gate por estado) | `.claude/plans/sync-call-reduction.md` | PLANEJADO — aguardando aprovação |
-| In Progress | Lock atômico para a api-football (minuto-a-minuto) | `.claude/plans/live-details-atomic-lock.md` | EM ANDAMENTO — iniciado 2026-06-14 |
 | In Progress | E2E schema `test` + seed fixtures (piloto PRED) | `.claude/plans/e2e-seed-fixtures.md` | PARADO 2026-06-11. 13 passed/0 failed/16 skipped. Fix do `waitForMatchesLoaded` UNCOMMITTED (falta verificar). Detalhes completos no plano. |
 
 ---
+
+## Completed — Lock atômico da api-football (minuto-a-minuto) (2026-06-14)
+
+Plano: `.claude/plans/completed/live-details-atomic-lock.md` | CURRENT_VERSION 1.44.1 | commits `a92a0aa` + `761a072` na main; branch Miguel `feature/fernando-14062026-live-details-lock`.
+
+- **Problema:** a chamada da api-football (FASE 3.5 do `runSync`, `/api/live-details`) só tinha throttle em estado local (não-atômico). Duas abas com `liveDetailsLastSync` desatualizado podiam ambas chamar no mesmo intervalo e queimar cota. O `acquire_sync_lock` serializa o sync inteiro, não a chamada à api-football.
+- **Fix:** migration `0033` — RPC `acquire_live_details_lock(code, interval_ms)` (+ variante `v2_`) faz check-and-set atômico em `competitions."liveDetailsLastSync"` (mesmo padrão da `0026`). `DatabaseContext.acquireLiveDetailsLock`. `useSyncSystem` FASE 3.5 troca o `if (elapsed >= interval)` + `updateCompetitionLiveDetailsSync` por uma única chamada ao lock. Degradação graciosa se a RPC faltar (retorna false; sync principal intacto). **Migration já aplicada no Supabase pelo usuário.**
+- **Deferido:** B2 (dedupe **global** do live-details — endpoint é `league=1`, não por-competição); limpar `updateCompetitionLiveDetailsSync` órfã; testes (domínio `test-runner`, não escritos).
 
 ## Completed — Seção "Ao Vivo" + Dense ranking (2026-06-12)
 
@@ -218,6 +225,7 @@ After Phase 6: Phase 7 (StatsPage), Phase 8 (TournamentStandings), Phase 9 (docs
 
 ## Next Action
 
+0. **Validar lock da api-football em prod:** logs `[acquireLiveDetailsLock] ✅ ADQUIRIDO`/`🔒 BLOQUEADO` + `[PROXY LIVE-DETAILS][QUOTA]` com ≤1 chamada por intervalo entre abas. (Testes do fluxo: deferidos ao `test-runner`.)
 1. **Operacional do banner:** aplicar a migration `0030_per_deploy_app_versions.sql` no Supabase de produção (compartilhado) — aditiva/segura. Validar no próximo deploy o log `[publish-version] app_version publicada: "..." para deploy "bolao|miguelfork" ✅`.
 2. **Fix do teste `KnockoutClassificationsCard`** (pausado): teste desatualizado pelo commit `d2781a2` (lock da 2ª fase passou a ser "só quando a fase começa", não mais por `lockDate` global). O teste de linha ~110 ("Bloqueado"/"globally locked") precisa montar um cenário com 1º jogo da fase no passado em vez de `lockDate={pastLock}`. Domínio do `test-runner`. NÃO é bug do componente.
 3. Backlog deferido: sync-call-reduction, specials refactor Phase A, E2E Fase B/C.
