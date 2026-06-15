@@ -57,7 +57,7 @@ interface AdminDashboardProps {
   onRemoveUser: (userId: string) => void;
   onCreateGroup: (name: string, competitionCode: string, ruleset?: "regulamento_1" | "regulamento_2") => void;
   onDeleteGroup: (id: string) => Promise<void>;
-  onAddUserToGroup: (uid: string, gid: string) => Promise<void>;
+  onAddUserToGroup: (uid: string, gid: string, sourceGroupId?: string) => Promise<void>;
   onRemoveUserFromGroup: (uid: string, gid: string) => Promise<void>;
   isSyncing: boolean;
   isAutoSyncEnabled: boolean;
@@ -107,6 +107,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   >(null);
   const [isSyncingCatalog, setIsSyncingCatalog] = useState(false);
   const [playerSyncResult, setPlayerSyncResult] = useState<{ synced: number; errors: string[] } | null>(null);
+
+  // Import Predictions Modal States
+  const [addUserModal, setAddUserModal] = useState<{
+    userId: string;
+    groupId: string;
+    importChecked: boolean;
+    sourceGroupId: string;
+  } | null>(null);
+  const [isAddingUser, setIsAddingUser] = useState(false);
 
   // Tournament Awards States
   const [selectedCompetitionCode, setSelectedCompetitionCode] = useState<string | null>(null);
@@ -1756,7 +1765,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 className="flex-1 bg-slate-900 border border-slate-600 text-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-brand-green"
                 onChange={(e) => {
                   if (e.target.value) {
-                    onAddUserToGroup(e.target.value, group.id);
+                    const userId = e.target.value;
+                    const userGroups = groups.filter(
+                      (g) =>
+                        g.id !== group.id &&
+                        (g.competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase() ===
+                          (group.competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase() &&
+                        g.ruleset === group.ruleset &&
+                        users.find((u) => u.id === userId)?.groupIds?.includes(g.id),
+                    );
+                    const defaultSource = userGroups[0]?.id ?? "";
+                    setAddUserModal({
+                      userId,
+                      groupId: group.id,
+                      importChecked: userGroups.length > 0 && group.ruleset === "regulamento_1",
+                      sourceGroupId: defaultSource,
+                    });
                     e.target.value = "";
                   }
                 }}
@@ -1976,6 +2000,142 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </ul>
         </ModalShell>
       )}
+
+      {/* ADD USER WITH IMPORT MODAL */}
+      {addUserModal && (() => {
+        const userToAdd = users.find((u) => u.id === addUserModal.userId);
+        const targetGroup = groups.find((g) => g.id === addUserModal.groupId);
+        const eligibleSourceGroups = groups.filter(
+          (g) =>
+            g.id !== addUserModal.groupId &&
+            (g.competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase() ===
+              (targetGroup?.competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase() &&
+            g.ruleset === targetGroup?.ruleset &&
+            userToAdd?.groupIds?.includes(g.id),
+        );
+        const canImport =
+          eligibleSourceGroups.length > 0 &&
+          targetGroup?.ruleset === "regulamento_1";
+
+        return (
+          <ModalShell
+            title={
+              <span className="inline-flex items-center gap-2">
+                <UserPlus className="text-indigo-400" size={24} />
+                Adicionar Participante
+              </span>
+            }
+            onClose={() => setAddUserModal(null)}
+            maxWidthClassName="max-w-md"
+            panelClassName="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl"
+            contentClassName="p-6"
+            footer={
+              <DualActionButtons
+                secondaryLabel="Cancelar"
+                primaryLabel={
+                  <span className="inline-flex items-center justify-center gap-2">
+                    {isAddingUser ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      "Adicionar"
+                    )}
+                  </span>
+                }
+                onSecondary={() => setAddUserModal(null)}
+                onPrimary={async () => {
+                  setIsAddingUser(true);
+                  try {
+                    await onAddUserToGroup(
+                      addUserModal.userId,
+                      addUserModal.groupId,
+                      addUserModal.importChecked ? addUserModal.sourceGroupId : undefined,
+                    );
+                    setAddUserModal(null);
+                  } catch (err: any) {
+                    alert(err?.message || "Erro ao adicionar usuário");
+                  } finally {
+                    setIsAddingUser(false);
+                  }
+                }}
+                secondaryDisabled={isAddingUser}
+                primaryDisabled={isAddingUser}
+                primaryClassName="flex-1 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            }
+            footerClassName="px-6 pb-6"
+          >
+            <div className="space-y-4">
+              <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+                <UserIdentity
+                  avatarSrc={userToAdd?.avatar}
+                  avatarAlt={userToAdd?.name}
+                  avatarClassName="w-10 h-10 rounded-full"
+                  avatarFallbackClassName="bg-slate-700 text-indigo-200"
+                  avatarIconSize={18}
+                  name={userToAdd?.name}
+                  subtitle={userToAdd?.email}
+                  nameClassName="text-indigo-200 font-bold text-sm"
+                  subtitleClassName="text-xs text-indigo-200/70"
+                />
+              </div>
+
+              {canImport && (
+                <div className="space-y-3">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={addUserModal.importChecked}
+                      onChange={(e) =>
+                        setAddUserModal((prev) =>
+                          prev
+                            ? { ...prev, importChecked: e.target.checked }
+                            : null,
+                        )
+                      }
+                      className="w-4 h-4 rounded border-slate-600 text-brand-green focus:ring-brand-green bg-slate-900"
+                    />
+                    <span className="text-sm text-slate-300">
+                      Importar palpites já feitos em outro grupo
+                    </span>
+                  </label>
+
+                  {addUserModal.importChecked && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
+                        Grupo de origem
+                      </label>
+                      <select
+                        className="w-full bg-slate-900 border border-slate-600 text-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-brand-green"
+                        value={addUserModal.sourceGroupId}
+                        onChange={(e) =>
+                          setAddUserModal((prev) =>
+                            prev
+                              ? { ...prev, sourceGroupId: e.target.value }
+                              : null,
+                          )
+                        }
+                      >
+                        {eligibleSourceGroups.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.name} (#{g.code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!canImport && (
+                <div className="bg-yellow-900/20 border border-yellow-500/20 rounded-lg p-3 text-xs text-yellow-200">
+                  Este usuário não possui grupos elegíveis para importação
+                  (mesma competição + Regulamento 1).
+                </div>
+              )}
+            </div>
+          </ModalShell>
+        );
+      })()}
 
       {/* REMOVE MEMBER CONFIRMATION MODAL */}
       {memberToRemove && (

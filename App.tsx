@@ -702,7 +702,11 @@ const App: React.FC = () => {
               }).then(() => undefined)
             }
             onDeleteGroup={deleteGroup}
-            onAddUserToGroup={adminActions.adminAddUserToGroup}
+            onAddUserToGroup={(
+              uid: string,
+              gid: string,
+              sourceGroupId?: string,
+            ) => adminActions.adminAddUserToGroup(uid, gid, sourceGroupId)}
             onRemoveUserFromGroup={adminActions.adminRemoveUserFromGroup}
             isSyncing={isSyncing}
             isAutoSyncEnabled={isAutoSyncEnabled}

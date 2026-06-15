@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.46.2';
+export const CURRENT_VERSION = '1.47.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,16 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.47.0',
+    date: '2026-06-15',
+    changes: [
+      'Admin pode importar palpites de um usuário de outro grupo ao adicioná-lo em um grupo existente (Regulamento 1)',
+      'Modal de importação exibe grupos elegíveis com mesma competição e mesmo regulamento',
+      'Importa palpites de jogos e palpites especiais (campeão, artilheiro, melhor jogador, melhor goleiro)',
+      'Palpites originais nunca são alterados — apenas clonados para o novo grupo',
+    ],
+  },
   {
     version: '1.46.2',
     date: '2026-06-15',

@@ -767,12 +767,47 @@ export const useUserSystem = () => {
   };
 
   // Fix: made adminAddUserToGroup async to match db operations and expected return type in AdminDashboard
-  const adminAddUserToGroup = async (userId: string, groupId: string) => {
+  const adminAddUserToGroup = async (
+    userId: string,
+    groupId: string,
+    sourceGroupId?: string,
+  ) => {
     await db.addUserToGroup({
       userId,
       groupId,
       joinedAt: new Date().toISOString(),
     });
+
+    if (!sourceGroupId) return;
+
+    const targetGroup = db.groups.find((g) => g.id === groupId);
+    if (!targetGroup || targetGroup.ruleset !== "regulamento_1") return;
+
+    // 1. Replicar predictions de jogos
+    const sourcePredictions = db.predictions.filter(
+      (p) => p.userId === userId && p.groupId === sourceGroupId,
+    );
+
+    if (sourcePredictions.length > 0) {
+      const clonedPredictions = sourcePredictions.map((pred) => ({
+        ...pred,
+        groupId,
+        points: undefined,
+      }));
+      await db.upsertPrediction(clonedPredictions);
+    }
+
+    // 2. Replicar tournament predictions (palpites especiais Regulamento 1)
+    const sourceTournamentPred = db.tournamentPredictions.find(
+      (tp) => tp.userId === userId && tp.groupId === sourceGroupId,
+    );
+
+    if (sourceTournamentPred) {
+      await db.upsertTournamentPrediction({
+        ...sourceTournamentPred,
+        groupId,
+      });
+    }
   };
 
   // Fix: made adminRemoveUserFromGroup async and added awaits to ensure proper execution of db operations
