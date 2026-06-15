@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.44.0';
+export const CURRENT_VERSION = '1.44.1';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.44.1',
+    date: '2026-06-14',
+    changes: [
+      'Correção: evita chamadas duplicadas à API de dados ao vivo entre abas, economizando cota',
+    ],
+  },
   {
     version: '1.44.0',
     date: '2026-06-14',
