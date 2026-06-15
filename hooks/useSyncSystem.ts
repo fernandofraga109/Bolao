@@ -924,21 +924,27 @@ export const useSyncSystem = (
                   liveMatched++;
                 }
               }
-              // Persiste o timestamp do fetch — gate do próximo tick deste cliente
-              // e das demais instâncias (todas leem liveDetailsLastSync).
-              if (dbRef.current.updateCompetitionLiveDetailsSync) {
-                await dbRef.current.updateCompetitionLiveDetailsSync(
-                  normalizedCode,
-                  new Date().toISOString(),
+              // Só atualiza o timestamp se houve jogos casados E elapsed foi válido (> 0)
+              // Se elapsed for null/zero, provável erro na API — não atualiza para não bloquear o throttle
+              if (liveMatched > 0 && elapsedMs > 0) {
+                if (dbRef.current.updateCompetitionLiveDetailsSync) {
+                  await dbRef.current.updateCompetitionLiveDetailsSync(
+                    normalizedCode,
+                    new Date().toISOString(),
+                  );
+                }
+                const liveUnmatched = liveFixtures.length - liveMatched;
+                const nextInSec = Math.round(LIVE_DETAILS_INTERVAL_MS / 1000);
+                console.log(
+                  `[SYNC][LIVE DETAILS] ✅ api-sports OK — ${liveFixtures.length} jogo(s) ao vivo · ${liveMatched} casado(s) com o bolão${
+                    liveUnmatched > 0 ? ` · ${liveUnmatched} sem correspondência` : ""
+                  } · próxima chamada em ~${nextInSec}s`,
+                );
+              } else {
+                console.warn(
+                  `[SYNC][LIVE DETAILS] ⚠️ Payload vazio ou elapsed inválido (${elapsedMs}ms) — não atualizando liveDetailsLastSync para não bloquear throttle`,
                 );
               }
-              const liveUnmatched = liveFixtures.length - liveMatched;
-              const nextInSec = Math.round(LIVE_DETAILS_INTERVAL_MS / 1000);
-              console.log(
-                `[SYNC][LIVE DETAILS] ✅ api-sports OK — ${liveFixtures.length} jogo(s) ao vivo · ${liveMatched} casado(s) com o bolão${
-                  liveUnmatched > 0 ? ` · ${liveUnmatched} sem correspondência` : ""
-                } · próxima chamada em ~${nextInSec}s`,
-              );
             } catch (liveErr) {
               console.warn("[SYNC] Falha ao processar detalhes ao vivo:", liveErr);
             }
@@ -1018,9 +1024,15 @@ export const useSyncSystem = (
                 continue;
               }
 
-              const resolvedGroup =
-                group.group ||
-                (row.team.id ? teamGroupFromMatches.get(row.team.id) ?? null : null);
+              // Fixtures are the authoritative source for a team's group. The
+              // standings API occasionally returns garbage group labels (e.g.
+              // "Atlantic Division"/"Central Division" instead of Group H), so
+              // prefer the match-derived group and only fall back to the API
+              // label when the team has no group-stage fixture.
+              const groupFromMatches = row.team.id
+                ? teamGroupFromMatches.get(row.team.id) ?? null
+                : null;
+              const resolvedGroup = groupFromMatches || group.group || null;
 
               standingUpserts.push({
                 teamId: team.id,

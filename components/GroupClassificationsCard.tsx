@@ -64,6 +64,12 @@ export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> =
         return;
       }
 
+      // Only include real World Cup groups (Grupo A..L), excluding stray
+      // standings from other competitions (e.g. "Atlantic Division").
+      if (!groupName.startsWith("Grupo")) {
+        return;
+      }
+
       if (!mapping[groupName]) {
         mapping[groupName] = [];
       }
@@ -72,28 +78,33 @@ export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> =
       }
     });
 
-    // B. If database standings table is empty or incomplete, fall back to matches grouping
-    if (Object.keys(mapping).length === 0) {
-      matches.forEach((match) => {
-        if (match.group) {
-          const groupName = normalizeGroupName(match.group);
-          if (KNOCKOUT_STAGE_PATTERNS.test(groupName.replace(/\s+/g, "_"))) {
-            return;
-          }
-
-          if (!mapping[groupName]) {
-            mapping[groupName] = [];
-          }
-          const list = mapping[groupName];
-          if (match.homeTeam && !list.some((t) => t.id === match.homeTeam.id)) {
-            list.push(match.homeTeam);
-          }
-          if (match.awayTeam && !list.some((t) => t.id === match.awayTeam.id)) {
-            list.push(match.awayTeam);
-          }
+    // B. Always merge teams derived from the group's matches. The standings
+    // table can be incomplete (e.g. a team missing from the synced standings),
+    // but a team that actually plays in a group must still be selectable.
+    matches.forEach((match) => {
+      if (match.group) {
+        const groupName = normalizeGroupName(match.group);
+        if (KNOCKOUT_STAGE_PATTERNS.test(groupName.replace(/\s+/g, "_"))) {
+          return;
         }
-      });
-    }
+
+        // Only include real World Cup groups (Grupo A..L)
+        if (!groupName.startsWith("Grupo")) {
+          return;
+        }
+
+        if (!mapping[groupName]) {
+          mapping[groupName] = [];
+        }
+        const list = mapping[groupName];
+        if (match.homeTeam && !list.some((t) => t.id === match.homeTeam.id)) {
+          list.push(match.homeTeam);
+        }
+        if (match.awayTeam && !list.some((t) => t.id === match.awayTeam.id)) {
+          list.push(match.awayTeam);
+        }
+      }
+    });
 
     // C. Sort teams inside each group by their standings position (or alphabetically as fallback)
     Object.keys(mapping).forEach((groupName) => {
@@ -112,6 +123,29 @@ export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> =
       Object.entries(mapping).sort(([a], [b]) => a.localeCompare(b))
     );
   }, [db.teams, db.teamStandings, matches]);
+
+  // Resolve the team to display for a saved pick. The stored teamId may be
+  // stale (e.g. a team re-created during a sync got a new id) and therefore
+  // not present in the group's current team list. In that case, look the team
+  // up globally and try to map it to the equivalent team in this group via
+  // externalTeamId/code, so the saved pick still renders.
+  const resolveDisplayTeam = (
+    teamId: string | undefined,
+    groupTeamsList: Team[]
+  ): Team | undefined => {
+    if (!teamId) return undefined;
+    const inGroup = groupTeamsList.find((t) => t.id === teamId);
+    if (inGroup) return inGroup;
+    const globalTeam = db.teams.find((t) => t.id === teamId);
+    if (!globalTeam) return undefined;
+    const mapped = groupTeamsList.find(
+      (t) =>
+        (globalTeam.externalTeamId != null &&
+          t.externalTeamId === globalTeam.externalTeamId) ||
+        (!!globalTeam.code && t.code === globalTeam.code)
+    );
+    return mapped || globalTeam;
+  };
 
   // 2. Local state for group classifications predictions
   const [localClassifications, setLocalClassifications] = useState<
@@ -284,8 +318,8 @@ export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> =
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             {groupsList.map(([groupName, teams]) => {
               const predictionForGroup = localClassifications[groupName] || {};
-              const firstPlaceTeam = teams.find((t) => t.id === predictionForGroup.firstPlace);
-              const secondPlaceTeam = teams.find((t) => t.id === predictionForGroup.secondPlace);
+              const firstPlaceTeam = resolveDisplayTeam(predictionForGroup.firstPlace, teams);
+              const secondPlaceTeam = resolveDisplayTeam(predictionForGroup.secondPlace, teams);
 
               return (
                 <div

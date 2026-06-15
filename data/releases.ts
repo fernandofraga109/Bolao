@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.46.1';
+export const CURRENT_VERSION = '1.46.2';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.46.2',
+    date: '2026-06-15',
+    changes: [
+      'Failback para Classificados do Grupo quando API falha',
+    ],
+  },
   {
     version: '1.46.1',
     date: '2026-06-15',
