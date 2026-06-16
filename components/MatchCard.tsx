@@ -37,8 +37,6 @@ import {
   Calendar,
   RefreshCw,
   Activity,
-  Star,
-  Target,
 } from "lucide-react";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
 import ReplicatePredictionModal from "./ReplicatePredictionModal";
@@ -97,16 +95,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const [whoClassifiesTeamId, setWhoClassifiesTeamId] = useState<string | null>(
     userPrediction?.whoClassifiesTeamId ?? null
   );
-
-  // Rank geral no grupo baseado no totalPoints do leaderboard
-  const userRankMap = useMemo(() => {
-    const sorted = [...friends].sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0));
-    const map: Record<string, { totalPoints: number; rank: number }> = {};
-    sorted.forEach((f, idx) => {
-      map[f.id] = { totalPoints: f.totalPoints || 0, rank: idx + 1 };
-    });
-    return map;
-  }, [friends]);
 
   // Relógio ao vivo (api-sports) — ticka localmente sem gastar chamadas de API.
   const liveClock = useLiveMatchClock(match.liveDetails);
@@ -655,18 +643,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     <span className="text-xs font-bold text-slate-300 truncate">
                       {f.name}
                     </span>
-                    {isLive && userRankMap[f.id] && (
-                      <div className="flex items-center gap-1.5 text-[10px] text-slate-400 shrink-0">
-                        <span className="flex items-center gap-0.5" title="Pontos">
-                          <Target size={10} className="text-brand-green" />
-                          {userRankMap[f.id].totalPoints}
-                        </span>
-                        <span className="flex items-center gap-0.5" title="Rank">
-                          <Star size={10} className="text-yellow-500" />
-                          {userRankMap[f.id].rank}º
-                        </span>
-                      </div>
-                    )}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span

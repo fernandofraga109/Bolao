@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.49.0';
+export const CURRENT_VERSION = '1.48.0';
 
 export interface Release {
   version: string;
@@ -7,13 +7,6 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
-  {
-    version: '1.49.0',
-    date: '2026-06-15',
-    changes: [
-      "Card 'O que a galera acha' agora exibe pontos gerais (jogos + especiais) e rank do grupo ao lado do nome de cada participante durante jogos ao vivo",
-    ],
-  },
   {
     version: '1.48.0',
     date: '2026-06-15',
