@@ -201,7 +201,7 @@ const LeaderboardDetails: React.FC<LeaderboardDetailsProps> = ({
                         </div>
                       </div>
 
-                      <div className="text-right shrink-0">
+                      <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
                         <div className="flex items-baseline justify-end gap-1">
                           <span
                             className={`text-xl font-black leading-none ${
@@ -214,6 +214,13 @@ const LeaderboardDetails: React.FC<LeaderboardDetailsProps> = ({
                             pts
                           </span>
                         </div>
+                        {ruleset === "regulamento_2" && (user.matchPoints !== undefined || user.specialPoints !== undefined) && (
+                          <div className="text-[9px] font-bold text-slate-400 tracking-tight leading-none">
+                            <span className="text-slate-500">{user.matchPoints ?? 0} jogos</span>
+                            <span className="text-slate-600 mx-0.5">|</span>
+                            <span className="text-slate-500">{user.specialPoints ?? 0} esp.</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 

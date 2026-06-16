@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.47.0';
+export const CURRENT_VERSION = '1.48.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,14 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.48.0',
+    date: '2026-06-15',
+    changes: [
+      'Rank do Regulamento 2 agora separa pontos de jogos e pontos especiais (torneio + extra phase)',
+      'Labels compactas exibidas abaixo do total de pontos nas views Ranking e Detalhes',
+    ],
+  },
   {
     version: '1.47.0',
     date: '2026-06-15',

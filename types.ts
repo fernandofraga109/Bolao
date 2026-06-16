@@ -338,6 +338,8 @@ export interface User {
   predictionsCount?: number;
   scoreBreakdown?: ScoreBreakdown;
   tieBreakStats?: TieBreakStats;
+  matchPoints?: number;
+  specialPoints?: number;
 }
 
 export interface Match {

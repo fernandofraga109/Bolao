@@ -55,6 +55,8 @@ export const useLeaderboard = (
       .filter((user) => user.role !== "ADMIN")
       .map((user) => {
         let total = 0;
+        let matchPoints = 0;
+        let specialPoints = 0;
         const breakdown = {
           exactCount: 0,
           diffCount: 0,
@@ -104,7 +106,7 @@ export const useLeaderboard = (
                 breakdown.aloneBonusTotal += 5;
               }
 
-              total += calculatePointsRegulamento2(
+              const pts = calculatePointsRegulamento2(
                 pred.home,
                 pred.away,
                 match.result.home,
@@ -113,6 +115,8 @@ export const useLeaderboard = (
                 matchPredictions,
                 user.id
               );
+              total += pts;
+              matchPoints += pts;
             } else {
               const realWhoClassifiesId = getKnockoutAdvancingTeamId(match);
               const predWhoClassifiesId = pred.whoClassifiesTeamId;
@@ -161,12 +165,14 @@ export const useLeaderboard = (
 
         if (tournamentResults) {
           if (activeRuleset === "regulamento_2") {
-            total += calculateTournamentPointsRegulamento2(
+            const tournPts = calculateTournamentPointsRegulamento2(
               user.tournamentPredictions,
               tournamentResults,
               allGroupPredictions,
               user.id
             );
+            total += tournPts;
+            specialPoints += tournPts;
           } else {
             total += calculateTournamentPoints(
               user.tournamentPredictions,
@@ -201,11 +207,13 @@ export const useLeaderboard = (
               const phaseMatches = phaseMatchContexts.filter(
                 (m) => getExtraPhaseKey(m.stage, m.group) === ep.phase
               );
-              total += calculateExtraPhasePoints(
+              const extraPts = calculateExtraPhasePoints(
                 { phase: ep.phase, matchId: ep.matchId || undefined },
                 phaseMatches,
                 biggestGoalDiffOverrides[ep.phase] || undefined
               );
+              total += extraPts;
+              specialPoints += extraPts;
             });
           }
         }
@@ -214,6 +222,8 @@ export const useLeaderboard = (
           ...user, 
           totalPoints: total, 
           scoreBreakdown: breakdown,
+          matchPoints: activeRuleset === "regulamento_2" ? matchPoints : undefined,
+          specialPoints: activeRuleset === "regulamento_2" ? specialPoints : undefined,
           tieBreakStats: activeRuleset === "regulamento_2" ? {
             championHit: (user.tournamentPredictions?.championTeamId && tournamentResults?.championTeamId && user.tournamentPredictions.championTeamId === tournamentResults.championTeamId) ? 1 : 0,
             exactHits: breakdown.exactCount,

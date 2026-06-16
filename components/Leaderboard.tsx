@@ -309,17 +309,26 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, ruleset = "regulame
                           </div>
                         </div>
 
-                        <div className="text-right z-10 flex items-center gap-1.5 shrink-0">
-                          <div className="flex items-baseline justify-end gap-1">
-                            <span className={`text-xl sm:text-2xl font-black leading-none ${user.rank === 1 ? "text-brand-gold" : "text-white"}`}>
-                              {user.totalPoints}
-                            </span>
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                              pts
-                            </span>
+                        <div className="text-right z-10 flex flex-col items-end gap-0.5 shrink-0">
+                          <div className="flex items-center gap-1.5">
+                            <div className="flex items-baseline justify-end gap-1">
+                              <span className={`text-xl sm:text-2xl font-black leading-none ${user.rank === 1 ? "text-brand-gold" : "text-white"}`}>
+                                {user.totalPoints}
+                              </span>
+                              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                pts
+                              </span>
+                            </div>
+                            {onUserClick && (
+                              <Search size={14} className="text-slate-600 group-hover:text-brand-green transition-colors" />
+                            )}
                           </div>
-                          {onUserClick && (
-                            <Search size={14} className="text-slate-600 group-hover:text-brand-green transition-colors" />
+                          {ruleset === "regulamento_2" && (user.matchPoints !== undefined || user.specialPoints !== undefined) && (
+                            <div className="text-[9px] font-bold text-slate-400 tracking-tight leading-none">
+                              <span className="text-slate-500">{user.matchPoints ?? 0} jogos</span>
+                              <span className="text-slate-600 mx-0.5">|</span>
+                              <span className="text-slate-500">{user.specialPoints ?? 0} esp.</span>
+                            </div>
                           )}
                         </div>
                         

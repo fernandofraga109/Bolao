@@ -169,5 +169,45 @@ describe("useLeaderboard", () => {
       expect(result.current.leaderboardSections).toHaveLength(1);
       expect(result.current.leaderboardSections[0].groupId).toBe("g1");
     });
+
+    it("separa matchPoints e specialPoints no regulamento_2", () => {
+      const finishedMatch = makeMatch("m1", MatchStatus.FINISHED, { home: 2, away: 1 });
+      const r2Group = { ...makeGroup("g1"), ruleset: "regulamento_2" as const };
+      const users = [
+        makeUser("u1", {
+          predictions: {
+            m1: { home: 2, away: 1 }, // exact = 15 pts (sozinho)
+          },
+          tournamentPredictions: {
+            championTeamId: "bra",
+            topScorer: { player: "Neymar", goals: 6 },
+          },
+        }),
+        makeUser("u2", {
+          predictions: {
+            m1: { home: 1, away: 0 }, // wrong
+          },
+          tournamentPredictions: {
+            championTeamId: "fra",
+            topScorer: { player: "Mbappe", goals: 5 },
+          },
+        }),
+      ];
+      const currentUser = makeUser("u1");
+      const tournamentResults = {
+        championTeamId: "bra",
+        topScorer: { player: "Neymar", goals: 6 },
+      };
+
+      const { result } = renderHook(() =>
+        useLeaderboard(users, [finishedMatch], currentUser, tournamentResults as any, { userGroups: [], predictions: [] }, [r2Group])
+      );
+
+      const u1 = result.current.usersWithCalculatedPoints.find((u) => u.id === "u1");
+      expect(u1?.matchPoints).toBe(20); // 15 exact + 5 alone
+      // champion alone = 100, top scorer alone = 60
+      expect(u1?.specialPoints).toBe(160);
+      expect(u1?.totalPoints).toBe(180);
+    });
   });
 });
