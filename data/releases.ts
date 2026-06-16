@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.50.0';
+export const CURRENT_VERSION = '1.51.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,14 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.51.0',
+    date: '2026-06-16',
+    changes: [
+      'Adicionado campo topScorerPlayerIds nas competições para armazenar múltiplos artilheiros empatados em primeiro lugar',
+      'Campo preenchido automaticamente durante o sync de artilheiros da Football Data API',
+    ],
+  },
   {
     version: '1.50.0',
     date: '2026-06-15',

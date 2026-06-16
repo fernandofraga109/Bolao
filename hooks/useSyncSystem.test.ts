@@ -48,7 +48,7 @@ vi.mock("../services/supabase", () => ({
 }));
 
 vi.mock("./usePlayerSync", () => ({
-  persistScorers: vi.fn().mockResolvedValue(undefined),
+  persistScorers: vi.fn().mockResolvedValue({ synced: 0, extIdToUuid: new Map() }),
 }));
 
 import { useSyncSystem } from "./useSyncSystem";

@@ -79,6 +79,7 @@ export interface CompetitionDB {
   autoSyncEnabled?: boolean;
   topScorerName?: string;
   topScorerGoals?: number;
+  topScorerPlayerIds?: string[];
   championTeamId?: string;
   bestPlayerName?: string;
   bestGoalkeeperName?: string;

@@ -412,9 +412,11 @@ export const useSyncSystem = (
         // à API externa. Escreve em players + tournament_players.
         // Gating igual ao resto do pipeline: admin (canWriteData) ou background
         // sync (usuário comum, autorizado pelo RLS de INSERT/UPDATE).
+        let scorerExtIdToUuid: Map<number, string> | undefined;
         if (scorersData && (canWriteData || isBackgroundSync)) {
           try {
             const scorerResult = await persistScorers(normalizedCode, scorersData);
+            scorerExtIdToUuid = scorerResult.extIdToUuid;
             if (scorerResult.error) {
               console.warn(`[SYNC] Erro ao persistir artilheiros: ${scorerResult.error}`);
             } else if (scorerResult.synced > 0) {
@@ -425,6 +427,26 @@ export const useSyncSystem = (
           }
         }
         profiler.mark("persist_scorers", "db_write");
+
+        // ── FASE 1.7: Atualizar topScorerPlayerIds na competição ─────────────
+        if (scorersData?.scorers?.length && scorerExtIdToUuid && isSupabaseEnabled() && supabase) {
+          const maxGoals = scorersData.scorers[0].goals;
+          const topScorerUuids = scorersData.scorers
+            .filter((s) => s.goals === maxGoals)
+            .map((s) => scorerExtIdToUuid!.get(s.player.id))
+            .filter((uuid): uuid is string => !!uuid);
+          if (topScorerUuids.length > 0) {
+            const { error: tsUpdateError } = await supabase
+              .from("competitions")
+              .update({ topScorerPlayerIds: topScorerUuids })
+              .eq("code", normalizedCode);
+            if (tsUpdateError) {
+              console.warn(`[SYNC] Erro ao atualizar topScorerPlayerIds: ${tsUpdateError.message}`);
+            } else {
+              console.log(`[SYNC] topScorerPlayerIds atualizado: ${topScorerUuids.length} jogador(es) com ${maxGoals} gol(s).`);
+            }
+          }
+        }
 
         // ── FASE 2: Construir mapa de times ─────────────────────────────────
         // Start with what we already have in memory

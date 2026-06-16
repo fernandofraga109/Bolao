@@ -22,7 +22,7 @@ type TournamentRow = Omit<TournamentPlayerDB, 'id'>;
 export const persistScorers = async (
   competitionCode: string,
   scorersData: ExternalScorersResponse | null
-): Promise<{ synced: number; error?: string }> => {
+): Promise<{ synced: number; extIdToUuid?: Map<number, string>; error?: string }> => {
   if (!isSupabaseEnabled() || !supabase) return { synced: 0, error: 'Supabase not enabled' };
   if (!scorersData?.scorers?.length) return { synced: 0 };
 
@@ -67,7 +67,7 @@ export const persistScorers = async (
       lastUpdated: new Date().toISOString(),
     }));
 
-  if (tournamentBatch.length === 0) return { synced: 0 };
+  if (tournamentBatch.length === 0) return { synced: 0, extIdToUuid };
 
   const { error: tpError } = await supabase
     .from('tournament_players')
@@ -76,8 +76,8 @@ export const persistScorers = async (
       ignoreDuplicates: false,
     });
 
-  if (tpError) return { synced: 0, error: tpError.message };
-  return { synced: tournamentBatch.length };
+  if (tpError) return { synced: 0, extIdToUuid, error: tpError.message };
+  return { synced: tournamentBatch.length, extIdToUuid };
 };
 
 export const usePlayerSync = () => {
