@@ -130,6 +130,7 @@ interface DatabaseContextType {
     championTeamId?: string | null;
     topScorerName?: string | null;
     topScorerGoals?: number | null;
+    topScorerPlayerIds?: string[] | null;
     bestPlayerName?: string | null;
     bestGoalkeeperName?: string | null;
     mostGoalsTeamId?: string | null;
@@ -232,6 +233,7 @@ const mapCompetitionRow = (row: any): CompetitionDB => ({
         : true,
   topScorerName: row.topScorerName || undefined,
   topScorerGoals: row.topScorerGoals || undefined,
+  topScorerPlayerIds: row.topScorerPlayerIds || undefined,
   championTeamId: row.championTeamId || undefined,
   bestPlayerName: row.bestPlayerName || undefined,
   bestGoalkeeperName: row.bestGoalkeeperName || undefined,
@@ -1360,6 +1362,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       championTeamId?: string | null;
       topScorerName?: string | null;
       topScorerGoals?: number | null;
+      topScorerPlayerIds?: string[] | null;
       bestPlayerName?: string | null;
       bestGoalkeeperName?: string | null;
       mostGoalsTeamId?: string | null;
@@ -1377,6 +1380,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
               championTeamId: awards.championTeamId,
               topScorerName: awards.topScorerName,
               topScorerGoals: awards.topScorerGoals,
+              topScorerPlayerIds: awards.topScorerPlayerIds ?? undefined,
               bestPlayerName: awards.bestPlayerName,
               bestGoalkeeperName: awards.bestGoalkeeperName,
               mostGoalsTeamId: awards.mostGoalsTeamId,
@@ -1393,6 +1397,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       if (awards.championTeamId !== undefined) updateData.championTeamId = awards.championTeamId;
       if (awards.topScorerName !== undefined) updateData.topScorerName = awards.topScorerName;
       if (awards.topScorerGoals !== undefined) updateData.topScorerGoals = awards.topScorerGoals;
+      if (awards.topScorerPlayerIds !== undefined) updateData.topScorerPlayerIds = awards.topScorerPlayerIds;
       if (awards.bestPlayerName !== undefined) updateData.bestPlayerName = awards.bestPlayerName;
       if (awards.bestGoalkeeperName !== undefined) updateData.bestGoalkeeperName = awards.bestGoalkeeperName;
       if (awards.mostGoalsTeamId !== undefined) updateData.mostGoalsTeamId = awards.mostGoalsTeamId;

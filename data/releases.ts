@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.51.0';
+export const CURRENT_VERSION = '1.52.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.52.0',
+    date: '2026-06-16',
+    changes: [
+      'Ajuste para admin poder fazer o save dos artilheiros via painel em caso da api falhar',
+    ],
+  },
   {
     version: '1.51.0',
     date: '2026-06-16',

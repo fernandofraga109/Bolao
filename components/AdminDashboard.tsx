@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { User, Group } from "../types";
 import {
   Shield,
@@ -34,7 +34,8 @@ import {
 import { useDatabase } from "../contexts/DatabaseContext";
 import { seedDatabase } from "../services/seeder";
 import { syncTeamRankings } from "../api/sync-team-rankings";
-import { isSupabaseEnabled } from "../services/supabase";
+import { isSupabaseEnabled, supabase } from "../services/supabase";
+import { PlayerWithContextDB } from "../types";
 import { fetchExternalCompetitions } from "../services/liveScoreService";
 import type { CompetitionSyncStatus } from "../hooks/useMatchSystem";
 import ModalShell from "./ui/ModalShell";
@@ -122,6 +123,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [championTeamId, setChampionTeamId] = useState<string>("");
   const [topScorerName, setTopScorerName] = useState<string>("");
   const [topScorerGoals, setTopScorerGoals] = useState<string>("");
+  const [topScorerPlayerIds, setTopScorerPlayerIds] = useState<string[]>([]);
+  const [topScorerQuery, setTopScorerQuery] = useState<string>("");
+  const [topScorerOpen, setTopScorerOpen] = useState<boolean>(false);
+  const [searchResults, setSearchResults] = useState<PlayerWithContextDB[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [bestPlayerName, setBestPlayerName] = useState<string>("");
   const [bestGoalkeeperName, setBestGoalkeeperName] = useState<string>("");
   const [mostGoalsTeamId, setMostGoalsTeamId] = useState<string>("");
@@ -199,6 +206,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         championTeamId: championTeamId === "null" ? null : (championTeamId || undefined),
         topScorerName: topScorerName || undefined,
         topScorerGoals: topScorerGoals ? parseInt(topScorerGoals) : undefined,
+        topScorerPlayerIds: topScorerPlayerIds.length > 0 ? topScorerPlayerIds : null,
         bestPlayerName: bestPlayerName || undefined,
         bestGoalkeeperName: bestGoalkeeperName || undefined,
         mostGoalsTeamId: mostGoalsTeamId === "null" ? null : (mostGoalsTeamId || undefined),
@@ -217,10 +225,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   React.useEffect(() => {
     if (selectedCompetitionCode) {
       const comp = db.competitions.find(c => c.code.toLowerCase() === selectedCompetitionCode.toLowerCase());
+      console.log("[AdminDashboard] Selected competition:", selectedCompetitionCode, "Found:", comp);
       if (comp) {
+        console.log("[AdminDashboard] comp.topScorerName:", comp.topScorerName, "| topScorerGoals:", comp.topScorerGoals, "| topScorerPlayerIds:", comp.topScorerPlayerIds);
         setChampionTeamId(comp.championTeamId || "");
         setTopScorerName(comp.topScorerName || "");
         setTopScorerGoals(comp.topScorerGoals?.toString() || "");
+        setTopScorerPlayerIds(comp.topScorerPlayerIds || []);
         setBestPlayerName(comp.bestPlayerName || "");
         setBestGoalkeeperName(comp.bestGoalkeeperName || "");
         setMostGoalsTeamId(comp.mostGoalsTeamId || "");
@@ -230,12 +241,36 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setChampionTeamId("");
       setTopScorerName("");
       setTopScorerGoals("");
+      setTopScorerPlayerIds([]);
+      setTopScorerQuery("");
+      setTopScorerOpen(false);
       setBestPlayerName("");
       setBestGoalkeeperName("");
       setMostGoalsTeamId("");
       setMostConcededTeamId("");
     }
   }, [selectedCompetitionCode, db.competitions]);
+
+  // Search players with debounce — same logic as PlayerCombobox
+  const runPlayerSearch = (query: string) => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (query.trim().length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    setIsSearching(true);
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        const found = await db.searchPlayers(query.trim(), selectedCompetitionCode || undefined);
+        setSearchResults(found);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+  };
 
   // Helper: resolve competition info from db.competitions first, then fallback to static
   const resolveCompetition = (
@@ -1275,6 +1310,117 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none placeholder:text-slate-600"
                   />
                 </div>
+              </div>
+
+              {/* Top Scorer Player IDs (manual multi-select) */}
+              <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700 space-y-3">
+                <label className="block text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                  <Medal size={14} />
+                  Artilheiros (Jogadores)
+                </label>
+                <p className="text-xs text-slate-400">
+                  Selecione os jogadores empatados na artilharia. Usado para pontuação de palpites especiais quando a API não está disponível.
+                </p>
+
+                {/* Selected players chips */}
+                {topScorerPlayerIds.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {topScorerPlayerIds.map((playerId) => {
+                      const player = db.players.find((p) => p.id === playerId);
+                      return (
+                        <span
+                          key={playerId}
+                          className="inline-flex items-center gap-1 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] px-2 py-1 rounded-full"
+                        >
+                          {player?.tournamentEntry?.teamCrest && (
+                            <img
+                              src={player.tournamentEntry.teamCrest}
+                              alt=""
+                              className="w-3 h-2 object-cover rounded-sm"
+                            />
+                          )}
+                          {player?.name || playerId.substring(0, 8)}
+                          <button
+                            onClick={() => {
+                              setTopScorerPlayerIds((prev) =>
+                                prev.filter((id) => id !== playerId)
+                              );
+                            }}
+                            className="ml-0.5 text-amber-500 hover:text-rose-400"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Player autocomplete */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={topScorerQuery}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setTopScorerQuery(val);
+                      setTopScorerOpen(true);
+                      runPlayerSearch(val);
+                    }}
+                    onFocus={() => {
+                      setTopScorerOpen(true);
+                      if (topScorerQuery.trim().length >= 2) runPlayerSearch(topScorerQuery);
+                    }}
+                    placeholder="Digite para buscar jogador..."
+                    className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-xs text-white focus:border-amber-500 outline-none placeholder:text-slate-600"
+                  />
+                  {topScorerOpen && (
+                    <div className="absolute z-20 w-full mt-1 max-h-48 overflow-y-auto bg-slate-800 border border-slate-600 rounded shadow-lg">
+                      {isSearching ? (
+                        <div className="px-3 py-2 text-xs text-slate-400">Buscando...</div>
+                      ) : topScorerQuery.trim().length < 2 ? (
+                        <div className="px-3 py-2 text-xs text-slate-500">Digite pelo menos 2 caracteres</div>
+                      ) : searchResults.length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-slate-400">Nenhum jogador encontrado</div>
+                      ) : (
+                        searchResults.map((p) => (
+                          <button
+                            key={p.id}
+                            onClick={() => {
+                              if (!topScorerPlayerIds.includes(p.id)) {
+                                setTopScorerPlayerIds((prev) => [...prev, p.id]);
+                              }
+                              setTopScorerQuery("");
+                              setTopScorerOpen(false);
+                              setSearchResults([]);
+                            }}
+                            className="w-full text-left px-3 py-2 text-xs text-white hover:bg-slate-700 flex items-center gap-2 transition-colors border-b border-slate-700/50 last:border-0"
+                          >
+                            {p.tournamentEntry?.teamCrest && (
+                              <img
+                                src={p.tournamentEntry.teamCrest}
+                                alt=""
+                                className="w-4 h-3 object-cover rounded-sm flex-shrink-0"
+                              />
+                            )}
+                            <span className="font-medium truncate">{p.name}</span>
+                            <span className="text-slate-500 ml-auto flex-shrink-0">
+                              {p.tournamentEntry?.teamName || ''}
+                              {' — '}
+                              {p.tournamentEntry?.goals ?? 0} gols
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {db.players.length === 0 && (
+                  <p className="text-[10px] text-slate-500 italic">
+                    Sincronize os elencos no Painel Admin para habilitar a busca de jogadores.
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

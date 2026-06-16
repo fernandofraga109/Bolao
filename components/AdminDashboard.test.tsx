@@ -11,6 +11,7 @@ const fakeDb: any = {
   competitions: [],
   users: [],
   groups: [],
+  players: [],
   isSyncingPlayers: false,
   systemConfig: {
     id: "cfg",
