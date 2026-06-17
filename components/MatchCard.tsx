@@ -273,8 +273,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   return (
     <div className={`group bg-slate-800 rounded-3xl shadow-xl border border-slate-700/50 overflow-hidden relative transition-all duration-300 hover:shadow-2xl hover:border-slate-600 ${isFinished ? "opacity-50" : ""}`}>
       {/* Header Info */}
-      <div className="px-5 py-3 flex justify-between items-center bg-slate-900/40 border-b border-slate-700/50 backdrop-blur-md">
-        <div className="flex items-center gap-3">
+      <div className="px-5 py-3 flex justify-between items-center gap-2 bg-slate-900/40 border-b border-slate-700/50 backdrop-blur-md">
+        <div className="flex items-center gap-1.5">
           <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
             <Calendar size={12} className="text-brand-green" />
             {matchDate.toLocaleDateString("pt-BR", { day: '2-digit', month: 'short' })}
