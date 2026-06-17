@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { Match, LiveMatchEvent } from "../types";
 import { canonicalTeamName } from "../services/liveScoreService";
-import { Flag, MapPin } from "lucide-react";
+import { Flag, MapPin, ArrowLeftRight, ArrowUp, ArrowDown } from "lucide-react";
 
 interface LiveMatchTimelineProps {
   match: Match;
@@ -10,6 +10,12 @@ interface LiveMatchTimelineProps {
 const isGoal = (ev: LiveMatchEvent) =>
   ev.type === "Goal" && ev.detail !== "Missed Penalty";
 const isCard = (ev: LiveMatchEvent) => ev.type === "Card";
+const isSubst = (ev: LiveMatchEvent) => ev.type === "subst";
+const isVar = (ev: LiveMatchEvent) => ev.type === "Var";
+
+// Eventos que a timeline exibe (os demais tipos da api-sports são ignorados).
+const isShownEvent = (ev: LiveMatchEvent) =>
+  isGoal(ev) || isCard(ev) || isSubst(ev) || isVar(ev);
 
 const formatEventMinute = (ev: LiveMatchEvent): string => {
   const base = `${ev.elapsed}`;
@@ -31,6 +37,14 @@ const DETAIL_PT: Record<string, string> = {
   "Yellow Card": "Cartão amarelo",
   "Red Card": "Cartão vermelho",
   "Second Yellow card": "2º amarelo (vermelho)",
+  // VAR
+  "Goal cancelled": "Gol anulado",
+  "Goal Disallowed - offside": "Gol anulado (impedimento)",
+  "Goal confirmed": "Gol confirmado",
+  "Penalty confirmed": "Pênalti confirmado",
+  "Penalty cancelled": "Pênalti cancelado",
+  "Card upgrade": "Cartão revisto",
+  "Card cancelled": "Cartão cancelado",
 };
 
 const translateDetail = (detail: string): string => DETAIL_PT[detail] ?? detail;
@@ -45,49 +59,102 @@ const EventCell: React.FC<{ ev: LiveMatchEvent; side: "home" | "away" }> = ({
   side,
 }) => {
   const goal = isGoal(ev);
+  const subst = isSubst(ev);
+  const variant = isVar(ev);
   const isHome = side === "home";
 
-  const icon = goal ? (
-    <span className="text-brand-green shrink-0 text-sm">⚽</span>
-  ) : (
-    <span
-      className={`inline-block w-2.5 h-3.5 rounded-[2px] shrink-0 ${cardColor(ev.detail)}`}
-    />
-  );
+  let icon: React.ReactNode;
+  let bgClass = "";
 
-  const text = (
-    <div className={`flex flex-col min-w-0 ${isHome ? "items-end" : "items-start"}`}>
-      <span className="flex items-center gap-1 min-w-0 max-w-full">
-        {goal && (
-          <span className="text-[9px] font-black text-brand-green uppercase tracking-wider shrink-0">
-            Gol
+  if (goal) {
+    icon = <span className="text-brand-green shrink-0 text-sm">⚽</span>;
+    bgClass = "bg-brand-green/10 border border-brand-green/20";
+  } else if (subst) {
+    icon = <ArrowLeftRight size={13} className="text-sky-400 shrink-0" />;
+  } else if (variant) {
+    icon = (
+      <span className="text-[8px] font-black text-purple-300 bg-purple-500/20 border border-purple-500/30 rounded px-1 py-0.5 shrink-0 tracking-wider">
+        VAR
+      </span>
+    );
+    bgClass = "bg-purple-500/5 border border-purple-500/20";
+  } else {
+    icon = (
+      <span
+        className={`inline-block w-2.5 h-3.5 rounded-[2px] shrink-0 ${cardColor(ev.detail)}`}
+      />
+    );
+  }
+
+  const align = isHome ? "items-end" : "items-start";
+
+  let text: React.ReactNode;
+  if (subst) {
+    // api-sports: player = quem entra, assist = quem sai.
+    text = (
+      <div className={`flex flex-col min-w-0 ${align}`}>
+        <span className="flex items-center gap-1 min-w-0 max-w-full">
+          <ArrowUp size={10} className="text-brand-green shrink-0" />
+          <span className="text-xs font-bold text-slate-200 truncate min-w-0">
+            {ev.player || "Entra"}
+          </span>
+        </span>
+        {ev.assist && (
+          <span className="flex items-center gap-1 text-[10px] text-slate-500 min-w-0 max-w-full">
+            <ArrowDown size={9} className="text-brand-red shrink-0" />
+            <span className="truncate min-w-0">{ev.assist}</span>
           </span>
         )}
-        <span className="text-xs font-bold text-slate-200 truncate min-w-0">
-          {ev.player || (goal ? "Gol" : "Cartão")}
-        </span>
-      </span>
-      {goal && ev.assist && (
-        <span className="text-[10px] text-slate-500 truncate max-w-full">
-          assist. {ev.assist}
-        </span>
-      )}
-      {goal && !ev.assist && ev.detail !== "Normal Goal" && (
-        <span className="text-[10px] text-slate-500 truncate max-w-full">
+      </div>
+    );
+  } else if (variant) {
+    text = (
+      <div className={`flex flex-col min-w-0 ${align}`}>
+        <span className="text-xs font-bold text-purple-200 truncate min-w-0 max-w-full">
           {translateDetail(ev.detail)}
         </span>
-      )}
-      {isCard(ev) && (
-        <span className="text-[10px] text-slate-500 truncate max-w-full">
-          {translateDetail(ev.detail)}
+        {ev.player && (
+          <span className="text-[10px] text-slate-500 truncate max-w-full">
+            {ev.player}
+          </span>
+        )}
+      </div>
+    );
+  } else {
+    text = (
+      <div className={`flex flex-col min-w-0 ${align}`}>
+        <span className="flex items-center gap-1 min-w-0 max-w-full">
+          {goal && (
+            <span className="text-[9px] font-black text-brand-green uppercase tracking-wider shrink-0">
+              Gol
+            </span>
+          )}
+          <span className="text-xs font-bold text-slate-200 truncate min-w-0">
+            {ev.player || (goal ? "Gol" : "Cartão")}
+          </span>
         </span>
-      )}
-    </div>
-  );
+        {goal && ev.assist && (
+          <span className="text-[10px] text-slate-500 truncate max-w-full">
+            assist. {ev.assist}
+          </span>
+        )}
+        {goal && !ev.assist && ev.detail !== "Normal Goal" && (
+          <span className="text-[10px] text-slate-500 truncate max-w-full">
+            {translateDetail(ev.detail)}
+          </span>
+        )}
+        {isCard(ev) && (
+          <span className="text-[10px] text-slate-500 truncate max-w-full">
+            {translateDetail(ev.detail)}
+          </span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
-      className={`flex items-center gap-1.5 rounded-lg px-1.5 sm:px-2 py-1 min-w-0 max-w-full ${goal ? "bg-brand-green/10 border border-brand-green/20" : ""}`}
+      className={`flex items-center gap-1.5 rounded-lg px-1.5 sm:px-2 py-1 min-w-0 max-w-full ${bgClass}`}
     >
       {isHome ? (
         <>
@@ -107,7 +174,8 @@ const EventCell: React.FC<{ ev: LiveMatchEvent; side: "home" | "away" }> = ({
 /**
  * Linha do tempo "minuto a minuto" (estilo Google) para jogos ao vivo.
  * Renderiza árbitro, estádio e os eventos (gols com jogador + assistência,
- * cartões), alinhando eventos do mandante à esquerda e do visitante à direita.
+ * cartões, substituições e revisões do VAR), alinhando eventos do mandante à
+ * esquerda e do visitante à direita.
  *
  * Estes dados vêm da api-sports e são puramente informativos — NÃO entram em
  * nenhum cálculo de pontos.
@@ -125,7 +193,7 @@ export const LiveMatchTimeline: React.FC<LiveMatchTimelineProps> = ({
   const events = useMemo(() => {
     if (!ld?.events) return [];
     return ld.events
-      .filter((ev) => isGoal(ev) || isCard(ev))
+      .filter(isShownEvent)
       .map((ev) => ({
         ev,
         isHome: canonicalTeamName(ev.teamName) === homeCanonical,
