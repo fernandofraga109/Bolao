@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Match,
   MatchStatus,
@@ -42,6 +42,7 @@ import AvatarWithFallback from "./ui/AvatarWithFallback";
 import ReplicatePredictionModal from "./ReplicatePredictionModal";
 import LiveMatchTimeline from "./LiveMatchTimeline";
 import { useLiveMatchClock } from "../hooks/useLiveMatchClock";
+import { translateGroupName } from "../utils/translations";
 
 interface MatchCardProps {
   match: Match;
@@ -99,12 +100,45 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   // Relógio ao vivo (api-sports) — ticka localmente sem gastar chamadas de API.
   const liveClock = useLiveMatchClock(match.liveDetails);
 
-  // Initialize inputs
+  // Guarda os últimos valores de palpite efetivamente vindos do servidor.
+  // Usado para distinguir "mudança real no servidor" de "reemissão do realtime
+  // com os mesmos valores" — evitando reverter uma edição local não salva.
+  const lastSyncedRef = useRef<{
+    matchId: string;
+    home: number;
+    away: number;
+    who: string | null;
+  } | null>(null);
+
+  // Initialize / re-sync inputs from server.
+  // Só sobrescreve os inputs quando os valores do servidor realmente mudaram
+  // (palpite novo, edição salva ou alteração vinda de outro dispositivo). Sem
+  // essa checagem, o realtime reemite o mesmo userPrediction e o useEffect
+  // revertia uma edição em andamento (ex.: usuário muda 3x1 → 3x2 e o card
+  // volta para 3x1 antes de salvar — parece bug para o usuário).
   useEffect(() => {
-    if (userPrediction) {
-      setHomeInput(userPrediction.homeScore.toString());
-      setAwayInput(userPrediction.awayScore.toString());
-      setWhoClassifiesTeamId(userPrediction.whoClassifiesTeamId ?? null);
+    if (!userPrediction) {
+      lastSyncedRef.current = null;
+      return;
+    }
+    const incoming = {
+      matchId: match.id,
+      home: userPrediction.homeScore,
+      away: userPrediction.awayScore,
+      who: userPrediction.whoClassifiesTeamId ?? null,
+    };
+    const prev = lastSyncedRef.current;
+    const serverChanged =
+      !prev ||
+      prev.matchId !== incoming.matchId ||
+      prev.home !== incoming.home ||
+      prev.away !== incoming.away ||
+      prev.who !== incoming.who;
+    if (serverChanged) {
+      setHomeInput(incoming.home.toString());
+      setAwayInput(incoming.away.toString());
+      setWhoClassifiesTeamId(incoming.who);
+      lastSyncedRef.current = incoming;
     }
   }, [userPrediction, match.id]);
 
@@ -246,6 +280,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             <Clock size={12} className="text-brand-green" />
             {matchDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
           </div>
+          {match.group && (
+            <span className="px-2 py-0.5 rounded-full bg-brand-green/10 border border-brand-green/20 text-[9px] font-black text-brand-green uppercase tracking-widest">
+              {translateGroupName(match.group)}
+            </span>
+          )}
         </div>
         
         <div className="flex items-center gap-2">

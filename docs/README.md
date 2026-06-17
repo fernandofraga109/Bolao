@@ -27,6 +27,7 @@ Esta estrutura permite carregar apenas o contexto relevante para cada tarefa, re
 - `scoring.md` - Sistema de pontuação (Regulamento 1 e 2)
 - `leaderboard.md` - Leaderboard e ranking (dense ranking de empates)
 - `matches-organization.md` - Seções da página de Jogos (Ao Vivo / Anteriores / Hoje / Futuros)
+- `match-card.md` - Card de palpite (anti-revert do realtime em edição não salva + badge do grupo)
 - `players-and-top-scorers.md` - Tabela de jogadores, autocomplete de artilheiro e aba Top Scores
 - `knockout-score-display.md` - Padrão de exibição de placar mata-mata (regular/ET/pênaltis) por tela
 

@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.53.0';
+export const CURRENT_VERSION = '1.55.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,14 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.55.0',
+    date: '2026-06-16',
+    changes: [
+      'Corrigido o card de palpite: ao editar um palpite antes do jogo começar, o placar digitado não some mais sozinho enquanto você decide — sua edição é mantida até você salvar',
+      'Agora o card de cada jogo mostra a qual grupo a partida pertence (ex: "Grupo I"), com o nome exibido de forma clara e legível',
+    ],
+  },
   {
     version: '1.53.0',
     date: '2026-06-16',
