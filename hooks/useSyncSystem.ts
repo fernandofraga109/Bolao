@@ -374,7 +374,8 @@ export const useSyncSystem = (
           (standingsData as any)?.competition;
         
         // Extrair artilheiro dos dados da API
-        const topScorerName = scorersData?.scorers?.[0]?.player?.name;
+        // Hardcoded para Regulamento 1 até definirmos o fluxo real
+        const topScorerName = 'testing2026';
         const topScorerGoals = scorersData?.scorers?.[0]?.goals;
         
         // Extrair campeão dos dados da API (season.winner)

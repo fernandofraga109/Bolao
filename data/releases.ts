@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.58.2';
+export const CURRENT_VERSION = '1.59.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.59.0',
+    date: '2026-06-17',
+    changes: [
+      'Cálculo do artilheiro no Regulamento 1 é feito apenas no final da Copa (valor fixo definido pelo admin)',
+    ],
+  },
   {
     version: '1.58.2',
     date: '2026-06-17',
