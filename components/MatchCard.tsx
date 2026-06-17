@@ -283,13 +283,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             <Clock size={12} className="text-brand-green" />
             {matchDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
           </div>
-          {match.group && !isFinished && !isLive && (
-            <span className="px-2 py-0.5 rounded-full bg-brand-green/10 border border-brand-green/20 text-[9px] font-black text-brand-green uppercase tracking-widest">
-              {translateGroupName(match.group)}
-            </span>
-          )}
         </div>
-        
+
         <div className="flex items-center gap-2">
           {isLive && (
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-red/10 border border-brand-red/30">
@@ -322,6 +317,13 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       </div>
 
       <div className="p-4 sm:p-6">
+        {match.group && !isFinished && !isLive && (
+          <div className="flex justify-center mb-3">
+            <span className="px-2.5 py-0.5 rounded-full bg-brand-green/10 border border-brand-green/20 text-[9px] font-black text-brand-green uppercase tracking-widest">
+              {translateGroupName(match.group)}
+            </span>
+          </div>
+        )}
         <div className="flex items-center justify-between gap-2 sm:gap-4 mb-4">
           {/* Home Team */}
           <div className="flex-1 flex flex-col items-center gap-3">
