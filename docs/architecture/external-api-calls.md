@@ -115,13 +115,15 @@ Esta é a **especificação normativa** da ordem das fases. Cada fase indica se 
 | **2 · Mapa de times** | Constrói mapa ext→interno; adota órfãos; upsert de times novos/atualizados; resolve `championTeamId` e grava | — | **W** `teams`, `competitions` |
 | **2.5 · Recordes de gols** | Varre jogos `FINISHED` p/ "time com mais gols" e "mais gols sofridos" em **um** jogo | — | **W** `competitions` (`mostGoalsTeamId`, `mostConcededTeamId`) |
 | **3 · Diff de jogos** | Compara API vs banco; busca minuto **só se** há jogo `IN_PLAY/PAUSED`; upsert dos que mudaram | **0–1** `live-matches` | **W** `matches` |
+| **3.5 · Live details** (api-sports) | Minuto-a-minuto **cosmético**: relógio, eventos, árbitro, estádio. Só com jogo ao vivo + gate de throttle (`liveDetailsLastSync`, default 50s) dentro do lock principal | **0–1** `live-details` | **R/W** `competitions.liveDetailsLastSync` + **W** `matches.liveDetails` |
 | **4b · Pontos** | `batchProcessPointsForMatches` — recalcula pontos de **todos** os jogos `FINISHED` (idempotente) | — | **R/W** `predictions` |
 | **4 · Standings** | Upsert da classificação (dedup por `teamId|competitionCode`) | — | **W** `team_standings` |
 | **5 · Fechamento** | Atualiza `lastSync`; recalcula `user_groups`; libera lock | — | **W** `competitions`, `user_groups`; **W** release lock |
 
-> **Total externo por sync:** **4** (sempre) **+ 1** (`live-matches`, só com jogo
-> ao vivo). As fases 1.5, 1.6, 2, 2.5, 4 e 4b **não fazem nenhuma chamada externa** —
-> todas derivam dos 4 payloads já buscados na Fase 1.
+> **Total externo por sync:** **4** (sempre, Football-Data) **+ 1** (`live-matches`,
+> só com jogo ao vivo) **+ 1** (`live-details` da api-sports, só com jogo ao vivo e
+> throttle expirado). As fases 1.5, 1.6, 2, 2.5, 4 e 4b **não fazem nenhuma chamada
+> externa** — todas derivam dos 4 payloads já buscados na Fase 1.
 
 ### Detalhes que mudaram em relação à versão anterior do doc
 
@@ -256,11 +258,18 @@ Football-Data /matches ──(sync, Fase 1)──► useSyncSystem
 | **Supabase Auth** | `/api/supabase-signup` | Cadastro de usuário | Proxy de signup (fallback p/ `supabase.auth.signUp`) |
 | **Supabase** (DB/Realtime/Auth) | client SDK | Leituras/escritas e Realtime | `services/supabase.ts` — **não** é Football-Data |
 
-### Legado / não conectado
+### Minuto-a-minuto (api-football / api-sports) — JÁ CONECTADO
 
-- `api/api-football-live.ts` — proxy para **api-football.com** (`/fixtures?live=all`),
-  provedor **alternativo**. Atualmente **não conectado** a nenhum fluxo. Mantido
-  como referência.
+- `api/live-details.ts` — proxy para **api-sports** (`v3.football.api-sports.io`,
+  `/fixtures?live=all&league=1`). **Conectado** à **FASE 3.5** do pipeline
+  (`fetchLiveMatchDetails` → `matches.liveDetails`). Cosmético: relógio, eventos,
+  árbitro, estádio — **não** entra em pontuação. Gateado por jogo ao vivo + um
+  **gate de throttle simples** (`liveDetailsLastSync`, default **50s**) que roda
+  **dentro** do lock principal do sync — **não** há lock atômico próprio (o
+  `acquire_live_details_lock` da migration `0033` foi revertido em `5711779` e está
+  órfão). **Fluxo completo documentado em `documentacao/sync-flow.md`.**
+- `api/api-football-live.ts` — proxy **alternativo/legado** da mesma api-sports,
+  **não** ligado ao pipeline. Mantido como referência.
 
 ---
 

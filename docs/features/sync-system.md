@@ -2,6 +2,10 @@
 
 > Detalhamento das chamadas externas e do fluxo Supabase (fase a fase) em
 > `docs/architecture/external-api-calls.md`.
+>
+> **Fluxo end-to-end com diagramas** (gatilhos, endpoints, locks, condições de
+> parada e a integração da api-football no minuto-a-minuto): ver
+> **`documentacao/sync-flow.md`**.
 
 ## Funcionamento Atual
 
@@ -16,6 +20,13 @@
     `lastSync` da competição.
 - Um **lock distribuído** no banco (`acquire_sync_lock` / `sync_locked_at`)
   garante que **só um cliente** sincroniza por vez, mesmo com várias abas abertas.
+- **FASE 3.5 — minuto-a-minuto (api-sports):** com jogo ao vivo, o pipeline também
+  chama `/api/live-details` (`fetchLiveMatchDetails`) e grava `matches.liveDetails`
+  (relógio, eventos, árbitro, estádio — **cosmético**, não pontua). É controlado por
+  um **gate de throttle simples** (`competitions.liveDetailsLastSync`, default 50s)
+  **dentro** do lock principal — não há lock próprio (o `acquire_live_details_lock`
+  da migration `0033` foi revertido em `5711779` e está órfão). Detalhe end-to-end
+  em `documentacao/sync-flow.md`.
 - `hooks/usePollingRefresh.ts` (15 s) **não** chama a API externa — só relê o
   Supabase para refletir mudanças no placar/ranking.
 - Supabase Realtime faz push das mudanças para os clientes conectados.
