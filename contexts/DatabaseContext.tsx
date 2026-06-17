@@ -28,6 +28,7 @@ import {
 import { usePlayerSync } from "../hooks/usePlayerSync";
 import { INITIAL_DB } from "../data/initialData";
 import { supabase, isSupabaseEnabled, SUPABASE_SCHEMA } from "../services/supabase";
+import { maskValue, unmaskValue } from "../utils/storageMask";
 
 const SYSTEM_CONFIG_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -319,7 +320,9 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   const loadTable = <T,>(key: string, seed: T[]): T[] => {
     try {
       const saved = localStorage.getItem(`bolao_db_${key}`);
-      return saved ? JSON.parse(saved) : seed;
+      if (!saved) return seed;
+      const unmasked = unmaskValue(saved);
+      return JSON.parse(unmasked) as T[];
     } catch (e) {
       console.error(
         `Erro ao carregar ${key} do cache local. Usando dados padrão.`,
@@ -583,6 +586,27 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         setPredictions([]);
         setTournamentPredictions([]);
         setExtraPhasePredictions([]);
+      }
+
+      // Quando autenticado e Supabase responde, descartar cache local para
+      // impedir que manipulacoes no localStorage burlem o app.
+      if (isAuthenticated && isSupabaseEnabled()) {
+        const keys = [
+          "bolao_db_users",
+          "bolao_db_groups",
+          "bolao_db_userGroups",
+          "bolao_db_matches",
+          "bolao_db_predictions",
+          "bolao_db_tournamentPredictions",
+          "bolao_db_extraPhasePredictions",
+        ];
+        keys.forEach((k) => {
+          try {
+            localStorage.removeItem(k);
+          } catch {
+            /* ignorar erros de localStorage */
+          }
+        });
       }
 
       if (isMounted) {
@@ -892,37 +916,55 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     () =>
       localStorage.setItem(
         "bolao_db_competitions",
-        JSON.stringify(competitions),
+        maskValue(JSON.stringify(competitions)),
       ),
     [competitions],
   );
   useEffect(
-    () => localStorage.setItem("bolao_db_users", JSON.stringify(users)),
+    () =>
+      localStorage.setItem(
+        "bolao_db_users",
+        maskValue(JSON.stringify(users)),
+      ),
     [users],
   );
   useEffect(
-    () => localStorage.setItem("bolao_db_groups", JSON.stringify(groups)),
+    () =>
+      localStorage.setItem(
+        "bolao_db_groups",
+        maskValue(JSON.stringify(groups)),
+      ),
     [groups],
   );
   useEffect(
     () =>
-      localStorage.setItem("bolao_db_userGroups", JSON.stringify(userGroups)),
+      localStorage.setItem(
+        "bolao_db_userGroups",
+        maskValue(JSON.stringify(userGroups)),
+      ),
     [userGroups],
   );
   useEffect(
-    () => localStorage.setItem("bolao_db_matches", JSON.stringify(matches)),
+    () =>
+      localStorage.setItem(
+        "bolao_db_matches",
+        maskValue(JSON.stringify(matches)),
+      ),
     [matches],
   );
   useEffect(
     () =>
-      localStorage.setItem("bolao_db_predictions", JSON.stringify(predictions)),
+      localStorage.setItem(
+        "bolao_db_predictions",
+        maskValue(JSON.stringify(predictions)),
+      ),
     [predictions],
   );
   useEffect(
     () =>
       localStorage.setItem(
         "bolao_db_tournamentPredictions",
-        JSON.stringify(tournamentPredictions),
+        maskValue(JSON.stringify(tournamentPredictions)),
       ),
     [tournamentPredictions],
   );
@@ -930,7 +972,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     () =>
       localStorage.setItem(
         "bolao_db_extraPhasePredictions",
-        JSON.stringify(extraPhasePredictions),
+        maskValue(JSON.stringify(extraPhasePredictions)),
       ),
     [extraPhasePredictions],
   );
