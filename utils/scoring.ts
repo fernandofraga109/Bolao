@@ -321,6 +321,7 @@ export interface TournamentPredictionContext {
   userId: string;
   championTeamId?: string;
   topScorerPlayer?: string;
+  topScorerPlayerId?: string;
 }
 
 /**
@@ -356,24 +357,39 @@ export const calculateTournamentPointsRegulamento2 = (
   }
 
   // 2. Top Scorer points
-  if (prediction.topScorer?.player && actual.topScorer?.player) {
+  let topScorerCorrect = false;
+  let correctCount = 0;
+
+  if (actual.topScorerPlayerIds && actual.topScorerPlayerIds.length > 0) {
+    if (prediction.topScorerPlayerId && actual.topScorerPlayerIds.includes(prediction.topScorerPlayerId)) {
+      topScorerCorrect = true;
+      const correctScorerUsers = allGroupPredictions.filter(
+        (p) => p.topScorerPlayerId && actual.topScorerPlayerIds!.includes(p.topScorerPlayerId)
+      );
+      correctCount = correctScorerUsers.length;
+    }
+  } else if (prediction.topScorer?.player && actual.topScorer?.player) {
     const predPlayer = prediction.topScorer.player.trim().toLowerCase();
     const actualPlayer = actual.topScorer.player.trim().toLowerCase();
 
     if (predPlayer === actualPlayer) {
+      topScorerCorrect = true;
       const correctScorerUsers = allGroupPredictions.filter(
         (p) => p.topScorerPlayer && p.topScorerPlayer.trim().toLowerCase() === actualPlayer
       );
-      const count = correctScorerUsers.length;
-      if (count === 1) {
-        points += 60;
-      } else if (count === 2) {
-        points += 40;
-      } else if (count === 3) {
-        points += 30;
-      } else if (count >= 4) {
-        points += 25;
-      }
+      correctCount = correctScorerUsers.length;
+    }
+  }
+
+  if (topScorerCorrect) {
+    if (correctCount === 1) {
+      points += 60;
+    } else if (correctCount === 2) {
+      points += 40;
+    } else if (correctCount === 3) {
+      points += 30;
+    } else if (correctCount >= 4) {
+      points += 25;
     }
   }
 

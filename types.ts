@@ -313,6 +313,7 @@ export interface TournamentPredictions {
     goals: number;
   };
   topScorerPlayerId?: string;   // UUID FK → v2_players.id
+  topScorerPlayerIds?: string[]; // Array of UUIDs of top scorers (actual/real results)
   bestPlayer?: string;          // display name, derived from bestPlayerId
   bestPlayerId?: string;        // UUID FK → v2_players.id
   bestGoalkeeper?: string;      // display name, derived from bestGoalkeeperId

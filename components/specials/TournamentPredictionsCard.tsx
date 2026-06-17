@@ -213,6 +213,13 @@ const TournamentPredictionsCard: React.FC<TournamentPredictionsCardProps> = ({
       : false;
   const isTsGoalsCorrect =
     finalResult?.topScorer?.goals && parseInt(tsGoals) === finalResult.topScorer.goals;
+  const isTsCorrect = useMemo(() => {
+    if (!finalResult) return false;
+    if (ruleset === 'regulamento_2' && finalResult.topScorerPlayerIds && finalResult.topScorerPlayerIds.length > 0) {
+      return !!(tsPlayerId && finalResult.topScorerPlayerIds.includes(tsPlayerId));
+    }
+    return isTsNameCorrect;
+  }, [finalResult, ruleset, tsPlayerId, isTsNameCorrect]);
   const isBestPlayerCorrect =
     ruleset !== 'regulamento_2' && finalResult?.bestPlayer && bestPlayerName
       ? bestPlayerName.trim().toLowerCase() === finalResult.bestPlayer.trim().toLowerCase()
@@ -254,7 +261,7 @@ const TournamentPredictionsCard: React.FC<TournamentPredictionsCardProps> = ({
     if (isMostConcededCorrect) pts += 20;
 
     let hasChampionSplit = isChampionCorrect;
-    let hasTsSplit = isTsNameCorrect;
+    let hasTsSplit = isTsCorrect;
 
     if (pts === 0 && !hasChampionSplit && !hasTsSplit) return '';
 
@@ -264,7 +271,7 @@ const TournamentPredictionsCard: React.FC<TournamentPredictionsCardProps> = ({
     if (hasTsSplit) labels.push('Artilheiro correto (pontos divididos no grupo)');
 
     return labels.join(' e ');
-  }, [ruleset, isMostGoalsCorrect, isMostConcededCorrect, isChampionCorrect, isTsNameCorrect]);
+  }, [ruleset, isMostGoalsCorrect, isMostConcededCorrect, isChampionCorrect, isTsCorrect]);
 
   return (
     <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-700 relative">
@@ -381,7 +388,7 @@ const TournamentPredictionsCard: React.FC<TournamentPredictionsCardProps> = ({
 
             {/* 2. Top Scorer */}
             <div
-              className={`bg-slate-900/50 p-3 rounded-lg border ${isTsNameCorrect || isTsGoalsCorrect ? 'border-amber-500/50 bg-amber-500/10' : 'border-slate-700'}`}
+              className={`bg-slate-900/50 p-3 rounded-lg border ${isTsCorrect || isTsGoalsCorrect ? 'border-amber-500/50 bg-amber-500/10' : 'border-slate-700'}`}
             >
               <div className="flex items-center gap-2 mb-2 text-amber-500">
                 <Medal size={16} />
@@ -397,7 +404,7 @@ const TournamentPredictionsCard: React.FC<TournamentPredictionsCardProps> = ({
                     displayName={tsPlayerName}
                     placeholder="Artilheiro"
                     disabled={isLocked}
-                    accentClass={isTsNameCorrect ? 'border-brand-green' : 'border-slate-600'}
+                    accentClass={isTsCorrect ? 'border-brand-green' : 'border-slate-600'}
                     onSelect={(id, name) => {
                       setTsPlayerId(id);
                       setTsPlayerName(name);
@@ -422,7 +429,7 @@ const TournamentPredictionsCard: React.FC<TournamentPredictionsCardProps> = ({
                   </div>
                 )}
               </div>
-              {isTsNameCorrect && (
+              {isTsCorrect && (
                 <div className="text-amber-400 text-xs font-bold mt-1 text-right">
                   ✓{' '}
                   {ruleset === 'regulamento_2'

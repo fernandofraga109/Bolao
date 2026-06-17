@@ -228,6 +228,8 @@ export const useMatchSystem = (
         player: comp.topScorerName || "",
         goals: comp.topScorerGoals || 0,
       },
+      topScorerPlayerId: undefined, // user predictions have this, not actual
+      topScorerPlayerIds: comp.topScorerPlayerIds || [],
       championTeamId: comp.championTeamId || "",
       bestPlayer: comp.bestPlayerName || "",
       bestGoalkeeper: comp.bestGoalkeeperName || "",

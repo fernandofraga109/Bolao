@@ -267,6 +267,7 @@ export const usePointsProcessor = (dbRef: any) => {
               topScorerPlayer: tp.topScorerPlayerId
                 ? playerNameById.get(tp.topScorerPlayerId) || undefined
                 : undefined,
+              topScorerPlayerId: tp.topScorerPlayerId || undefined,
             }));
 
             (tournPreds || []).forEach((tp) => {

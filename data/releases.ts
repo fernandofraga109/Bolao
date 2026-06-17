@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.52.0';
+export const CURRENT_VERSION = '1.53.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.53.0',
+    date: '2026-06-16',
+    changes: [
+      'Cálculo de pontos do artilheiro no Regulamento 2 agora usa o identificador oficial do jogador, garantindo mais precisão e permitindo múltiplos artilheiros empatados',
+    ],
+  },
   {
     version: '1.52.0',
     date: '2026-06-16',

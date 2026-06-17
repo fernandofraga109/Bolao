@@ -834,6 +834,28 @@ describe("Torneio Regulamento 2 — artilheiro dividido (SCORE-36)", () => {
   });
 });
 
+describe("Torneio Regulamento 2 — artilheiro dividido por UUID", () => {
+  const actual = { topScorerPlayerIds: ["player-uuid-1", "player-uuid-2"] };
+  const mk = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ userId: `u${i}`, topScorerPlayerId: "player-uuid-1" }));
+
+  it("1 acertador → 60", () => {
+    expect(calculateTournamentPointsRegulamento2({ topScorerPlayerId: "player-uuid-1" }, actual, mk(1), "u0")).toBe(60);
+  });
+  it("2 acertadores → 40", () => {
+    expect(calculateTournamentPointsRegulamento2({ topScorerPlayerId: "player-uuid-1" }, actual, mk(2), "u0")).toBe(40);
+  });
+  it("3 acertadores → 30", () => {
+    expect(calculateTournamentPointsRegulamento2({ topScorerPlayerId: "player-uuid-1" }, actual, mk(3), "u0")).toBe(30);
+  });
+  it("4+ acertadores → 25", () => {
+    expect(calculateTournamentPointsRegulamento2({ topScorerPlayerId: "player-uuid-1" }, actual, mk(4), "u0")).toBe(25);
+  });
+  it("retorna 0 se o UUID do artilheiro não estiver correto", () => {
+    expect(calculateTournamentPointsRegulamento2({ topScorerPlayerId: "wrong-uuid" }, actual, mk(1), "u0")).toBe(0);
+  });
+});
+
 describe("Torneio Regulamento 2 — classificados (SCORE-37)", () => {
   it("SCORE-37: grupo vale 10/time, mata-mata vale 5/time", () => {
     const pred = {

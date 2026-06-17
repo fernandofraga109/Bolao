@@ -403,20 +403,35 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
       // Top scorer
       if (isPreCupSpecialVisible && pred.topScorer?.player) {
         let pts = 0;
-        if (actual.topScorer?.player) {
+        let isCorrect = false;
+        let count = 0;
+
+        if (actual.topScorerPlayerIds && actual.topScorerPlayerIds.length > 0) {
+          if (pred.topScorerPlayerId && actual.topScorerPlayerIds.includes(pred.topScorerPlayerId)) {
+            isCorrect = true;
+            count = allGroupPredictions.filter(
+              (p) => p.topScorerPlayerId && actual.topScorerPlayerIds!.includes(p.topScorerPlayerId)
+            ).length;
+          }
+        } else if (actual.topScorer?.player) {
           const predPlayer = pred.topScorer.player.trim().toLowerCase();
           const actualPlayer = actual.topScorer.player.trim().toLowerCase();
           if (predPlayer === actualPlayer) {
-            const count = allGroupPredictions.filter(
+            isCorrect = true;
+            count = allGroupPredictions.filter(
               (p) => {
                 if (p.topScorerPlayerId && pred.topScorerPlayerId)
                   return p.topScorerPlayerId === pred.topScorerPlayerId;
                 return p.topScorerPlayer && p.topScorerPlayer.trim().toLowerCase() === actualPlayer;
               }
             ).length;
-            pts = count === 1 ? 60 : count === 2 ? 40 : count === 3 ? 30 : 25;
           }
         }
+
+        if (isCorrect) {
+          pts = count === 1 ? 60 : count === 2 ? 40 : count === 3 ? 30 : 25;
+        }
+
         items.push({
           label: "Artilheiro",
           predicted: pred.topScorer.player,
