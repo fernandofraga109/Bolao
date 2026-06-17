@@ -1,7 +1,11 @@
 # Plano — Painel de Estatísticas do Jogo (fixtures/statistics)
 
-_Status_: EM ANDAMENTO — Fase 1 (migration 0035) iniciada 2026-06-16
+_Status_: DONE — 2026-06-16 (todas as 7 fases entregues; commits `3b7a1a6` + `467f657` na main + fork)
 _Criado_: 2026-06-16
+
+> ⚠️ Pendência operacional: aplicar a migration `0035` no Supabase antes/junto do
+> deploy (guarda D — sem a coluna, o `updateMatch({ liveDetails, liveStats })` erra
+> e derruba a escrita do `liveDetails`).
 
 ## Problema / Objetivo
 

@@ -8,7 +8,7 @@ _Read this first at the start of every session. Update after every significant t
 
 React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Supabase (PostgreSQL + Auth + Realtime) + Tailwind CSS.
 
-**Current version:** `1.32.0`
+**Current version:** `1.58.0`
 **Test suite:** ~188 passing / 2 pre-existing failures in `useLeaderboard.test.ts` (Vitest + RTL + happy-dom)
 **Feature memories:** `.claude/memory/features/sync-system.md`
 
@@ -23,10 +23,20 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 | Deferred | Large file refactor (5 phases) | `.claude/plans/large-file-refactors.md` | Planned, not started — branch `chore/structural-refactor` |
 | Deferred | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Deferred |
 | Next | Sync call reduction (cadências desacopladas + gate por estado) | `.claude/plans/sync-call-reduction.md` | PLANEJADO — aguardando aprovação |
-| In Progress | Painel de estatísticas do jogo (fixtures/statistics) | `.claude/plans/live-stats-panel.md` | EM ANDAMENTO (rev. 06-16: piggyback na FASE 3.5, SEM lock/lastSync próprios; 5 guardas A–E no plano). Fase 1 = migration **0035** (só coluna `liveStats`; 0034 já usada) |
 | In Progress | E2E schema `test` + seed fixtures (piloto PRED) | `.claude/plans/e2e-seed-fixtures.md` | PARADO 2026-06-11. 13 passed/0 failed/16 skipped. Fix do `waitForMatchesLoaded` UNCOMMITTED (falta verificar). Detalhes completos no plano. |
 
 ---
+
+## Completed — Painel de Estatísticas do jogo (fixtures/statistics) (2026-06-16)
+
+Plano: `.claude/plans/completed/live-stats-panel.md` | CURRENT_VERSION 1.58.0 | commits `3b7a1a6` (feature) + `467f657` (gráfico espelhado + gate do grupo) na main; branch Miguel `feature/fernando-16062026-live-stats-panel`.
+
+- **O quê:** painel "Estatísticas" no `MatchCard` (botão `BarChart3`) com posse, finalizações, escanteios, faltas, cartões, passes, xG por time — **mirrored/diverging bar chart** (`components/MirroredBarChart.tsx`, reutilizável) a partir de eixo central. Cosmético, NÃO pontua.
+- **Arquitetura (decisão-chave):** **piggyback na FASE 3.5** do `useSyncSystem` — SEM throttle/lock próprios. Reusa lock principal + gate `liveDetailsLastSync` (default 50s) + gating ao-vivo. Migration `0035` = só coluna `matches.liveStats` (jsonb, espelhos v2/v3). Proxy `api/live-stats.ts` + rota `/api/live-stats` no vite (mesma chave/cota da api-sports). `fetchLiveStats`/`parseLiveStats` no `liveScoreService` (alinha home/away por `team.id`, fallback por ordem).
+- **5 guardas (no plano):** A cota compartilhada · B `Promise.all` (não estende o lock) · C try/catch por fixture (stats nunca derruba liveDetails) · D ordem migration→código + spread condicional · E anti-regressão (parse vazio→null). Preservação no sync é automática (`select("*")` + `...pureMatch`, igual liveDetails).
+- **UI:** só versão espelhada, título "Estatísticas". Botão/painel aparecem sempre que `match.liveStats` existe (inclusive jogo encerrado — último snapshot ao vivo persiste). Badge de grupo no MatchCard agora só em jogos abertos (escondido ao vivo/encerrado).
+- **Testes:** 14 de `parseLiveStats` (`liveScoreService.liveStats.test.ts`) verdes.
+- ⚠️ **Pendência operacional:** aplicar a migration `0035` no Supabase (compartilhado) antes/junto do deploy. Validar painel num jogo ao vivo. Monitorar log `[PROXY LIVE-STATS][QUOTA]`.
 
 ## Lock atômico da api-football — INTRODUZIDO E DEPOIS REVERTIDO (2026-06-14 → 06-16)
 
@@ -230,7 +240,7 @@ After Phase 6: Phase 7 (StatsPage), Phase 8 (TournamentStandings), Phase 9 (docs
 0. **Validar lock da api-football em prod:** logs `[acquireLiveDetailsLock] ✅ ADQUIRIDO`/`🔒 BLOQUEADO` + `[PROXY LIVE-DETAILS][QUOTA]` com ≤1 chamada por intervalo entre abas. (Testes do fluxo: deferidos ao `test-runner`.)
 1. **Operacional do banner:** aplicar a migration `0030_per_deploy_app_versions.sql` no Supabase de produção (compartilhado) — aditiva/segura. Validar no próximo deploy o log `[publish-version] app_version publicada: "..." para deploy "bolao|miguelfork" ✅`.
 2. **Fix do teste `KnockoutClassificationsCard`** (pausado): teste desatualizado pelo commit `d2781a2` (lock da 2ª fase passou a ser "só quando a fase começa", não mais por `lockDate` global). O teste de linha ~110 ("Bloqueado"/"globally locked") precisa montar um cenário com 1º jogo da fase no passado em vez de `lockDate={pastLock}`. Domínio do `test-runner`. NÃO é bug do componente.
-3. **Painel de estatísticas do jogo** (`.claude/plans/live-stats-panel.md`): plano pronto, **revisado 06-16** para abordagem simples — **piggyback na FASE 3.5** (reusa lock principal + gate `liveDetailsLastSync` + gating ao-vivo; SEM `liveStatsLastSync`/RPC própria). Migration 0034 só adiciona a coluna `liveStats`. Reusa `apiSportsFixtureId` já persistido. Risco central = cota (+1 call/fixture casado/ciclo ~50s). Aguardando green light p/ Fase 1.
+3. **Aplicar migration `0035`** (coluna `matches.liveStats`) no Supabase — painel de estatísticas já mergeado (1.58.0); sem a coluna o `updateMatch` da FASE 3.5 erra e derruba o `liveDetails`. Ver `completed/live-stats-panel.md`.
 4. Backlog deferido: sync-call-reduction, specials refactor Phase A, E2E Fase B/C.
 
 ## Completed — Players & Top Scorer Phases 1–4 (2026-06-06, commit `122f6ed`)
@@ -242,4 +252,4 @@ After Phase 6: Phase 7 (StatsPage), Phase 8 (TournamentStandings), Phase 9 (docs
 - **`competitionCode` prop**: threaded from `App.tsx` `activeCompetitionCode` → `SpecialsPage` → `TopScorerCard` so search is scoped to the active competition.
 - **Key bugs fixed**: `fetchPlayers` broken PostgREST FK join replaced with two separate queries; saved player names initialized from prediction prop (not just `db.players`); search fallback for players without tournament stats.
 
-_Last updated: 2026-06-06_
+_Last updated: 2026-06-16_
