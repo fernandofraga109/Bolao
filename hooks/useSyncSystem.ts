@@ -6,6 +6,7 @@ import {
   fetchCompetitionTeams,
   fetchLiveMatchMinutes,
   fetchLiveMatchDetails,
+  fetchLiveStats,
   matchLiveFixtureToInternal,
   fetchCompetitionScorers,
   findInternalMatch,
@@ -933,15 +934,46 @@ export const useSyncSystem = (
           if (shouldFetchLive) {
             try {
               const liveFixtures = await fetchLiveMatchDetails();
-              let liveMatched = 0;
+
+              // Casa os fixtures ao vivo com os jogos internos primeiro.
+              const matchedPairs: {
+                fx: (typeof liveFixtures)[number];
+                internalId: string;
+              }[] = [];
               for (const fx of liveFixtures) {
                 const internal = matchLiveFixtureToInternal(
                   fx,
                   hydratedInternalMatches,
                 );
-                if (internal && dbRef.current.updateMatch) {
-                  await dbRef.current.updateMatch(internal.id, {
+                if (internal) matchedPairs.push({ fx, internalId: internal.id });
+              }
+
+              // Guarda B: estatísticas (api-sports) dos jogos casados em PARALELO,
+              // não em série — não estende o lock principal mais que o necessário.
+              // Guarda C: `fetchLiveStats` nunca lança (retorna null em erro), então
+              // uma falha de stats jamais derruba a persistência do liveDetails.
+              const statsByFixture = await Promise.all(
+                matchedPairs.map((p) =>
+                  fetchLiveStats(
+                    p.fx.details.apiSportsFixtureId,
+                    p.fx.homeApiId,
+                    p.fx.awayApiId,
+                  ),
+                ),
+              );
+
+              let liveMatched = 0;
+              for (let i = 0; i < matchedPairs.length; i++) {
+                const { fx, internalId } = matchedPairs[i];
+                const stats = statsByFixture[i];
+                if (dbRef.current.updateMatch) {
+                  // Guarda D/E: só inclui `liveStats` quando veio conteúdo (spread
+                  // condicional) — payload vazio/erro NÃO sobrescreve stats boas, e
+                  // a chave ausente nunca nula a coluna. Vai no MESMO updateMatch do
+                  // liveDetails → 1 write, 1 evento realtime.
+                  await dbRef.current.updateMatch(internalId, {
                     liveDetails: fx.details,
+                    ...(stats ? { liveStats: stats } : {}),
                   });
                   liveMatched++;
                 }

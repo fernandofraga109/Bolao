@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.57.0';
+export const CURRENT_VERSION = '1.58.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.58.0',
+    date: '2026-06-16',
+    changes: [
+      'Novo painel de estatísticas nos jogos ao vivo: toque no ícone de gráfico no card do jogo para ver posse de bola, finalizações, escanteios, faltas, cartões e passes de cada time, lado a lado',
+    ],
+  },
   {
     version: '1.57.0',
     date: '2026-06-16',

@@ -23,17 +23,19 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 | Deferred | Large file refactor (5 phases) | `.claude/plans/large-file-refactors.md` | Planned, not started — branch `chore/structural-refactor` |
 | Deferred | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Deferred |
 | Next | Sync call reduction (cadências desacopladas + gate por estado) | `.claude/plans/sync-call-reduction.md` | PLANEJADO — aguardando aprovação |
+| In Progress | Painel de estatísticas do jogo (fixtures/statistics) | `.claude/plans/live-stats-panel.md` | EM ANDAMENTO (rev. 06-16: piggyback na FASE 3.5, SEM lock/lastSync próprios; 5 guardas A–E no plano). Fase 1 = migration **0035** (só coluna `liveStats`; 0034 já usada) |
 | In Progress | E2E schema `test` + seed fixtures (piloto PRED) | `.claude/plans/e2e-seed-fixtures.md` | PARADO 2026-06-11. 13 passed/0 failed/16 skipped. Fix do `waitForMatchesLoaded` UNCOMMITTED (falta verificar). Detalhes completos no plano. |
 
 ---
 
-## Completed — Lock atômico da api-football (minuto-a-minuto) (2026-06-14)
+## Lock atômico da api-football — INTRODUZIDO E DEPOIS REVERTIDO (2026-06-14 → 06-16)
 
-Plano: `.claude/plans/completed/live-details-atomic-lock.md` | CURRENT_VERSION 1.44.1 | commits `a92a0aa` + `761a072` na main; branch Miguel `feature/fernando-14062026-live-details-lock`.
+Plano: `.claude/plans/completed/live-details-atomic-lock.md`. Commits: `a92a0aa` introduziu o lock; **`5711779` REVERTEU** ("simplificar sync do live-details — remover lock próprio e usar gate simples dentro do lock principal").
 
-- **Problema:** a chamada da api-football (FASE 3.5 do `runSync`, `/api/live-details`) só tinha throttle em estado local (não-atômico). Duas abas com `liveDetailsLastSync` desatualizado podiam ambas chamar no mesmo intervalo e queimar cota. O `acquire_sync_lock` serializa o sync inteiro, não a chamada à api-football.
-- **Fix:** migration `0033` — RPC `acquire_live_details_lock(code, interval_ms)` (+ variante `v2_`) faz check-and-set atômico em `competitions."liveDetailsLastSync"` (mesmo padrão da `0026`). `DatabaseContext.acquireLiveDetailsLock`. `useSyncSystem` FASE 3.5 troca o `if (elapsed >= interval)` + `updateCompetitionLiveDetailsSync` por uma única chamada ao lock. Degradação graciosa se a RPC faltar (retorna false; sync principal intacto). **Migration já aplicada no Supabase pelo usuário.**
-- **Deferido:** B2 (dedupe **global** do live-details — endpoint é `league=1`, não por-competição); limpar `updateCompetitionLiveDetailsSync` órfã; testes (domínio `test-runner`, não escritos).
+- **Estado ATUAL do código (fonte da verdade):** a FASE 3.5 usa um **gate de throttle SIMPLES** — lê `competition.liveDetailsLastSync`, e se `Date.now() - lastSync >= live_details_interval_ms` (default **50s**) chama a api-football; após casar ≥1 jogo grava o timestamp via `updateCompetitionLiveDetailsSync`. **NÃO** há `acquireLiveDetailsLock` no `DatabaseContext` nem chamada no `useSyncSystem`.
+- **Por que o gate simples basta:** o `acquire_sync_lock` já serializa o pipeline inteiro por competição → só uma instância chega à FASE 3.5 por vez → sem corrida no read-then-write.
+- **Órfão:** a RPC `acquire_live_details_lock` (migration `0033`) existe no banco mas **não é chamada por ninguém**. Pode ser removida numa limpeza futura.
+- ⚠️ Docs antes afirmavam "lock atômico, default 5 min" — **corrigido** em `documentacao/sync-flow.md`, `docs/architecture/external-api-calls.md`, `docs/features/sync-system.md` (2026-06-16).
 
 ## Completed — Seção "Ao Vivo" + Dense ranking (2026-06-12)
 
@@ -228,7 +230,8 @@ After Phase 6: Phase 7 (StatsPage), Phase 8 (TournamentStandings), Phase 9 (docs
 0. **Validar lock da api-football em prod:** logs `[acquireLiveDetailsLock] ✅ ADQUIRIDO`/`🔒 BLOQUEADO` + `[PROXY LIVE-DETAILS][QUOTA]` com ≤1 chamada por intervalo entre abas. (Testes do fluxo: deferidos ao `test-runner`.)
 1. **Operacional do banner:** aplicar a migration `0030_per_deploy_app_versions.sql` no Supabase de produção (compartilhado) — aditiva/segura. Validar no próximo deploy o log `[publish-version] app_version publicada: "..." para deploy "bolao|miguelfork" ✅`.
 2. **Fix do teste `KnockoutClassificationsCard`** (pausado): teste desatualizado pelo commit `d2781a2` (lock da 2ª fase passou a ser "só quando a fase começa", não mais por `lockDate` global). O teste de linha ~110 ("Bloqueado"/"globally locked") precisa montar um cenário com 1º jogo da fase no passado em vez de `lockDate={pastLock}`. Domínio do `test-runner`. NÃO é bug do componente.
-3. Backlog deferido: sync-call-reduction, specials refactor Phase A, E2E Fase B/C.
+3. **Painel de estatísticas do jogo** (`.claude/plans/live-stats-panel.md`): plano pronto, **revisado 06-16** para abordagem simples — **piggyback na FASE 3.5** (reusa lock principal + gate `liveDetailsLastSync` + gating ao-vivo; SEM `liveStatsLastSync`/RPC própria). Migration 0034 só adiciona a coluna `liveStats`. Reusa `apiSportsFixtureId` já persistido. Risco central = cota (+1 call/fixture casado/ciclo ~50s). Aguardando green light p/ Fase 1.
+4. Backlog deferido: sync-call-reduction, specials refactor Phase A, E2E Fase B/C.
 
 ## Completed — Players & Top Scorer Phases 1–4 (2026-06-06, commit `122f6ed`)
 

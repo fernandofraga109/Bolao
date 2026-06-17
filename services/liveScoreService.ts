@@ -4,6 +4,8 @@ import {
   CompetitionDB,
   LiveMatchDetails,
   LiveMatchEvent,
+  LiveMatchStats,
+  LiveTeamStat,
 } from "../types";
 import { DEFAULT_COMPETITION_CODE } from "../data/competitions";
 
@@ -728,6 +730,88 @@ export const fetchLiveMatchDetails = async (): Promise<ParsedLiveFixture[]> => {
   } catch (error) {
     console.warn("[LIVE DETAILS] Falha ao buscar /api/live-details:", error);
     return [];
+  }
+};
+
+/**
+ * Normaliza o payload do `fixtures/statistics` da api-sports num `LiveMatchStats`,
+ * alinhando os dois times ao mandante/visitante INTERNO via `team.id` (api-sports),
+ * com fallback por ordem ([home, away]) quando os ids não casam.
+ *
+ * Guarda E (anti-regressão): retorna `null` se não houver estatística real — o
+ * caller NÃO deve sobrescrever um `liveStats` bom com vazio.
+ */
+export const parseLiveStats = (
+  payload: any,
+  fixtureId: number,
+  homeApiId: number | null,
+  awayApiId: number | null,
+): LiveMatchStats | null => {
+  const response = Array.isArray(payload?.response) ? payload.response : [];
+  if (response.length === 0) return null;
+
+  const toStats = (arr: any): LiveTeamStat[] =>
+    Array.isArray(arr)
+      ? arr.map((s: any) => ({ type: s?.type ?? "", value: s?.value ?? null }))
+      : [];
+
+  let homeEntry: any = null;
+  let awayEntry: any = null;
+  for (const entry of response) {
+    const teamId = entry?.team?.id ?? null;
+    if (homeApiId != null && teamId === homeApiId) homeEntry = entry;
+    else if (awayApiId != null && teamId === awayApiId) awayEntry = entry;
+  }
+  // Fallback por ordem quando os ids não casam (api-sports costuma vir [home, away]).
+  if (!homeEntry && !awayEntry) {
+    homeEntry = response[0] ?? null;
+    awayEntry = response[1] ?? null;
+  } else {
+    if (!homeEntry) homeEntry = response.find((e: any) => e !== awayEntry) ?? null;
+    if (!awayEntry) awayEntry = response.find((e: any) => e !== homeEntry) ?? null;
+  }
+
+  const home = toStats(homeEntry?.statistics);
+  const away = toStats(awayEntry?.statistics);
+  if (home.length === 0 && away.length === 0) return null;
+
+  return {
+    apiSportsFixtureId: fixtureId,
+    home,
+    away,
+    syncedAt: new Date().toISOString(),
+  };
+};
+
+/**
+ * Busca as estatísticas de um fixture via proxy /api/live-stats (api-sports) e
+ * já normaliza para `LiveMatchStats`. Retorna `null` em qualquer erro/payload
+ * vazio — dados puramente cosméticos, nunca quebram o sync (Guarda C/E).
+ */
+export const fetchLiveStats = async (
+  fixtureId: number,
+  homeApiId: number | null,
+  awayApiId: number | null,
+): Promise<LiveMatchStats | null> => {
+  try {
+    const response = await fetch(`/api/live-stats?fixture=${fixtureId}`);
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      console.warn("[LIVE STATS] Resposta não-JSON do proxy.");
+      return null;
+    }
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.warn(
+        `[LIVE STATS] Erro (${response.status}):`,
+        (payload as any)?.message,
+      );
+      return null;
+    }
+    return parseLiveStats(payload, fixtureId, homeApiId, awayApiId);
+  } catch (error) {
+    console.warn("[LIVE STATS] Falha ao buscar /api/live-stats:", error);
+    return null;
   }
 };
 

@@ -173,6 +173,27 @@ export default defineConfig(({ mode }) => {
         });
       },
     },
+    // Estatísticas de um fixture específico (api-sports). Mesma origem/token do
+    // live-details, mas o path é /fixtures/statistics?fixture=<id>.
+    "/api/live-stats": {
+      target: liveDataOrigin,
+      changeOrigin: true,
+      secure: true,
+      rewrite: (incomingPath: string) => {
+        const [, search = ""] = incomingPath.split("?");
+        const fixture = new URLSearchParams(search).get("fixture") || "";
+        return `/fixtures/statistics?fixture=${encodeURIComponent(fixture)}`;
+      },
+      configure: (proxy: any) => {
+        proxy.on("proxyReq", (proxyReq: any) => {
+          if (liveDataToken) {
+            proxyReq.setHeader("x-apisports-key", liveDataToken);
+          }
+          proxyReq.setHeader("Content-Type", "application/json");
+          proxyReq.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        });
+      },
+    },
   };
 
   return {

@@ -37,10 +37,12 @@ import {
   Calendar,
   RefreshCw,
   Activity,
+  BarChart3,
 } from "lucide-react";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
 import ReplicatePredictionModal from "./ReplicatePredictionModal";
 import LiveMatchTimeline from "./LiveMatchTimeline";
+import LiveMatchStats from "./LiveMatchStats";
 import { useLiveMatchClock } from "../hooks/useLiveMatchClock";
 import { translateGroupName } from "../utils/translations";
 
@@ -78,6 +80,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const [showTimeline, setShowTimeline] = useState(
     match.status === MatchStatus.LIVE,
   );
+  const [showStats, setShowStats] = useState(false);
 
   // Quando a partida sai do ao vivo (finaliza), recolhe a timeline automaticamente.
   useEffect(() => {
@@ -569,6 +572,16 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 </button>
               )}
 
+              {match.liveStats && (
+                <button
+                  onClick={() => setShowStats(!showStats)}
+                  title="Estatísticas da partida"
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all ${showStats ? "bg-slate-700 border-slate-600 text-white" : "bg-slate-800 border-slate-700 text-slate-500 hover:text-white"}`}
+                >
+                  <BarChart3 size={20} />
+                </button>
+              )}
+
               {eligibleGroups.length > 0 && !isPredictionDisabled && (
                 <button
                   onClick={() => {
@@ -645,6 +658,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       {/* Minuto a minuto (api-sports) — ao vivo abre por padrão; finalizada via botão.
           Sempre depende de haver liveDetails. */}
       {match.liveDetails && showTimeline && <LiveMatchTimeline match={match} />}
+
+      {/* Estatísticas da partida (api-sports) — abre via botão; depende de liveStats. */}
+      {match.liveStats && showStats && <LiveMatchStats match={match} />}
 
       {/* Friends predictions section would go here, simplified or kept from original */}
       {showFriends && (

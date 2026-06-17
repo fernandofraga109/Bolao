@@ -51,6 +51,29 @@ export interface LiveMatchDetails {
   syncedAt: string;
 }
 
+/** Uma estatística de time (api-sports `fixtures/statistics`). */
+export interface LiveTeamStat {
+  /** Rótulo cru da api-sports (ex.: "Ball Possession", "Total Shots"). */
+  type: string;
+  /** Valor cru — número, string com "%" ou null quando indisponível. */
+  value: number | string | null;
+}
+
+/**
+ * Estatísticas ao vivo de uma partida (api-sports `fixtures/statistics`).
+ * Puramente cosmético — NÃO entra em pontuação. Persistido em `matches.liveStats`.
+ */
+export interface LiveMatchStats {
+  /** Id do fixture na api-sports (mesmo namespace de LiveMatchDetails). */
+  apiSportsFixtureId: number;
+  /** Estatísticas do mandante (interno) já alinhadas pelo lado casado. */
+  home: LiveTeamStat[];
+  /** Estatísticas do visitante (interno). */
+  away: LiveTeamStat[];
+  /** ISO do momento em que estes dados foram buscados/persistidos. */
+  syncedAt: string;
+}
+
 // --- DATABASE SCHEMAS (Normalized Data) ---
 
 export interface SystemConfigDB {
@@ -157,6 +180,8 @@ export interface MatchDB {
   extraTimeAway?: number;
   /** Detalhes ao vivo da api-sports (minuto a minuto). NÃO usado em pontuação. */
   liveDetails?: LiveMatchDetails | null;
+  /** Estatísticas ao vivo da api-sports (posse, finalizações…). NÃO usado em pontuação. */
+  liveStats?: LiveMatchStats | null;
 }
 
 export interface PredictionDB {
@@ -370,6 +395,8 @@ export interface Match {
   extraTimeAway?: number;
   /** Detalhes ao vivo da api-sports (minuto a minuto). NÃO usado em pontuação. */
   liveDetails?: LiveMatchDetails | null;
+  /** Estatísticas ao vivo da api-sports (posse, finalizações…). NÃO usado em pontuação. */
+  liveStats?: LiveMatchStats | null;
 }
 
 export type Group = GroupDB;
