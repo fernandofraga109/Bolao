@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.58.1';
+export const CURRENT_VERSION = '1.58.2';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.58.2',
+    date: '2026-06-17',
+    changes: [
+      'Ajuste no cabeçalho do card de jogo: a marcação de "zebra" não fica mais colada no horário em telas estreitas, com um espaçamento melhor entre data, horário e a etiqueta de zebra',
+    ],
+  },
   {
     version: '1.58.1',
     date: '2026-06-17',
