@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { Match, LiveTeamStat } from "../types";
+import MirroredBarChart, { MirroredStatRow } from "./MirroredBarChart";
 
 interface LiveMatchStatsProps {
   match: Match;
@@ -50,71 +51,17 @@ const STAT_ORDER = [
 
 const translateStat = (type: string): string => STAT_PT[type] ?? type;
 
-// Extrai um número de valores como 12, "55%", "1.8" — para dimensionar a barra.
-const toNumber = (v: number | string | null): number => {
-  if (v == null) return 0;
-  if (typeof v === "number") return v;
-  const m = v.replace(",", ".").match(/-?\d+(\.\d+)?/);
-  return m ? parseFloat(m[0]) : 0;
-};
-
-// Formata o valor para exibição (preserva "%", troca null por "0").
-const formatValue = (v: number | string | null): string => {
-  if (v == null) return "0";
-  return String(v);
-};
-
-const StatRow: React.FC<{
-  label: string;
-  home: number | string | null;
-  away: number | string | null;
-}> = ({ label, home, away }) => {
-  const h = toNumber(home);
-  const a = toNumber(away);
-  const total = h + a;
-  const homePct = total > 0 ? (h / total) * 100 : 50;
-
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between text-xs">
-        <span className="font-black text-slate-200 tabular-nums w-12 text-left">
-          {formatValue(home)}
-        </span>
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center flex-1 px-1">
-          {label}
-        </span>
-        <span className="font-black text-slate-200 tabular-nums w-12 text-right">
-          {formatValue(away)}
-        </span>
-      </div>
-      <div className="flex items-center gap-1 h-1.5">
-        <div className="flex-1 flex justify-end">
-          <div
-            className="h-full rounded-full bg-brand-green transition-all"
-            style={{ width: `${homePct}%` }}
-          />
-        </div>
-        <div className="flex-1 flex justify-start">
-          <div
-            className="h-full rounded-full bg-sky-400 transition-all"
-            style={{ width: `${100 - homePct}%` }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-};
-
 /**
- * Painel de estatísticas da partida (api-sports `fixtures/statistics`).
- * Barras comparativas mandante (verde, esquerda) × visitante (azul, direita).
+ * Painel "Estatísticas" da partida (api-sports `fixtures/statistics`).
+ * Mirrored comparison bar chart: mandante (verde, esquerda) × visitante
+ * (azul, direita), a partir de um eixo central.
  *
  * Dados puramente informativos — NÃO entram em nenhum cálculo de pontos.
  */
 export const LiveMatchStats: React.FC<LiveMatchStatsProps> = ({ match }) => {
   const stats = match.liveStats;
 
-  const rows = useMemo(() => {
+  const rows = useMemo<MirroredStatRow[]>(() => {
     if (!stats) return [];
     const byTypeHome = new Map<string, LiveTeamStat["value"]>();
     const byTypeAway = new Map<string, LiveTeamStat["value"]>();
@@ -131,10 +78,10 @@ export const LiveMatchStats: React.FC<LiveMatchStatsProps> = ({ match }) => {
     });
 
     return allTypes.map((type) => ({
-      type,
+      key: type,
       label: translateStat(type),
-      home: byTypeHome.get(type) ?? null,
-      away: byTypeAway.get(type) ?? null,
+      left: byTypeHome.get(type) ?? null,
+      right: byTypeAway.get(type) ?? null,
     }));
   }, [stats]);
 
@@ -142,6 +89,10 @@ export const LiveMatchStats: React.FC<LiveMatchStatsProps> = ({ match }) => {
 
   return (
     <div className="px-3 sm:px-5 pb-5 border-t border-slate-700/50 bg-slate-900/20 pt-4 animate-slideDown">
+      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 text-center">
+        Estatísticas
+      </h4>
+
       {/* Legenda mandante × visitante */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-1.5 min-w-0">
@@ -159,10 +110,8 @@ export const LiveMatchStats: React.FC<LiveMatchStatsProps> = ({ match }) => {
       </div>
 
       {rows.length > 0 ? (
-        <div className="space-y-2.5 max-h-72 overflow-y-auto pr-2 custom-scrollbar">
-          {rows.map((r) => (
-            <StatRow key={r.type} label={r.label} home={r.home} away={r.away} />
-          ))}
+        <div className="max-h-72 overflow-y-auto pr-2 custom-scrollbar">
+          <MirroredBarChart rows={rows} />
         </div>
       ) : (
         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center py-2">

@@ -83,9 +83,7 @@ export const RELEASES: Release[] = [
   {
     version: '1.46.2',
     date: '2026-06-15',
-    changes: [
-      'Failback para Classificados do Grupo quando API falha',
-    ],
+    changes: ['Failback para Classificados do Grupo quando API falha'],
   },
   {
     version: '1.46.1',

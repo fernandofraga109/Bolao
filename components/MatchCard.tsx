@@ -283,7 +283,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             <Clock size={12} className="text-brand-green" />
             {matchDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
           </div>
-          {match.group && (
+          {match.group && !isFinished && !isLive && (
             <span className="px-2 py-0.5 rounded-full bg-brand-green/10 border border-brand-green/20 text-[9px] font-black text-brand-green uppercase tracking-widest">
               {translateGroupName(match.group)}
             </span>
