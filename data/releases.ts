@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.55.0';
+export const CURRENT_VERSION = '1.56.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,14 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.56.0',
+    date: '2026-06-16',
+    changes: [
+      'A linha do tempo "minuto a minuto" dos jogos ao vivo agora mostra também as substituições, com quem entrou e quem saiu de campo',
+      'A linha do tempo passou a exibir as revisões do VAR, como gols anulados e pênaltis confirmados',
+    ],
+  },
   {
     version: '1.55.0',
     date: '2026-06-16',
