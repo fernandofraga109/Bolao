@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.58.0';
+export const CURRENT_VERSION = '1.58.1';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.58.1',
+    date: '2026-06-17',
+    changes: [
+      'Pequeno ajuste visual: o grupo do jogo (ex: "Grupo I") agora aparece centralizado acima dos times no card, evitando que fique apertado com a marcação de zebra em telas estreitas',
+    ],
+  },
   {
     version: '1.58.0',
     date: '2026-06-16',
