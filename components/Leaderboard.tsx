@@ -96,18 +96,20 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, ruleset = "regulame
     }
   };
 
-  const getRankRowStyle = (rank: number, isMe: boolean) => {
+  const getRankRowStyle = (rank: number, isMe: boolean, isZ4: boolean) => {
     if (isMe) return "bg-brand-green/5";
-    if (rank === 1) return "bg-brand-gold/5";
-    if (rank === 2) return "bg-white/[0.02]";
-    if (rank === 3) return "bg-amber-900/10";
+    if (rank === 1) return "bg-amber-500/10";
+    if (rank === 2) return "bg-slate-300/10";
+    if (rank === 3) return "bg-amber-800/10";
+    if (isZ4) return "bg-red-900/10";
     return "";
   };
 
-  const getRankAccent = (rank: number) => {
+  const getRankAccent = (rank: number, isZ4: boolean) => {
     if (rank === 1) return "border-l-2 border-brand-gold/50";
-    if (rank === 2) return "border-l-2 border-slate-400/25";
-    if (rank === 3) return "border-l-2 border-amber-600/30";
+    if (rank === 2) return "border-l-2 border-slate-300/40";
+    if (rank === 3) return "border-l-2 border-amber-700/40";
+    if (isZ4) return "border-l-2 border-red-500/60";
     return "border-l-2 border-transparent";
   };
 
@@ -255,11 +257,12 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, ruleset = "regulame
                   {section.users.map((user, index) => {
                     const variation = getVariation(user.id, index);
                     const progress = maxPoints > 0 ? (user.totalPoints / maxPoints) * 100 : 0;
-                    
+                    const totalUsers = section.users.length;
+                    const isZ4 = totalUsers > 8 && index >= totalUsers - 4;
                     return (
                       <div
                         key={user.id}
-                        className={`group relative flex items-center justify-between px-3 py-3 sm:p-5 gap-2 transition-all ${getRankRowStyle(user.rank, user.id === "me")} ${getRankAccent(user.rank)} ${onUserClick ? "cursor-pointer hover:bg-slate-700/30" : "hover:bg-slate-700/20"}`}
+                        className={`group relative flex items-center justify-between px-3 py-3 sm:p-5 gap-2 transition-all ${getRankRowStyle(user.rank, user.id === "me", isZ4)} ${getRankAccent(user.rank, isZ4)} ${onUserClick ? "cursor-pointer hover:bg-slate-700/30" : "hover:bg-slate-700/20"}`}
                         onClick={() => onUserClick?.(user)}
                       >
                         <div className="flex items-center gap-2 sm:gap-5 z-10 min-w-0">

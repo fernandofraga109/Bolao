@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.59.1';
+export const CURRENT_VERSION = '1.59.2';
 
 export interface Release {
   version: string;
@@ -7,6 +7,14 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.59.2',
+    date: '2026-06-17',
+    changes: [
+      'Leaderboard: grupos com mais de 8 participantes destacam os 4 últimos colocados (Z4) com fundo vermelho e borda lateral vermelha',
+      'Top 3 do ranking ganham fundos distintos em tons escuros: ouro (1º), prata (2º) e bronze (3º)',
+    ],
+  },
   {
     version: '1.59.1',
     date: '2026-06-17',
