@@ -327,7 +327,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, ruleset = "regulame
                             )}
                           </div>
                           {ruleset === "regulamento_2" && (user.matchPoints !== undefined || user.specialPoints !== undefined) && (
-                            <div className="text-[9px] font-bold text-slate-400 tracking-tight leading-none">
+                            <div className="text-[8px] font-bold text-slate-400 tracking-tight leading-none">
                               <span className="text-slate-500">{user.matchPoints ?? 0} jogos</span>
                               <span className="text-slate-600 mx-0.5">|</span>
                               <span className="text-slate-500">{user.specialPoints ?? 0} esp.</span>
