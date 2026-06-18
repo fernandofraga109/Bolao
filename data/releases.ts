@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.59.0';
+export const CURRENT_VERSION = '1.59.1';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.59.1',
+    date: '2026-06-17',
+    changes: [
+      'Os gols na linha do tempo dos jogos ao vivo agora aparecem com a bola oficial da Copa do Mundo 2026 no lugar do emoji de bola',
+    ],
+  },
   {
     version: '1.59.0',
     date: '2026-06-17',
