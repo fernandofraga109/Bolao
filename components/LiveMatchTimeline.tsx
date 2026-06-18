@@ -67,7 +67,15 @@ const EventCell: React.FC<{ ev: LiveMatchEvent; side: "home" | "away" }> = ({
   let bgClass = "";
 
   if (goal) {
-    icon = <span className="text-brand-green shrink-0 text-sm">⚽</span>;
+    icon = (
+      <img
+        src="/trionda.svg"
+        alt="Gol"
+        width={15}
+        height={15}
+        className="shrink-0 rounded-full"
+      />
+    );
     bgClass = "bg-brand-green/10 border border-brand-green/20";
   } else if (subst) {
     icon = <ArrowLeftRight size={13} className="text-sky-400 shrink-0" />;
