@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.59.2';
+export const CURRENT_VERSION = '1.59.3';
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.59.3',
+    date: '2026-06-18',
+    changes: [
+      'Corrigido cálculo de zebra no menu de stats para Regulamento 1 (agora usa lógica real com rankings dos times)',
+      'Adicionado contador de "Acertou Sozinho" no menu de stats para Regulamento 2 (placares isolados)',
+      'Removido componente UserStats.tsx (não estava sendo usado)',
+    ],
+  },
   {
     version: '1.59.2',
     date: '2026-06-17',

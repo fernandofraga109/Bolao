@@ -684,7 +684,15 @@ const App: React.FC = () => {
 
         {/* User Stats Tab */}
         {activeTab === "stats" && currentUser.role !== "ADMIN" && (
-          <StatsPage user={currentUser} matches={matches} ruleset={currentGroup?.ruleset} />
+          <StatsPage
+            user={currentUser}
+            matches={matches}
+            ruleset={currentGroup?.ruleset}
+            users={users}
+            predictions={db.predictions}
+            minRankDiff={currentGroup?.underdog_min_rank_diff ?? db.systemConfig.underdog_min_rank_diff ?? 10}
+            groupId={currentGroup?.id}
+          />
         )}
 
         {/* Admin Tab */}

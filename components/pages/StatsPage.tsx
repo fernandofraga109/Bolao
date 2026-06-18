@@ -14,43 +14,103 @@ import {
   MapPin,
 } from 'lucide-react';
 import { translateGroupName } from '../../utils/translations';
-import { getMatchDuration, getR1MatchScoringResult } from '../../utils/scoring';
+import { getMatchDuration, getR1MatchScoringResult, getScoreCategoryRegulamento1, getScoreCategoryRegulamento2, getMatchPhase } from '../../utils/scoring';
 
 interface StatsPageProps {
   user: User;
   matches: Match[];
   ruleset?: 'regulamento_1' | 'regulamento_2';
+  users?: User[];
+  predictions?: Record<string, any>;
+  minRankDiff?: number;
+  groupId?: string;
 }
 
 // ─── Aggregate stats (same logic as before) ───────────────────────────────────
-function useStats(user: User, matches: Match[]) {
+function useStats(
+  user: User,
+  matches: Match[],
+  ruleset?: 'regulamento_1' | 'regulamento_2',
+  users?: User[],
+  predictions?: Record<string, any>,
+  minRankDiff?: number,
+  groupId?: string
+) {
   return useMemo(() => {
     const finishedMatches = matches.filter((m) => m.status === MatchStatus.FINISHED);
-    const predictions = user.predictions || {};
+    const userPredictions = user.predictions || {};
 
     let exactScores = 0;
     let correctResults = 0;
     let bonusZebras = 0;
+    let aloneBonuses = 0;
     let totalPoints = 0;
     let gamesPredicted = 0;
 
+    const isR2 = ruleset === 'regulamento_2';
+
     finishedMatches.forEach((match) => {
-      const pred = predictions[match.id];
+      const pred = userPredictions[match.id];
       if (!pred || !match.result) return;
 
       gamesPredicted++;
       const pts = pred.points || 0;
       totalPoints += pts;
 
-      if (pred.home === match.result.home && pred.away === match.result.away) {
-        exactScores++;
+      // Exact score check
+      if (isR2) {
+        // R2: compare against full result (regular + extra time)
+        if (pred.home === match.result.home && pred.away === match.result.away) {
+          exactScores++;
+        }
+      } else {
+        // R1: compare against regular time only for knockout matches
+        const r1Result = getR1MatchScoringResult(match, match.result.home, match.result.away);
+        if (pred.home === r1Result.home && pred.away === r1Result.away) {
+          exactScores++;
+        }
       }
 
+      // Outcome check
       const actualOutcome = Math.sign(match.result.home - match.result.away);
       const predictedOutcome = Math.sign(pred.home - pred.away);
       if (actualOutcome === predictedOutcome) correctResults++;
 
-      if (pts > 15) bonusZebras++;
+      // Bonus calculation based on ruleset
+      if (isR2) {
+        // R2: Check for aloneBonus (placar isolado)
+        if (pred.home === match.result.home && pred.away === match.result.away) {
+          // Need to check if this user was the only one with this exact prediction
+          if (users && predictions && groupId) {
+            const matchPredictions = users
+              .filter((u) => u.groupIds.includes(groupId) && u.predictions?.[match.id])
+              .map((u) => ({
+                userId: u.id,
+                homeScore: u.predictions[match.id].home,
+                awayScore: u.predictions[match.id].away,
+              }));
+
+            const exactHits = matchPredictions.filter(
+              (p) => p.homeScore === match.result.home && p.awayScore === match.result.away
+            );
+            const aloneBonus = exactHits.length === 1 && exactHits[0].userId === user.id;
+            if (aloneBonus) aloneBonuses++;
+          }
+        }
+      } else {
+        // R1: Check for underdog bonus (zebra)
+        const r1Result = getR1MatchScoringResult(match, match.result.home, match.result.away);
+        const cat = getScoreCategoryRegulamento1(
+          pred.home,
+          pred.away,
+          r1Result.home,
+          r1Result.away,
+          match.homeTeam?.ranking,
+          match.awayTeam?.ranking,
+          minRankDiff ?? 10
+        );
+        if (cat.underdogBonus > 0) bonusZebras++;
+      }
     });
 
     const accuracy = gamesPredicted > 0 ? (correctResults / gamesPredicted) * 100 : 0;
@@ -62,11 +122,12 @@ function useStats(user: User, matches: Match[]) {
       exactScores,
       correctResults,
       bonusZebras,
+      aloneBonuses,
       accuracy: accuracy.toFixed(1),
       exactRate: exactRate.toFixed(1),
       avgPoints: gamesPredicted > 0 ? (totalPoints / gamesPredicted).toFixed(1) : '0',
     };
-  }, [user.predictions, matches]);
+  }, [user.predictions, matches, ruleset, users, predictions, minRankDiff, groupId, user.id]);
 }
 
 // ─── Prediction history entry ─────────────────────────────────────────────────
@@ -312,8 +373,8 @@ const CollapsibleSection: React.FC<{
 };
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
-const StatsPage: React.FC<StatsPageProps> = ({ user, matches, ruleset }) => {
-  const stats = useStats(user, matches);
+const StatsPage: React.FC<StatsPageProps> = ({ user, matches, ruleset, users, predictions, minRankDiff, groupId }) => {
+  const stats = useStats(user, matches, ruleset, users, predictions, minRankDiff, groupId);
   const { scored, missed } = usePredictionHistory(user, matches, ruleset);
 
   return (
@@ -360,10 +421,10 @@ const StatsPage: React.FC<StatsPageProps> = ({ user, matches, ruleset }) => {
             <Zap size={20} className="text-yellow-400" />
           </div>
           <div className="text-3xl font-black text-white leading-none mb-1">
-            {stats.bonusZebras}
+            {ruleset === 'regulamento_2' ? stats.aloneBonuses : stats.bonusZebras}
           </div>
           <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-            Bônus de Zebra
+            {ruleset === 'regulamento_2' ? 'Acertou Sozinho' : 'Bônus de Zebra'}
           </div>
         </div>
 
