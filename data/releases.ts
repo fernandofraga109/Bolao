@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.59.4';
+export const CURRENT_VERSION = '1.59.6';
 
 export interface Release {
   version: string;
@@ -7,6 +7,16 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.59.6',
+    date: '2026-06-18',
+    changes: ['Correção para carracamento mais performatico de dados do banco.'],
+  },
+  {
+    version: '1.59.5',
+    date: '2026-06-18',
+    changes: ['Correção para carracamento mais performatico de dados do banco.'],
+  },
   {
     version: '1.59.4',
     date: '2026-06-18',

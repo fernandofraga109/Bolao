@@ -1420,25 +1420,28 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
     }
   ) => {
     setCompetitions((prev) =>
-      prev.map((c) =>
-        c.code === code
-          ? { 
-              ...c, 
-              championTeamId: awards.championTeamId,
-              topScorerName: awards.topScorerName,
-              topScorerGoals: awards.topScorerGoals,
-              topScorerPlayerIds: awards.topScorerPlayerIds ?? undefined,
-              bestPlayerName: awards.bestPlayerName,
-              bestGoalkeeperName: awards.bestGoalkeeperName,
-              mostGoalsTeamId: awards.mostGoalsTeamId,
-              mostConcededTeamId: awards.mostConcededTeamId,
-              groupClassifications: awards.groupClassifications ?? undefined,
-              knockoutClassifications: awards.knockoutClassifications ?? undefined,
-              biggestGoalDiffMatches: awards.biggestGoalDiffMatches ?? undefined,
-              biggestGoalDiffMatchIds: awards.biggestGoalDiffMatchIds ?? undefined,
-            }
-          : c
-      ),
+      prev.map((c) => {
+        if (c.code !== code) return c;
+        // Merge PARCIAL: só sobrescreve os campos realmente presentes em
+        // `awards` (!== undefined). Caso contrário, uma chamada que passa
+        // apenas um campo (ex.: sync passando só biggestGoalDiffMatchIds)
+        // zeraria todos os outros prêmios no cache em memória, derrubando
+        // os pontos especiais do rank até o próximo refresh.
+        const next = { ...c };
+        if (awards.championTeamId !== undefined) next.championTeamId = awards.championTeamId ?? undefined;
+        if (awards.topScorerName !== undefined) next.topScorerName = awards.topScorerName ?? undefined;
+        if (awards.topScorerGoals !== undefined) next.topScorerGoals = awards.topScorerGoals ?? undefined;
+        if (awards.topScorerPlayerIds !== undefined) next.topScorerPlayerIds = awards.topScorerPlayerIds ?? undefined;
+        if (awards.bestPlayerName !== undefined) next.bestPlayerName = awards.bestPlayerName ?? undefined;
+        if (awards.bestGoalkeeperName !== undefined) next.bestGoalkeeperName = awards.bestGoalkeeperName ?? undefined;
+        if (awards.mostGoalsTeamId !== undefined) next.mostGoalsTeamId = awards.mostGoalsTeamId ?? undefined;
+        if (awards.mostConcededTeamId !== undefined) next.mostConcededTeamId = awards.mostConcededTeamId ?? undefined;
+        if (awards.groupClassifications !== undefined) next.groupClassifications = awards.groupClassifications ?? undefined;
+        if (awards.knockoutClassifications !== undefined) next.knockoutClassifications = awards.knockoutClassifications ?? undefined;
+        if (awards.biggestGoalDiffMatches !== undefined) next.biggestGoalDiffMatches = awards.biggestGoalDiffMatches ?? undefined;
+        if (awards.biggestGoalDiffMatchIds !== undefined) next.biggestGoalDiffMatchIds = awards.biggestGoalDiffMatchIds ?? undefined;
+        return next;
+      }),
     );
     if (isSupabaseEnabled() && supabase) {
       const updateData: any = {};
