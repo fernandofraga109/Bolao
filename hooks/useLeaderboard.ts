@@ -201,8 +201,13 @@ export const useLeaderboard = (
             const activeCompetition = (db.competitions || []).find(
               (c) => (c.code || "").toUpperCase() === activeCompCode
             );
-            const biggestGoalDiffOverrides: Record<string, string> =
-              activeCompetition?.biggestGoalDiffMatches || {};
+            const biggestGoalDiffMatchIds: Record<string, string[]> =
+              activeCompetition?.biggestGoalDiffMatchIds ||
+              Object.fromEntries(
+                Object.entries(activeCompetition?.biggestGoalDiffMatches || {}).map(
+                  ([phase, matchId]) => [phase, matchId ? [matchId] : []]
+                )
+              );
 
             userExtraPhasePreds.forEach((ep) => {
               const phaseMatches = phaseMatchContexts.filter(
@@ -211,7 +216,7 @@ export const useLeaderboard = (
               const extraPts = calculateExtraPhasePoints(
                 { phase: ep.phase, matchId: ep.matchId || undefined },
                 phaseMatches,
-                biggestGoalDiffOverrides[ep.phase] || undefined
+                biggestGoalDiffMatchIds[ep.phase] || undefined
               );
               total += extraPts;
               specialPoints += extraPts;

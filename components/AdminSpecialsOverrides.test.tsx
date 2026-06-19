@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MatchStatus } from "../types";
 
@@ -19,7 +19,7 @@ const teams = [
 ];
 
 const baseDb = () => ({
-  competitions: [{ code: "WC", name: "Copa", biggestGoalDiffMatches: {} }],
+  competitions: [{ code: "WC", name: "Copa", biggestGoalDiffMatchIds: {} }],
   teams,
   teamStandings: [
     { teamId: "t1", competitionCode: "WC", group: "Group A" },
@@ -96,15 +96,33 @@ describe("AdminSpecialsOverrides", () => {
     expect(screen.getByText("Grupo B")).toBeInTheDocument();
   });
 
-  it("renders the team options inside the group classification selects", async () => {
+  it("renders the autocomplete inputs for biggest goal diff matches", async () => {
     render(<AdminSpecialsOverrides selectedCompetitionCode="WC" />);
     await userEvent.click(screen.getByText("Overrides Manuais — Especiais"));
 
-    // Group A select should offer its two teams as <option> elements
-    const options = screen.getAllByRole("option");
-    const optionTexts = options.map((o) => o.textContent);
-    expect(optionTexts).toContain("Brasil");
-    expect(optionTexts).toContain("Argentina");
+    // There should be one autocomplete input per phase
+    const inputs = screen.getAllByPlaceholderText(/Digite 2 caracteres da seleção mandante/);
+    expect(inputs.length).toBe(5); // groups, round_of_32, oitavas, quartas, semis
+  });
+
+  it("allows selecting multiple biggest goal diff matches via autocomplete", async () => {
+    render(<AdminSpecialsOverrides selectedCompetitionCode="WC" />);
+    await userEvent.click(screen.getByText("Overrides Manuais — Especiais"));
+
+    // Type "Br" to find the Brasil match in the groups phase
+    const inputs = screen.getAllByPlaceholderText(/Digite 2 caracteres da seleção mandante/);
+    fireEvent.focus(inputs[0]);
+    fireEvent.change(inputs[0], { target: { value: "Br" } });
+
+    // Click the suggestion (look for the home team name in the dropdown)
+    const suggestion = await screen.findByRole("button", { name: /Brasil/ });
+    fireEvent.click(suggestion);
+
+    // Save and verify the payload contains the selected match
+    await userEvent.click(screen.getByText("Salvar Overrides"));
+    expect(fakeDb.updateCompetitionAwards).toHaveBeenCalledTimes(1);
+    const payload = fakeDb.updateCompetitionAwards.mock.calls[0][1];
+    expect(payload.biggestGoalDiffMatchIds).toEqual({ groups: ["g-m1"] });
   });
 
   it("calls updateCompetitionAwards when Save is clicked", async () => {
@@ -114,6 +132,8 @@ describe("AdminSpecialsOverrides", () => {
     await userEvent.click(screen.getByText("Salvar Overrides"));
     expect(fakeDb.updateCompetitionAwards).toHaveBeenCalledTimes(1);
     expect(fakeDb.updateCompetitionAwards.mock.calls[0][0]).toBe("WC");
+    const payload = fakeDb.updateCompetitionAwards.mock.calls[0][1];
+    expect(payload.biggestGoalDiffMatchIds).toBeNull();
   });
 
   it("shows a fallback message when no groups exist for the competition", async () => {

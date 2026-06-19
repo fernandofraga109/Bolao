@@ -138,7 +138,9 @@ interface DatabaseContextType {
     mostConcededTeamId?: string | null;
     groupClassifications?: Record<string, string[]> | null;
     knockoutClassifications?: Record<string, string[]> | null;
+    /** @deprecated usar biggestGoalDiffMatchIds */
     biggestGoalDiffMatches?: Record<string, string> | null;
+    biggestGoalDiffMatchIds?: Record<string, string[]> | null;
   }) => Promise<void>;
   upsertTeam: (team: Team) => Promise<TeamDB>;
   upsertMatch: (match: MatchDB) => Promise<void>;
@@ -243,6 +245,7 @@ const mapCompetitionRow = (row: any): CompetitionDB => ({
   groupClassifications: row.groupClassifications || undefined,
   knockoutClassifications: row.knockoutClassifications || undefined,
   biggestGoalDiffMatches: row.biggestGoalDiffMatches || undefined,
+  biggestGoalDiffMatchIds: row.biggestGoalDiffMatchIds || undefined,
   liveDetailsLastSync:
     row.liveDetailsLastSync || row.live_details_last_sync || undefined,
 });
@@ -1411,7 +1414,9 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       mostConcededTeamId?: string | null;
       groupClassifications?: Record<string, string[]> | null;
       knockoutClassifications?: Record<string, string[]> | null;
+      /** @deprecated usar biggestGoalDiffMatchIds */
       biggestGoalDiffMatches?: Record<string, string> | null;
+      biggestGoalDiffMatchIds?: Record<string, string[]> | null;
     }
   ) => {
     setCompetitions((prev) =>
@@ -1430,6 +1435,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
               groupClassifications: awards.groupClassifications ?? undefined,
               knockoutClassifications: awards.knockoutClassifications ?? undefined,
               biggestGoalDiffMatches: awards.biggestGoalDiffMatches ?? undefined,
+              biggestGoalDiffMatchIds: awards.biggestGoalDiffMatchIds ?? undefined,
             }
           : c
       ),
@@ -1447,6 +1453,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       if (awards.groupClassifications !== undefined) updateData.groupClassifications = awards.groupClassifications;
       if (awards.knockoutClassifications !== undefined) updateData.knockoutClassifications = awards.knockoutClassifications;
       if (awards.biggestGoalDiffMatches !== undefined) updateData.biggestGoalDiffMatches = awards.biggestGoalDiffMatches;
+      if (awards.biggestGoalDiffMatchIds !== undefined) updateData.biggestGoalDiffMatchIds = awards.biggestGoalDiffMatchIds;
       
       const { error } = await supabase
         .from("competitions")

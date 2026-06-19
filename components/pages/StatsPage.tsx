@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { User, Match, MatchStatus } from '../../types';
+import { User, Match, MatchStatus, ExtraPhasePredictionDB, CompetitionDB } from '../../types';
 import {
   Target,
   Zap,
@@ -14,7 +14,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { translateGroupName } from '../../utils/translations';
-import { getMatchDuration, getR1MatchScoringResult, getScoreCategoryRegulamento1, getScoreCategoryRegulamento2, getMatchPhase } from '../../utils/scoring';
+import { getMatchDuration, getR1MatchScoringResult, getScoreCategoryRegulamento1, getScoreCategoryRegulamento2, getMatchPhase, calculateExtraPhasePoints, getExtraPhaseKey } from '../../utils/scoring';
 
 interface StatsPageProps {
   user: User;
@@ -24,6 +24,8 @@ interface StatsPageProps {
   predictions?: Record<string, any>;
   minRankDiff?: number;
   groupId?: string;
+  extraPhasePredictions?: ExtraPhasePredictionDB[];
+  competitions?: CompetitionDB[];
 }
 
 // ─── Aggregate stats (same logic as before) ───────────────────────────────────
@@ -34,7 +36,9 @@ function useStats(
   users?: User[],
   predictions?: Record<string, any>,
   minRankDiff?: number,
-  groupId?: string
+  groupId?: string,
+  extraPhasePredictions?: ExtraPhasePredictionDB[],
+  competitions?: CompetitionDB[]
 ) {
   return useMemo(() => {
     const finishedMatches = matches.filter((m) => m.status === MatchStatus.FINISHED);
@@ -113,11 +117,49 @@ function useStats(
       }
     });
 
+    // Regulamento 2: add extra phase prediction points (biggest goal diff per phase)
+    let extraPhasePoints = 0;
+    if (isR2 && extraPhasePredictions && competitions) {
+      const userExtraPhasePreds = extraPhasePredictions.filter(
+        (ep) => ep.userId === user.id && ep.groupId === groupId && ep.matchId
+      );
+      const competition = competitions.find((c) =>
+        matches.some((m) => m.competitionCode?.toUpperCase() === c.code.toUpperCase())
+      );
+      const biggestGoalDiffMatchIds: Record<string, string[]> =
+        competition?.biggestGoalDiffMatchIds || {};
+
+      for (const ep of userExtraPhasePreds) {
+        const phaseMatches = matches
+          .filter((m) => getExtraPhaseKey(m.stage, m.group) === ep.phase)
+          .map((m) => ({
+            id: m.id,
+            status: m.status,
+            resultHome: m.result?.home ?? null,
+            resultAway: m.result?.away ?? null,
+          }));
+
+        const finishedPhaseMatches = phaseMatches.filter(
+          (m) => m.status === MatchStatus.FINISHED && m.resultHome != null && m.resultAway != null
+        );
+        if (finishedPhaseMatches.length === 0) continue;
+
+        extraPhasePoints += calculateExtraPhasePoints(
+          { phase: ep.phase, matchId: ep.matchId },
+          phaseMatches,
+          biggestGoalDiffMatchIds[ep.phase] || undefined
+        );
+      }
+    }
+
+    totalPoints += extraPhasePoints;
+
     const accuracy = gamesPredicted > 0 ? (correctResults / gamesPredicted) * 100 : 0;
     const exactRate = gamesPredicted > 0 ? (exactScores / gamesPredicted) * 100 : 0;
 
     return {
       totalPoints,
+      extraPhasePoints,
       gamesPredicted,
       exactScores,
       correctResults,
@@ -127,7 +169,7 @@ function useStats(
       exactRate: exactRate.toFixed(1),
       avgPoints: gamesPredicted > 0 ? (totalPoints / gamesPredicted).toFixed(1) : '0',
     };
-  }, [user.predictions, matches, ruleset, users, predictions, minRankDiff, groupId, user.id]);
+  }, [user.predictions, matches, ruleset, users, predictions, minRankDiff, groupId, user.id, extraPhasePredictions, competitions]);
 }
 
 // ─── Prediction history entry ─────────────────────────────────────────────────
@@ -373,8 +415,8 @@ const CollapsibleSection: React.FC<{
 };
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
-const StatsPage: React.FC<StatsPageProps> = ({ user, matches, ruleset, users, predictions, minRankDiff, groupId }) => {
-  const stats = useStats(user, matches, ruleset, users, predictions, minRankDiff, groupId);
+const StatsPage: React.FC<StatsPageProps> = ({ user, matches, ruleset, users, predictions, minRankDiff, groupId, extraPhasePredictions, competitions }) => {
+  const stats = useStats(user, matches, ruleset, users, predictions, minRankDiff, groupId, extraPhasePredictions, competitions);
   const { scored, missed } = usePredictionHistory(user, matches, ruleset);
 
   return (

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useDatabase } from "../contexts/DatabaseContext";
 import {
   Star,
@@ -10,6 +10,8 @@ import {
   Trophy,
   Target,
   Layers,
+  X,
+  Search,
 } from "lucide-react";
 
 interface AdminSpecialsOverridesProps {
@@ -34,10 +36,10 @@ const AdminSpecialsOverrides: React.FC<AdminSpecialsOverridesProps> = ({
     Record<string, string[]>
   >({ Oitavas: [], Quartas: [], Semis: [] });
 
-  // --- BIGGEST GOAL DIFF MATCHES STATE ---
-  const [biggestGoalDiffMatches, setBiggestGoalDiffMatches] = useState<
-    Record<string, string>
-  >({ groups: "", oitavas: "", quartas: "", semis: "" });
+  // --- BIGGEST GOAL DIFF MATCHES STATE (array per phase) ---
+  const [biggestGoalDiffMatchIds, setBiggestGoalDiffMatchIds] = useState<
+    Record<string, string[]>
+  >({ groups: [], round_of_32: [], oitavas: [], quartas: [], semis: [] });
 
   // Load from competition when selected
   useEffect(() => {
@@ -50,13 +52,13 @@ const AdminSpecialsOverrides: React.FC<AdminSpecialsOverridesProps> = ({
       setKnockoutClassifications(
         comp.knockoutClassifications || { Oitavas: [], Quartas: [], Semis: [] }
       );
-      setBiggestGoalDiffMatches(
-        comp.biggestGoalDiffMatches || { groups: "", oitavas: "", quartas: "", semis: "" }
+      setBiggestGoalDiffMatchIds(
+        comp.biggestGoalDiffMatchIds || { groups: [], round_of_32: [], oitavas: [], quartas: [], semis: [] }
       );
     } else {
       setGroupClassifications({});
       setKnockoutClassifications({ Oitavas: [], Quartas: [], Semis: [] });
-      setBiggestGoalDiffMatches({ groups: "", oitavas: "", quartas: "", semis: "" });
+      setBiggestGoalDiffMatchIds({ groups: [], round_of_32: [], oitavas: [], quartas: [], semis: [] });
     }
   }, [selectedCompetitionCode, db.competitions]);
 
@@ -178,9 +180,10 @@ const AdminSpecialsOverrides: React.FC<AdminSpecialsOverridesProps> = ({
 
   // Matches by phase for biggest goal diff selector
   const matchesByPhase = useMemo(() => {
-    if (!selectedCompetitionCode) return { groups: [], oitavas: [], quartas: [], semis: [] };
+    if (!selectedCompetitionCode) return { groups: [], round_of_32: [], oitavas: [], quartas: [], semis: [] };
 
     const groups: typeof db.matches = [];
+    const round_of_32: typeof db.matches = [];
     const oitavas: typeof db.matches = [];
     const quartas: typeof db.matches = [];
     const semis: typeof db.matches = [];
@@ -201,12 +204,14 @@ const AdminSpecialsOverrides: React.FC<AdminSpecialsOverridesProps> = ({
         quartas.push(m);
       } else if (stage.includes("SEMI") || groupStr.includes("SEMI")) {
         semis.push(m);
+      } else if (stage.includes("ROUND_OF_32") || groupStr.includes("16_AVOS") || groupStr.includes("16AVOS")) {
+        round_of_32.push(m);
       } else if (groupStr.startsWith("GRUPO") || stage.includes("GROUP")) {
         groups.push(m);
       }
     });
 
-    return { groups, oitavas, quartas, semis };
+    return { groups, round_of_32, oitavas, quartas, semis };
   }, [selectedCompetitionCode, db.matches]);
 
   const getTeamName = (teamId: string) => {
@@ -240,10 +245,11 @@ const AdminSpecialsOverrides: React.FC<AdminSpecialsOverridesProps> = ({
         }
       });
 
-      const cleanBiggestDiff: Record<string, string> = {};
-      Object.entries(biggestGoalDiffMatches).forEach(([phase, matchId]) => {
-        if (matchId) {
-          cleanBiggestDiff[phase] = matchId;
+      const cleanBiggestDiff: Record<string, string[]> = {};
+      Object.entries(biggestGoalDiffMatchIds).forEach(([phase, matchIds]) => {
+        const filtered = matchIds.filter(Boolean);
+        if (filtered.length > 0) {
+          cleanBiggestDiff[phase] = filtered;
         }
       });
 
@@ -252,7 +258,7 @@ const AdminSpecialsOverrides: React.FC<AdminSpecialsOverridesProps> = ({
           Object.keys(cleanGroupClassif).length > 0 ? cleanGroupClassif : null,
         knockoutClassifications:
           Object.keys(cleanKnockout).length > 0 ? cleanKnockout : null,
-        biggestGoalDiffMatches:
+        biggestGoalDiffMatchIds:
           Object.keys(cleanBiggestDiff).length > 0 ? cleanBiggestDiff : null,
       });
 
@@ -271,6 +277,7 @@ const AdminSpecialsOverrides: React.FC<AdminSpecialsOverridesProps> = ({
 
   const phaseLabels: Record<string, string> = {
     groups: "Fase de Grupos",
+    round_of_32: "16 Avos de Final",
     oitavas: "Oitavas de Final",
     quartas: "Quartas de Final",
     semis: "Semifinais",
@@ -509,9 +516,9 @@ const AdminSpecialsOverrides: React.FC<AdminSpecialsOverridesProps> = ({
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {(["groups", "oitavas", "quartas", "semis"] as const).map((phase) => {
+              {(["groups", "round_of_32", "oitavas", "quartas", "semis"] as const).map((phase) => {
                 const phaseMatchList = matchesByPhase[phase] || [];
-                const selectedMatchId = biggestGoalDiffMatches[phase] || "";
+                const selectedMatchIds = biggestGoalDiffMatchIds[phase] || [];
 
                 return (
                   <div
@@ -521,31 +528,19 @@ const AdminSpecialsOverrides: React.FC<AdminSpecialsOverridesProps> = ({
                     <h5 className="text-xs font-bold text-white uppercase">
                       {phaseLabels[phase]}
                     </h5>
-                    <select
-                      value={selectedMatchId}
-                      onChange={(e) => {
-                        setBiggestGoalDiffMatches((prev) => ({
+                    <MatchMultiSelect
+                      matches={phaseMatchList}
+                      selectedIds={selectedMatchIds}
+                      onChange={(matchIds) => {
+                        setBiggestGoalDiffMatchIds((prev) => ({
                           ...prev,
-                          [phase]: e.target.value,
+                          [phase]: matchIds,
                         }));
                       }}
-                      className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-xs text-white focus:border-emerald-500 outline-none"
-                    >
-                      <option value="">— Não definido (calculado pela API) —</option>
-                      {phaseMatchList.map((m) => {
-                        const home = getTeamName(m.homeTeamId);
-                        const away = getTeamName(m.awayTeamId);
-                        const score =
-                          m.resultHome != null && m.resultAway != null
-                            ? ` (${m.resultHome}x${m.resultAway})`
-                            : "";
-                        return (
-                          <option key={m.id} value={m.id}>
-                            {home} vs {away}{score}
-                          </option>
-                        );
-                      })}
-                    </select>
+                      getTeamName={getTeamName}
+                      getTeamFlag={getTeamFlag}
+                      placeholder="Digite 2 caracteres da seleção mandante..."
+                    />
                   </div>
                 );
               })}
@@ -577,6 +572,152 @@ const AdminSpecialsOverrides: React.FC<AdminSpecialsOverridesProps> = ({
               )}
             </button>
           </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Sub-component: autocomplete multi-select for matches by phase.
+// Filters by home team name; user types 2+ characters to see suggestions.
+const MatchMultiSelect: React.FC<{
+  matches: { id: string; homeTeamId: string; awayTeamId: string; date: string; resultHome?: number | null; resultAway?: number | null }[];
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+  getTeamName: (teamId: string) => string;
+  getTeamFlag: (teamId: string) => string | null;
+  placeholder?: string;
+}> = ({ matches, selectedIds, onChange, getTeamName, getTeamFlag, placeholder }) => {
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const suggestions = useMemo(() => {
+    if (normalizedQuery.length < 2) return [];
+    return matches.filter((m) => {
+      if (selectedIds.includes(m.id)) return false;
+      const homeName = getTeamName(m.homeTeamId).toLowerCase();
+      return homeName.includes(normalizedQuery);
+    });
+  }, [matches, selectedIds, normalizedQuery, getTeamName]);
+
+  const selectedMatches = useMemo(
+    () => matches.filter((m) => selectedIds.includes(m.id)),
+    [matches, selectedIds]
+  );
+
+  const addMatch = (m: typeof matches[0]) => {
+    if (!selectedIds.includes(m.id)) {
+      onChange([...selectedIds, m.id]);
+    }
+    setQuery("");
+    setIsOpen(false);
+  };
+
+  const removeMatch = (id: string) => {
+    onChange(selectedIds.filter((mid) => mid !== id));
+  };
+
+  return (
+    <div className="relative" ref={containerRef}>
+      {/* Selected chips */}
+      {selectedMatches.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {selectedMatches.map((m) => {
+            const homeFlag = getTeamFlag(m.homeTeamId);
+            const awayFlag = getTeamFlag(m.awayTeamId);
+            const score =
+              m.resultHome != null && m.resultAway != null
+                ? ` (${m.resultHome}x${m.resultAway})`
+                : "";
+            return (
+              <span
+                key={m.id}
+                className="inline-flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[10px] px-2 py-1 rounded-full"
+              >
+                {homeFlag && <img src={homeFlag} alt="" className="w-3 h-2 object-cover rounded-sm" />}
+                {getTeamName(m.homeTeamId)} x {getTeamName(m.awayTeamId)}
+                {score}
+                {awayFlag && <img src={awayFlag} alt="" className="w-3 h-2 object-cover rounded-sm" />}
+                <button
+                  type="button"
+                  onClick={() => removeMatch(m.id)}
+                  className="ml-0.5 text-emerald-500 hover:text-rose-400"
+                  aria-label="Remover jogo"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Autocomplete input */}
+      <div className="relative flex items-center">
+        <Search size={14} className="absolute left-2 text-slate-500" />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          placeholder={placeholder || "Digite 2 caracteres..."}
+          className="w-full bg-slate-800 border border-slate-600 rounded px-2 pl-8 py-1.5 text-xs text-white placeholder:text-slate-500 focus:border-emerald-500 outline-none"
+        />
+      </div>
+
+      {/* Suggestions dropdown */}
+      {isOpen && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-60 overflow-y-auto custom-scrollbar">
+          {normalizedQuery.length < 2 ? (
+            <div className="px-3 py-2 text-xs text-slate-500">Digite pelo menos 2 caracteres</div>
+          ) : suggestions.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-slate-400">Nenhum jogo encontrado</div>
+          ) : (
+            suggestions.map((m) => {
+              const homeFlag = getTeamFlag(m.homeTeamId);
+              const awayFlag = getTeamFlag(m.awayTeamId);
+              const matchDate = new Date(m.date).toLocaleDateString("pt-BR", {
+                day: "numeric",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+              const score =
+                m.resultHome != null && m.resultAway != null
+                  ? ` (${m.resultHome}x${m.resultAway})`
+                  : "";
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => addMatch(m)}
+                  className="w-full px-3 py-2 text-left text-xs text-slate-200 hover:bg-slate-700 flex items-center gap-2 transition-colors border-b border-slate-700/50 last:border-0"
+                >
+                  {homeFlag && <img src={homeFlag} alt="" className="w-4 h-3 object-cover rounded-sm" />}
+                  <span className="font-semibold">{getTeamName(m.homeTeamId)}</span>
+                  <span className="text-slate-500">x</span>
+                  {awayFlag && <img src={awayFlag} alt="" className="w-4 h-3 object-cover rounded-sm" />}
+                  <span className="font-semibold">{getTeamName(m.awayTeamId)}</span>
+                  <span className="text-slate-400 ml-auto">{matchDate}{score}</span>
+                </button>
+              );
+            })
+          )}
         </div>
       )}
     </div>

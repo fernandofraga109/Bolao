@@ -38,7 +38,7 @@ const baseDb = () => ({
     { id: "u2", name: "Outro Membro" },
   ],
   groups: [{ id: "g1", competitionCode: "WC" }],
-  competitions: [{ code: "WC", biggestGoalDiffMatches: {} }],
+  competitions: [{ code: "WC", biggestGoalDiffMatchIds: {} }],
   upsertExtraPhasePrediction: vi.fn().mockResolvedValue(undefined),
 });
 
@@ -78,6 +78,7 @@ describe("ExtraPhasePredictionsCard", () => {
 
     await userEvent.click(screen.getByText("Maior Diferença de Gols por Fase"));
     expect(screen.getByText("Fase de Grupos")).toBeInTheDocument();
+    expect(screen.getByText("16 Avos de Final")).toBeInTheDocument();
     expect(screen.getByText("Oitavas de Final")).toBeInTheDocument();
   });
 
@@ -121,6 +122,52 @@ describe("ExtraPhasePredictionsCard", () => {
 
     expect(screen.getAllByText("Em Andamento").length).toBeGreaterThan(0);
     expect(screen.queryByText("Salvar")).not.toBeInTheDocument();
+  });
+
+  it("awards 20 points when user prediction is inside official matchIds array", async () => {
+    fakeDb.extraPhasePredictions = [
+      { userId: "u1", groupId: "g1", phase: "groups", matchId: "m1" },
+    ];
+    fakeDb.competitions = [
+      { code: "WC", biggestGoalDiffMatchIds: { groups: ["m1", "m2"] } },
+    ];
+    render(
+      <ExtraPhasePredictionsCard
+        groupId="g1"
+        userId="u1"
+        matches={[
+          makeMatch({ id: "m1", homeTeamId: "t1", awayTeamId: "t2", resultHome: 5, resultAway: 0, status: MatchStatus.FINISHED }),
+          makeMatch({ id: "m2", homeTeamId: "t3", awayTeamId: "t4", resultHome: 2, resultAway: 0, status: MatchStatus.FINISHED }),
+        ]}
+        lockDate={pastLock}
+      />
+    );
+    await userEvent.click(screen.getByText("Maior Diferença de Gols por Fase"));
+
+    expect(screen.getByText(/Acertou! \+20 PTS/)).toBeInTheDocument();
+  });
+
+  it("awards 0 points when user prediction is not inside official matchIds array", async () => {
+    fakeDb.extraPhasePredictions = [
+      { userId: "u1", groupId: "g1", phase: "groups", matchId: "m2" },
+    ];
+    fakeDb.competitions = [
+      { code: "WC", biggestGoalDiffMatchIds: { groups: ["m1"] } },
+    ];
+    render(
+      <ExtraPhasePredictionsCard
+        groupId="g1"
+        userId="u1"
+        matches={[
+          makeMatch({ id: "m1", homeTeamId: "t1", awayTeamId: "t2", resultHome: 5, resultAway: 0, status: MatchStatus.FINISHED }),
+          makeMatch({ id: "m2", homeTeamId: "t3", awayTeamId: "t4", resultHome: 2, resultAway: 0, status: MatchStatus.FINISHED }),
+        ]}
+        lockDate={pastLock}
+      />
+    );
+    await userEvent.click(screen.getByText("Maior Diferença de Gols por Fase"));
+
+    expect(screen.getByText("Errou")).toBeInTheDocument();
   });
 
   it("toggles the 'Palpites do Grupo' accordion and hides other members' picks until locked", async () => {

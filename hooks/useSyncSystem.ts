@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { Match, MatchStatus } from "../types";
+import { getExtraPhaseKey } from "../utils/scoring";
 import {
   fetchExternalStandings,
   fetchExternalMatches,
@@ -911,6 +912,54 @@ export const useSyncSystem = (
           }
         }
         profiler.mark("matches_upsert", "db_write");
+
+        // ── FASE 3.2: Calcular e persistir os jogos com maior diferença de gols por fase ──
+        // Baseado nos jogos finalizados do banco local (recém-sync + já existentes).
+        if (competitionMeta?.code && isSupabaseEnabled() && supabase) {
+          const finishedInternal = (dbRef.current.matches as any[]).filter(
+            (m) =>
+              (m.competitionCode || "").toUpperCase() === normalizedCode &&
+              m.status === MatchStatus.FINISHED &&
+              m.resultHome != null &&
+              m.resultAway != null,
+          );
+
+          const diffsByPhase: Record<string, { id: string; diff: number }[]> = {};
+          for (const m of finishedInternal) {
+            const phase = getExtraPhaseKey(m.stage, m.group);
+            if (!phase) continue;
+            if (!diffsByPhase[phase]) diffsByPhase[phase] = [];
+            diffsByPhase[phase].push({
+              id: m.id,
+              diff: Math.abs(m.resultHome - m.resultAway),
+            });
+          }
+
+          const computedBiggestDiffIds: Record<string, string[]> = {};
+          for (const [phase, entries] of Object.entries(diffsByPhase)) {
+            if (entries.length === 0) continue;
+            const maxDiff = Math.max(...entries.map((e) => e.diff));
+            computedBiggestDiffIds[phase] = entries
+              .filter((e) => e.diff === maxDiff)
+              .map((e) => e.id);
+          }
+
+          if (Object.keys(computedBiggestDiffIds).length > 0 && dbRef.current.updateCompetitionAwards) {
+            try {
+              await dbRef.current.updateCompetitionAwards(competitionMeta.code, {
+                biggestGoalDiffMatchIds: computedBiggestDiffIds,
+              });
+              console.log(
+                `[SYNC] biggestGoalDiffMatchIds atualizado: ${JSON.stringify(computedBiggestDiffIds)}`,
+              );
+            } catch (diffUpdateError: any) {
+              console.warn(
+                `[SYNC] Erro ao atualizar biggestGoalDiffMatchIds: ${diffUpdateError.message}`,
+              );
+            }
+          }
+        }
+        profiler.mark("biggest_diff_calc", "cpu");
 
         // ── FASE 3.5: Detalhes ao vivo (api-sports) — minuto a minuto ────────
         // Segunda API, SÓ cosmética (relógio, eventos, árbitro, estádio). NÃO

@@ -520,14 +520,25 @@ describe("calculateExtraPhasePoints", () => {
 
   // SCORE-39 — empate de maior diferença: qualquer jogo máximo vale (já coberto acima)
   // SCORE-40 — override admin tem precedência sobre o cálculo automático
-  it("SCORE-40: override admin define o jogo correto e tem precedência", () => {
+  it("SCORE-40: override admin define o jogo correto e tem precedência (array de matchIds)", () => {
     const matches = [
       { id: "m1", resultHome: 5, resultAway: 0, status: "FINISHED" }, // maior saldo natural
       { id: "m2", resultHome: 1, resultAway: 0, status: "FINISHED" },
     ];
     // Admin força m2 como o "correto" — m1 não pontua, m2 pontua
-    expect(calculateExtraPhasePoints({ phase: "groups", matchId: "m1" }, matches, "m2")).toBe(0);
-    expect(calculateExtraPhasePoints({ phase: "groups", matchId: "m2" }, matches, "m2")).toBe(20);
+    expect(calculateExtraPhasePoints({ phase: "groups", matchId: "m1" }, matches, ["m2"])).toBe(0);
+    expect(calculateExtraPhasePoints({ phase: "groups", matchId: "m2" }, matches, ["m2"])).toBe(20);
+  });
+
+  // SCORE-40b — múltiplos jogos oficiais por fase (array)
+  it("SCORE-40b: múltiplos jogos oficiais pontuam se o palpite estiver incluso", () => {
+    const matches = [
+      { id: "m1", resultHome: 5, resultAway: 0, status: "FINISHED" },
+      { id: "m2", resultHome: 1, resultAway: 0, status: "FINISHED" },
+    ];
+    expect(calculateExtraPhasePoints({ phase: "groups", matchId: "m1" }, matches, ["m1", "m2"])).toBe(20);
+    expect(calculateExtraPhasePoints({ phase: "groups", matchId: "m2" }, matches, ["m1", "m2"])).toBe(20);
+    expect(calculateExtraPhasePoints({ phase: "groups", matchId: "m2" }, matches, [])).toBe(0);
   });
 
   // SCORE-41 — torneio/extra com prediction indefinida

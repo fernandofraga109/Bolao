@@ -94,4 +94,27 @@ describe("StatsPage", () => {
     await userEvent.click(screen.getByText("Pontuados"));
     expect(screen.queryByText("+5 pts")).not.toBeInTheDocument();
   });
+
+  it("includes extra phase points in the average for regulamento_2", () => {
+    const user = makeUser({ m1: { home: 2, away: 1, points: 10 } });
+    const extraPhasePredictions = [
+      { userId: "u1", groupId: "g1", phase: "groups", matchId: "m1" },
+    ];
+    const competitions = [
+      { code: "WC", name: "Copa", biggestGoalDiffMatchIds: { groups: ["m1"] } },
+    ];
+    render(
+      <StatsPage
+        user={user}
+        matches={[makeMatch()]}
+        ruleset="regulamento_2"
+        groupId="g1"
+        extraPhasePredictions={extraPhasePredictions}
+        competitions={competitions}
+      />
+    );
+
+    // Total points = 10 (match) + 20 (extra phase) = 30; avg = 30 / 1 game
+    expect(screen.getByText("30.0")).toBeInTheDocument();
+  });
 });

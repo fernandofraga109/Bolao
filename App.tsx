@@ -692,6 +692,8 @@ const App: React.FC = () => {
             predictions={db.predictions}
             minRankDiff={currentGroup?.underdog_min_rank_diff ?? db.systemConfig.underdog_min_rank_diff ?? 10}
             groupId={currentGroup?.id}
+            extraPhasePredictions={db.extraPhasePredictions}
+            competitions={db.competitions}
           />
         )}
 

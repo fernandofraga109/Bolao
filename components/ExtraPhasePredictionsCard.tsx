@@ -56,6 +56,7 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
   // Selected match local states
   const [selectedMatchIds, setSelectedMatchIds] = useState<Record<string, string>>({
     groups: predictionsByPhase["groups"]?.matchId || "",
+    round_of_32: predictionsByPhase["round_of_32"]?.matchId || "",
     oitavas: predictionsByPhase["oitavas"]?.matchId || "",
     quartas: predictionsByPhase["quartas"]?.matchId || "",
     semis: predictionsByPhase["semis"]?.matchId || "",
@@ -65,6 +66,7 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
   React.useEffect(() => {
     setSelectedMatchIds({
       groups: predictionsByPhase["groups"]?.matchId || "",
+      round_of_32: predictionsByPhase["round_of_32"]?.matchId || "",
       oitavas: predictionsByPhase["oitavas"]?.matchId || "",
       quartas: predictionsByPhase["quartas"]?.matchId || "",
       semis: predictionsByPhase["semis"]?.matchId || "",
@@ -74,6 +76,7 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
   // Filter matches per phase
   const matchesByPhase = useMemo(() => {
     const groups: MatchDB[] = [];
+    const round_of_32: MatchDB[] = [];
     const oitavas: MatchDB[] = [];
     const quartas: MatchDB[] = [];
     const semis: MatchDB[] = [];
@@ -88,6 +91,8 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
         quartas.push(m);
       } else if (stage.includes("ROUND_OF_16") || groupStr.includes("OITAVAS")) {
         oitavas.push(m);
+      } else if (stage.includes("ROUND_OF_32") || groupStr.includes("16_AVOS") || groupStr.includes("16AVOS")) {
+        round_of_32.push(m);
       } else if (stage.includes("REGULAR") || stage.includes("GROUP") || groupStr.includes("GRUPO")) {
         groups.push(m);
       }
@@ -98,6 +103,7 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
 
     return {
       groups: sortByDate(groups),
+      round_of_32: sortByDate(round_of_32),
       oitavas: sortByDate(oitavas),
       quartas: sortByDate(quartas),
       semis: sortByDate(semis),
@@ -115,6 +121,7 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
   // Phase Definitions for Renders
   const phases = [
     { id: "groups", label: "Fase de Grupos", matches: matchesByPhase.groups },
+    { id: "round_of_32", label: "16 Avos de Final", matches: matchesByPhase.round_of_32 },
     { id: "oitavas", label: "Oitavas de Final", matches: matchesByPhase.oitavas },
     { id: "quartas", label: "Quartas de Final", matches: matchesByPhase.quartas },
     { id: "semis", label: "Semifinais", matches: matchesByPhase.semis },
@@ -199,7 +206,11 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
           const group = db.groups.find((g) => g.id === groupId);
           const compCode = group?.competitionCode || "WC";
           const comp = db.competitions.find((c) => c.code.toUpperCase() === compCode.toUpperCase());
-          const adminOverrideMatchId = comp?.biggestGoalDiffMatches?.[phase.id] || undefined;
+          const officialMatchIds =
+            comp?.biggestGoalDiffMatchIds?.[phase.id] ||
+            (comp?.biggestGoalDiffMatches?.[phase.id]
+              ? [comp.biggestGoalDiffMatches[phase.id]]
+              : undefined);
 
           let earnedPoints = 0;
           if (savedPred && hasFinishedMatches) {
@@ -211,7 +222,7 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
                 resultHome: m.resultHome ?? null,
                 resultAway: m.resultAway ?? null,
               })),
-              adminOverrideMatchId
+              officialMatchIds
             );
           }
 

@@ -50,7 +50,7 @@ export const getMatchPhase = (stage?: string, group?: string): MatchPhase => {
   return 'groups';
 };
 
-export type ExtraPhaseKey = 'groups' | 'oitavas' | 'quartas' | 'semis';
+export type ExtraPhaseKey = 'groups' | 'round_of_32' | 'oitavas' | 'quartas' | 'semis';
 
 /**
  * Maps a match to the "maior diferença de gols por fase" phase key (Regulamento 2).
@@ -65,6 +65,7 @@ export const getExtraPhaseKey = (stage?: string, group?: string): ExtraPhaseKey 
   if (s.includes('SEMI') || g.includes('SEMI')) return 'semis';
   if (s.includes('QUARTER') || g.includes('QUARTAS')) return 'quartas';
   if (s.includes('ROUND_OF_16') || g.includes('OITAVAS')) return 'oitavas';
+  if (s.includes('ROUND_OF_32') || g.includes('16_AVOS') || g.includes('16AVOS')) return 'round_of_32';
   if (s.includes('REGULAR') || s.includes('GROUP') || g.includes('GRUPO')) return 'groups';
   return null;
 };
@@ -501,19 +502,21 @@ export interface PhaseMatchContext {
 }
 
 /**
- * REGULAMENTO 2: Phase extra prediction points calculator (match with biggest goal diff per phase)
- * adminOverrideMatchId: if admin manually set the correct match, use it directly (precedence over computed)
+ * REGULAMENTO 2: Phase extra prediction points calculator (match with biggest goal diff per phase).
+ * officialMatchIds: array of matchIds manually set by the admin as the official result for the phase.
+ * If provided, the user's prediction scores 20 points when its matchId is included in the array.
+ * If not provided, the score is computed automatically from finished matches (ties allowed).
  */
 export const calculateExtraPhasePoints = (
   userPrediction: { phase: string; matchId?: string } | undefined,
   phaseMatches: PhaseMatchContext[],
-  adminOverrideMatchId?: string
+  officialMatchIds?: string[]
 ): number => {
   if (!userPrediction || !userPrediction.matchId) return 0;
 
-  // Admin override: if the admin set the correct match for this phase, use it directly
-  if (adminOverrideMatchId) {
-    return userPrediction.matchId === adminOverrideMatchId ? 20 : 0;
+  // Admin override: if the admin set the official match(es) for this phase, use them directly
+  if (officialMatchIds && officialMatchIds.length > 0) {
+    return officialMatchIds.includes(userPrediction.matchId) ? 20 : 0;
   }
 
   const finishedMatches = phaseMatches.filter(

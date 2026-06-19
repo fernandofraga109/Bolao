@@ -110,7 +110,9 @@ export interface CompetitionDB {
   mostConcededTeamId?: string;
   groupClassifications?: Record<string, string[]>;
   knockoutClassifications?: Record<string, string[]>;
+  /** @deprecated Usar biggestGoalDiffMatchIds (array por fase) para Regulamento 2. */
   biggestGoalDiffMatches?: Record<string, string>;
+  biggestGoalDiffMatchIds?: Record<string, string[]>;
   syncLockedAt?: string;
   /** Último fetch dos detalhes ao vivo (api-sports). Usado para throttle do orçamento de chamadas. */
   liveDetailsLastSync?: string;

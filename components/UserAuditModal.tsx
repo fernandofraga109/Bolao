@@ -504,8 +504,13 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
         const activeCompetition = db.competitions.find(
           (c) => (c.code || "").toUpperCase() === activeCompCode
         );
-        const biggestGoalDiffOverrides: Record<string, string> =
-          activeCompetition?.biggestGoalDiffMatches || {};
+        const biggestGoalDiffMatchIds: Record<string, string[]> =
+          activeCompetition?.biggestGoalDiffMatchIds ||
+          Object.fromEntries(
+            Object.entries(activeCompetition?.biggestGoalDiffMatches || {}).map(
+              ([phase, matchId]) => [phase, matchId ? [matchId] : []]
+            )
+          );
 
         const matchLabelById = (matchId?: string) => {
           if (!matchId) return "–";
@@ -516,11 +521,12 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
 
         const phaseLabels: Record<string, string> = {
           groups: "Fase de Grupos",
+          round_of_32: "16 Avos de Final",
           oitavas: "Oitavas de Final",
           quartas: "Quartas de Final",
           semis: "Semifinais",
         };
-        const phaseOrder = ["groups", "oitavas", "quartas", "semis"];
+        const phaseOrder = ["groups", "round_of_32", "oitavas", "quartas", "semis"];
 
         phaseOrder.forEach((phaseKey) => {
           const ep = userExtraPhasePreds.find((p) => p.phase === phaseKey);
@@ -536,17 +542,17 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
               status: m.status,
             }));
 
-          const overrideMatchId = biggestGoalDiffOverrides[phaseKey] || undefined;
+          const officialMatchIds = biggestGoalDiffMatchIds[phaseKey] || undefined;
           const pts = calculateExtraPhasePoints(
             { phase: phaseKey, matchId: ep.matchId },
             phaseMatches,
-            overrideMatchId
+            officialMatchIds
           );
 
           // Resolve the actual "biggest goal diff" match(es) for display
           let actualLabel = "–";
-          if (overrideMatchId) {
-            actualLabel = matchLabelById(overrideMatchId);
+          if (officialMatchIds && officialMatchIds.length > 0) {
+            actualLabel = officialMatchIds.map((id) => matchLabelById(id)).join(", ");
           } else {
             const finished = phaseMatches.filter(
               (m) => m.status === "FINISHED" && m.resultHome != null && m.resultAway != null
