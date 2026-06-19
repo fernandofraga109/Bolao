@@ -235,6 +235,8 @@ export const useMatchSystem = (
       bestGoalkeeper: comp.bestGoalkeeperName || "",
       mostGoalsTeamId: comp.mostGoalsTeamId || "",
       mostConcededTeamId: comp.mostConcededTeamId || "",
+      mostGoalsTeamIds: comp.mostGoalsTeamIds || [],
+      mostConcededTeamIds: comp.mostConcededTeamIds || [],
       groupClassifications,
     };
   }, [db.competitions, db.teamStandings, db.matches, activeCompetitionCode]);

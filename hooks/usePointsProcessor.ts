@@ -166,6 +166,14 @@ export const usePointsProcessor = (dbRef: any) => {
               bestGoalkeeper: compData.bestGoalkeeperName || undefined,
               mostGoalsTeamId: compData.mostGoalsTeamId || undefined,
               mostConcededTeamId: compData.mostConcededTeamId || undefined,
+              mostGoalsTeamIds:
+                compData.mostGoalsTeamIds && compData.mostGoalsTeamIds.length > 0
+                  ? compData.mostGoalsTeamIds
+                  : undefined,
+              mostConcededTeamIds:
+                compData.mostConcededTeamIds && compData.mostConcededTeamIds.length > 0
+                  ? compData.mostConcededTeamIds
+                  : undefined,
             }
           : null;
 

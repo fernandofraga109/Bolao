@@ -108,6 +108,8 @@ export interface CompetitionDB {
   bestGoalkeeperName?: string;
   mostGoalsTeamId?: string;
   mostConcededTeamId?: string;
+  mostGoalsTeamIds?: string[];
+  mostConcededTeamIds?: string[];
   groupClassifications?: Record<string, string[]>;
   knockoutClassifications?: Record<string, string[]>;
   /** @deprecated Usar biggestGoalDiffMatchIds (array por fase) para Regulamento 2. */
@@ -236,6 +238,8 @@ export interface TournamentPredictionDB {
   bestGoalkeeperId?: string;
   mostGoalsTeamId?: string;
   mostConcededTeamId?: string;
+  mostGoalsTeamIds?: string[];
+  mostConcededTeamIds?: string[];
   groupClassifications?: Record<string, string[]>;
 }
 
@@ -347,6 +351,8 @@ export interface TournamentPredictions {
   bestGoalkeeperId?: string;    // UUID FK → v2_players.id
   mostGoalsTeamId?: string;
   mostConcededTeamId?: string;
+  mostGoalsTeamIds?: string[];
+  mostConcededTeamIds?: string[];
   groupClassifications?: Record<string, string[]>;
 }
 

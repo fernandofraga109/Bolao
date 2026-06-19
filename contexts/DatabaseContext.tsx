@@ -136,6 +136,8 @@ interface DatabaseContextType {
     bestGoalkeeperName?: string | null;
     mostGoalsTeamId?: string | null;
     mostConcededTeamId?: string | null;
+    mostGoalsTeamIds?: string[] | null;
+    mostConcededTeamIds?: string[] | null;
     groupClassifications?: Record<string, string[]> | null;
     knockoutClassifications?: Record<string, string[]> | null;
     /** @deprecated usar biggestGoalDiffMatchIds */
@@ -242,6 +244,8 @@ const mapCompetitionRow = (row: any): CompetitionDB => ({
   bestGoalkeeperName: row.bestGoalkeeperName || undefined,
   mostGoalsTeamId: row.mostGoalsTeamId || undefined,
   mostConcededTeamId: row.mostConcededTeamId || undefined,
+  mostGoalsTeamIds: row.mostGoalsTeamIds || undefined,
+  mostConcededTeamIds: row.mostConcededTeamIds || undefined,
   groupClassifications: row.groupClassifications || undefined,
   knockoutClassifications: row.knockoutClassifications || undefined,
   biggestGoalDiffMatches: row.biggestGoalDiffMatches || undefined,
@@ -1291,6 +1295,8 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         if (c.bestGoalkeeperName !== undefined) row.bestGoalkeeperName = c.bestGoalkeeperName;
         if (c.mostGoalsTeamId !== undefined) row.mostGoalsTeamId = c.mostGoalsTeamId;
         if (c.mostConcededTeamId !== undefined) row.mostConcededTeamId = c.mostConcededTeamId;
+        if (c.mostGoalsTeamIds !== undefined) row.mostGoalsTeamIds = c.mostGoalsTeamIds;
+        if (c.mostConcededTeamIds !== undefined) row.mostConcededTeamIds = c.mostConcededTeamIds;
         return row;
       });
       const { error } = await supabase
@@ -1412,6 +1418,8 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       bestGoalkeeperName?: string | null;
       mostGoalsTeamId?: string | null;
       mostConcededTeamId?: string | null;
+      mostGoalsTeamIds?: string[] | null;
+      mostConcededTeamIds?: string[] | null;
       groupClassifications?: Record<string, string[]> | null;
       knockoutClassifications?: Record<string, string[]> | null;
       /** @deprecated usar biggestGoalDiffMatchIds */
@@ -1436,6 +1444,8 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
         if (awards.bestGoalkeeperName !== undefined) next.bestGoalkeeperName = awards.bestGoalkeeperName ?? undefined;
         if (awards.mostGoalsTeamId !== undefined) next.mostGoalsTeamId = awards.mostGoalsTeamId ?? undefined;
         if (awards.mostConcededTeamId !== undefined) next.mostConcededTeamId = awards.mostConcededTeamId ?? undefined;
+        if (awards.mostGoalsTeamIds !== undefined) next.mostGoalsTeamIds = awards.mostGoalsTeamIds ?? undefined;
+        if (awards.mostConcededTeamIds !== undefined) next.mostConcededTeamIds = awards.mostConcededTeamIds ?? undefined;
         if (awards.groupClassifications !== undefined) next.groupClassifications = awards.groupClassifications ?? undefined;
         if (awards.knockoutClassifications !== undefined) next.knockoutClassifications = awards.knockoutClassifications ?? undefined;
         if (awards.biggestGoalDiffMatches !== undefined) next.biggestGoalDiffMatches = awards.biggestGoalDiffMatches ?? undefined;
@@ -1453,6 +1463,8 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
       if (awards.bestGoalkeeperName !== undefined) updateData.bestGoalkeeperName = awards.bestGoalkeeperName;
       if (awards.mostGoalsTeamId !== undefined) updateData.mostGoalsTeamId = awards.mostGoalsTeamId;
       if (awards.mostConcededTeamId !== undefined) updateData.mostConcededTeamId = awards.mostConcededTeamId;
+      if (awards.mostGoalsTeamIds !== undefined) updateData.mostGoalsTeamIds = awards.mostGoalsTeamIds;
+      if (awards.mostConcededTeamIds !== undefined) updateData.mostConcededTeamIds = awards.mostConcededTeamIds;
       if (awards.groupClassifications !== undefined) updateData.groupClassifications = awards.groupClassifications;
       if (awards.knockoutClassifications !== undefined) updateData.knockoutClassifications = awards.knockoutClassifications;
       if (awards.biggestGoalDiffMatches !== undefined) updateData.biggestGoalDiffMatches = awards.biggestGoalDiffMatches;

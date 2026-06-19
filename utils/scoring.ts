@@ -383,14 +383,21 @@ export const calculateTournamentPointsRegulamento2 = (
   }
 
   // 3. Pre-cup Extra predictions (Team with most goals / conceded)
-  if (prediction.mostGoalsTeamId && actual.mostGoalsTeamId) {
-    if (prediction.mostGoalsTeamId === actual.mostGoalsTeamId) {
+  // Prefer arrays; fall back to legacy single UUID for backward compatibility.
+  if (prediction.mostGoalsTeamId) {
+    const officialMostGoalsIds = actual.mostGoalsTeamIds && actual.mostGoalsTeamIds.length > 0
+      ? actual.mostGoalsTeamIds
+      : (actual.mostGoalsTeamId ? [actual.mostGoalsTeamId] : []);
+    if (officialMostGoalsIds.includes(prediction.mostGoalsTeamId)) {
       points += 20;
     }
   }
 
-  if (prediction.mostConcededTeamId && actual.mostConcededTeamId) {
-    if (prediction.mostConcededTeamId === actual.mostConcededTeamId) {
+  if (prediction.mostConcededTeamId) {
+    const officialMostConcededIds = actual.mostConcededTeamIds && actual.mostConcededTeamIds.length > 0
+      ? actual.mostConcededTeamIds
+      : (actual.mostConcededTeamId ? [actual.mostConcededTeamId] : []);
+    if (officialMostConcededIds.includes(prediction.mostConcededTeamId)) {
       points += 20;
     }
   }

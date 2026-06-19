@@ -450,29 +450,40 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
 
       // Most goals team
       if (isPreCupSpecialVisible && pred.mostGoalsTeamId) {
-        const pts =
-          actual.mostGoalsTeamId && pred.mostGoalsTeamId === actual.mostGoalsTeamId
-            ? 20
-            : 0;
+        const officialMostGoalsIds =
+          actual.mostGoalsTeamIds && actual.mostGoalsTeamIds.length > 0
+            ? actual.mostGoalsTeamIds
+            : actual.mostGoalsTeamId
+              ? [actual.mostGoalsTeamId]
+              : [];
+        const pts = officialMostGoalsIds.includes(pred.mostGoalsTeamId) ? 20 : 0;
         items.push({
           label: "Seleção com mais gols num jogo",
           predicted: formatTeamName(pred.mostGoalsTeamId),
-          actual: formatTeamName(actual.mostGoalsTeamId),
+          actual:
+            officialMostGoalsIds.length > 0
+              ? formatTeamList(officialMostGoalsIds)
+              : formatTeamName(actual.mostGoalsTeamId),
           pts,
         });
       }
 
       // Most conceded team
       if (isPreCupSpecialVisible && pred.mostConcededTeamId) {
-        const pts =
-          actual.mostConcededTeamId &&
-          pred.mostConcededTeamId === actual.mostConcededTeamId
-            ? 20
-            : 0;
+        const officialMostConcededIds =
+          actual.mostConcededTeamIds && actual.mostConcededTeamIds.length > 0
+            ? actual.mostConcededTeamIds
+            : actual.mostConcededTeamId
+              ? [actual.mostConcededTeamId]
+              : [];
+        const pts = officialMostConcededIds.includes(pred.mostConcededTeamId) ? 20 : 0;
         items.push({
           label: "Seleção que tomou mais gols num jogo",
           predicted: formatTeamName(pred.mostConcededTeamId),
-          actual: formatTeamName(actual.mostConcededTeamId),
+          actual:
+            officialMostConcededIds.length > 0
+              ? formatTeamList(officialMostConcededIds)
+              : formatTeamName(actual.mostConcededTeamId),
           pts,
         });
       }

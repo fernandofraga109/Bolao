@@ -141,7 +141,9 @@ CREATE TABLE IF NOT EXISTS public.tournament_predictions (
     "bestPlayer" text,
     "bestGoalkeeper" text,
     "mostGoalsTeamId" text,
-    "mostConcededTeamId" text
+    "mostConcededTeamId" text,
+    "mostGoalsTeamIds" uuid[],
+    "mostConcededTeamIds" uuid[]
 );
 
 -- 9.A TABELA EXTRA_PHASE_PREDICTIONS (Jogo com maior diferença de gols por fase)

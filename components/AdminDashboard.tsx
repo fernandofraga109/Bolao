@@ -38,6 +38,7 @@ import { isSupabaseEnabled, supabase } from "../services/supabase";
 import { PlayerWithContextDB } from "../types";
 import { fetchExternalCompetitions } from "../services/liveScoreService";
 import type { CompetitionSyncStatus } from "../hooks/useMatchSystem";
+import TeamMultiSelect from "./ui/TeamMultiSelect";
 import ModalShell from "./ui/ModalShell";
 import UserIdentity from "./ui/UserIdentity";
 import DualActionButtons from "./ui/DualActionButtons";
@@ -131,8 +132,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [bestPlayerName, setBestPlayerName] = useState<string>("");
   const [bestGoalkeeperName, setBestGoalkeeperName] = useState<string>("");
-  const [mostGoalsTeamId, setMostGoalsTeamId] = useState<string>("");
-  const [mostConcededTeamId, setMostConcededTeamId] = useState<string>("");
+  const [mostGoalsTeamIds, setMostGoalsTeamIds] = useState<string[]>([]);
+  const [mostConcededTeamIds, setMostConcededTeamIds] = useState<string[]>([]);
   const [isSavingAwards, setIsSavingAwards] = useState(false);
   const activeCompetitions = React.useMemo(() => {
     const codes = Array.from(
@@ -209,8 +210,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         topScorerPlayerIds: topScorerPlayerIds.length > 0 ? topScorerPlayerIds : null,
         bestPlayerName: bestPlayerName || undefined,
         bestGoalkeeperName: bestGoalkeeperName || undefined,
-        mostGoalsTeamId: mostGoalsTeamId === "null" ? null : (mostGoalsTeamId || undefined),
-        mostConcededTeamId: mostConcededTeamId === "null" ? null : (mostConcededTeamId || undefined),
+        mostGoalsTeamIds: mostGoalsTeamIds.length > 0 ? mostGoalsTeamIds : null,
+        mostConcededTeamIds: mostConcededTeamIds.length > 0 ? mostConcededTeamIds : null,
+        mostGoalsTeamId: mostGoalsTeamIds.length > 0 ? mostGoalsTeamIds[0] : null,
+        mostConcededTeamId: mostConcededTeamIds.length > 0 ? mostConcededTeamIds[0] : null,
       });
       console.log("✅ Palpites especiais salvos com sucesso");
     } catch (err) {
@@ -234,8 +237,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setTopScorerPlayerIds(comp.topScorerPlayerIds || []);
         setBestPlayerName(comp.bestPlayerName || "");
         setBestGoalkeeperName(comp.bestGoalkeeperName || "");
-        setMostGoalsTeamId(comp.mostGoalsTeamId || "");
-        setMostConcededTeamId(comp.mostConcededTeamId || "");
+        setMostGoalsTeamIds(
+          comp.mostGoalsTeamIds && comp.mostGoalsTeamIds.length > 0
+            ? comp.mostGoalsTeamIds
+            : comp.mostGoalsTeamId
+              ? [comp.mostGoalsTeamId]
+              : []
+        );
+        setMostConcededTeamIds(
+          comp.mostConcededTeamIds && comp.mostConcededTeamIds.length > 0
+            ? comp.mostConcededTeamIds
+            : comp.mostConcededTeamId
+              ? [comp.mostConcededTeamId]
+              : []
+        );
       }
     } else {
       setChampionTeamId("");
@@ -246,8 +261,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setTopScorerOpen(false);
       setBestPlayerName("");
       setBestGoalkeeperName("");
-      setMostGoalsTeamId("");
-      setMostConcededTeamId("");
+      setMostGoalsTeamIds([]);
+      setMostConcededTeamIds([]);
     }
   }, [selectedCompetitionCode, db.competitions]);
 
@@ -1467,19 +1482,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <Zap size={14} />
                     Mais Gols (Seleção)
                   </label>
-                  <select
-                    value={mostGoalsTeamId || ""}
-                    onChange={(e) => setMostGoalsTeamId(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
-                  >
-                    <option value="">Selecione a seleção...</option>
-                    <option value="null">Nenhum</option>
-                    {competitionTeams.map((team) => (
-                      <option key={team.id} value={team.id}>
-                        {team.name}
-                      </option>
-                    ))}
-                  </select>
+                  <TeamMultiSelect
+                    teams={competitionTeams}
+                    selectedIds={mostGoalsTeamIds}
+                    onChange={setMostGoalsTeamIds}
+                    placeholder="Selecione a(s) seleção(ões)..."
+                    color="emerald"
+                  />
                 </div>
 
                 {/* Most Conceded Team */}
@@ -1488,19 +1497,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <Shield size={14} />
                     Mais Gols Sofridos (Seleção)
                   </label>
-                  <select
-                    value={mostConcededTeamId || ""}
-                    onChange={(e) => setMostConcededTeamId(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none"
-                  >
-                    <option value="">Selecione a seleção...</option>
-                    <option value="null">Nenhum</option>
-                    {competitionTeams.map((team) => (
-                      <option key={team.id} value={team.id}>
-                        {team.name}
-                      </option>
-                    ))}
-                  </select>
+                  <TeamMultiSelect
+                    teams={competitionTeams}
+                    selectedIds={mostConcededTeamIds}
+                    onChange={setMostConcededTeamIds}
+                    placeholder="Selecione a(s) seleção(ões)..."
+                    color="rose"
+                  />
                 </div>
               </div>
             </div>

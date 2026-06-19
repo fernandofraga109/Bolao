@@ -604,16 +604,18 @@ export const useSyncSystem = (
         }
         profiler.mark("teams_upsert", "db_write");
 
-        // ── FASE 2.5: Calcular time com mais gols/sofridos em UM jogo ──
-        // Varre todos os jogos finalizados da competição para encontrar recordes
+        // ── FASE 2.5: Calcular time(s) com mais gols/sofridos em UM jogo ──
+        // Varre todos os jogos finalizados da competição para encontrar recordes.
+        // Empates são permitidos: mantemos o conjunto de times que atingiu a
+        // maior marca em cada categoria.
         const finishedMatches = externalMatches.filter(
           (em) => em.status === "FINISHED" && em.score?.fullTime?.home != null && em.score?.fullTime?.away != null
         );
 
-        let mostGoalsTeamExternalId: number | null = null;
         let mostGoalsScore = -1;
-        let mostConcededTeamExternalId: number | null = null;
+        const mostGoalsTeamExternalIds = new Set<number>();
         let mostConcededScore = -1;
+        const mostConcededTeamExternalIds = new Set<number>();
 
         for (const match of finishedMatches) {
           const extracted = extractMatchResult(match.score);
@@ -622,24 +624,44 @@ export const useSyncSystem = (
           const homeTeamId = match.homeTeam?.id;
           const awayTeamId = match.awayTeam?.id;
 
-          // Time com mais gols em um jogo
-          if (homeTeamId && homeGoals > mostGoalsScore) {
-            mostGoalsScore = homeGoals;
-            mostGoalsTeamExternalId = homeTeamId;
+          // Time(s) com mais gols em um jogo
+          if (homeTeamId) {
+            if (homeGoals > mostGoalsScore) {
+              mostGoalsScore = homeGoals;
+              mostGoalsTeamExternalIds.clear();
+              mostGoalsTeamExternalIds.add(homeTeamId);
+            } else if (homeGoals === mostGoalsScore) {
+              mostGoalsTeamExternalIds.add(homeTeamId);
+            }
           }
-          if (awayTeamId && awayGoals > mostGoalsScore) {
-            mostGoalsScore = awayGoals;
-            mostGoalsTeamExternalId = awayTeamId;
+          if (awayTeamId) {
+            if (awayGoals > mostGoalsScore) {
+              mostGoalsScore = awayGoals;
+              mostGoalsTeamExternalIds.clear();
+              mostGoalsTeamExternalIds.add(awayTeamId);
+            } else if (awayGoals === mostGoalsScore) {
+              mostGoalsTeamExternalIds.add(awayTeamId);
+            }
           }
 
-          // Time com mais gols sofridos em um jogo
-          if (homeTeamId && awayGoals > mostConcededScore) {
-            mostConcededScore = awayGoals;
-            mostConcededTeamExternalId = homeTeamId;
+          // Time(s) com mais gols sofridos em um jogo
+          if (homeTeamId) {
+            if (awayGoals > mostConcededScore) {
+              mostConcededScore = awayGoals;
+              mostConcededTeamExternalIds.clear();
+              mostConcededTeamExternalIds.add(homeTeamId);
+            } else if (awayGoals === mostConcededScore) {
+              mostConcededTeamExternalIds.add(homeTeamId);
+            }
           }
-          if (awayTeamId && homeGoals > mostConcededScore) {
-            mostConcededScore = homeGoals;
-            mostConcededTeamExternalId = awayTeamId;
+          if (awayTeamId) {
+            if (homeGoals > mostConcededScore) {
+              mostConcededScore = homeGoals;
+              mostConcededTeamExternalIds.clear();
+              mostConcededTeamExternalIds.add(awayTeamId);
+            } else if (homeGoals === mostConcededScore) {
+              mostConcededTeamExternalIds.add(awayTeamId);
+            }
           }
         }
 
@@ -647,19 +669,31 @@ export const useSyncSystem = (
         if (competitionMeta?.code && isSupabaseEnabled() && supabase) {
           const updates: any = {};
 
-          if (mostGoalsTeamExternalId && mostGoalsScore > 0) {
-            const mostGoalsTeam = teamByExtId.get(mostGoalsTeamExternalId);
-            if (mostGoalsTeam && mostGoalsTeam.id) {
-              updates.mostGoalsTeamId = mostGoalsTeam.id;
-              console.log(`[SYNC] Time com mais gols em um jogo: ${mostGoalsTeam.name} (${mostGoalsScore} gols)`);
+          if (mostGoalsScore > 0 && mostGoalsTeamExternalIds.size > 0) {
+            const mostGoalsTeamUuids = Array.from(mostGoalsTeamExternalIds)
+              .map((extId) => teamByExtId.get(extId)?.id)
+              .filter((uuid): uuid is string => !!uuid);
+            if (mostGoalsTeamUuids.length > 0) {
+              updates.mostGoalsTeamIds = mostGoalsTeamUuids;
+              updates.mostGoalsTeamId = mostGoalsTeamUuids[0];
+              const teamNames = mostGoalsTeamUuids
+                .map((uuid) => dbRef.current.teams.find((t: any) => t.id === uuid)?.name || uuid)
+                .join(", ");
+              console.log(`[SYNC] Time(s) com mais gols em um jogo: ${teamNames} (${mostGoalsScore} gols)`);
             }
           }
 
-          if (mostConcededTeamExternalId && mostConcededScore > 0) {
-            const mostConcededTeam = teamByExtId.get(mostConcededTeamExternalId);
-            if (mostConcededTeam && mostConcededTeam.id) {
-              updates.mostConcededTeamId = mostConcededTeam.id;
-              console.log(`[SYNC] Time com mais gols sofridos em um jogo: ${mostConcededTeam.name} (${mostConcededScore} gols)`);
+          if (mostConcededScore > 0 && mostConcededTeamExternalIds.size > 0) {
+            const mostConcededTeamUuids = Array.from(mostConcededTeamExternalIds)
+              .map((extId) => teamByExtId.get(extId)?.id)
+              .filter((uuid): uuid is string => !!uuid);
+            if (mostConcededTeamUuids.length > 0) {
+              updates.mostConcededTeamIds = mostConcededTeamUuids;
+              updates.mostConcededTeamId = mostConcededTeamUuids[0];
+              const teamNames = mostConcededTeamUuids
+                .map((uuid) => dbRef.current.teams.find((t: any) => t.id === uuid)?.name || uuid)
+                .join(", ");
+              console.log(`[SYNC] Time(s) com mais gols sofridos em um jogo: ${teamNames} (${mostConcededScore} gols)`);
             }
           }
 

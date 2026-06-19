@@ -143,7 +143,11 @@ CREATE TABLE IF NOT EXISTS public.tournament_predictions (
     "topScorerPlayer" text,
     "topScorerGoals" integer,
     "bestPlayer" text,
-    "bestGoalkeeper" text
+    "bestGoalkeeper" text,
+    "mostGoalsTeamId" text,
+    "mostConcededTeamId" text,
+    "mostGoalsTeamIds" uuid[],
+    "mostConcededTeamIds" uuid[]
 );
 
 -- Row Level Security (Básico)

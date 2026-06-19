@@ -360,6 +360,27 @@ describe("calculateTournamentPointsRegulamento2", () => {
     expect(pts).toBe(140);
   });
 
+  it("pontua melhor ataque / pior defesa quando há empate de times (array oficial)", () => {
+    const prediction = {
+      championTeamId: "fra",
+      mostGoalsTeamId: "ger",
+      mostConcededTeamId: "pan",
+    };
+    const actual = {
+      championTeamId: "fra",
+      mostGoalsTeamIds: ["bra", "ger"],
+      mostConcededTeamIds: ["pan", "ksa"],
+    };
+    // u2 acerta campeão sozinho (100) + ataque empatado inclui 'ger' (20) + defesa empatada inclui 'pan' (20) = 140 pts
+    const pts = calculateTournamentPointsRegulamento2(
+      prediction,
+      actual,
+      groupTournMock,
+      "u2"
+    );
+    expect(pts).toBe(140);
+  });
+
   it("pontua classificados de fase com 10 pts para grupo normal e 5 pts para Oitavas, Quartas e Semis", () => {
     const prediction = {
       groupClassifications: {

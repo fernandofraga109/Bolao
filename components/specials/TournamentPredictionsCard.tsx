@@ -230,12 +230,16 @@ const TournamentPredictionsCard: React.FC<TournamentPredictionsCardProps> = ({
       : false;
   const isMostGoalsCorrect =
     ruleset === 'regulamento_2' &&
-    finalResult?.mostGoalsTeamId &&
-    mostGoalsTeamId === finalResult.mostGoalsTeamId;
+    !!mostGoalsTeamId &&
+    ((finalResult?.mostGoalsTeamIds && finalResult.mostGoalsTeamIds.length > 0 &&
+      finalResult.mostGoalsTeamIds.includes(mostGoalsTeamId)) ||
+      (!finalResult?.mostGoalsTeamIds?.length && finalResult?.mostGoalsTeamId === mostGoalsTeamId));
   const isMostConcededCorrect =
     ruleset === 'regulamento_2' &&
-    finalResult?.mostConcededTeamId &&
-    mostConcededTeamId === finalResult.mostConcededTeamId;
+    !!mostConcededTeamId &&
+    ((finalResult?.mostConcededTeamIds && finalResult.mostConcededTeamIds.length > 0 &&
+      finalResult.mostConcededTeamIds.includes(mostConcededTeamId)) ||
+      (!finalResult?.mostConcededTeamIds?.length && finalResult?.mostConcededTeamId === mostConcededTeamId));
 
   const totalPoints =
     ruleset === 'regulamento_2'
