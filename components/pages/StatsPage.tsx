@@ -539,7 +539,6 @@ const StatsPage: React.FC<StatsPageProps> = ({ user, matches, ruleset, users, pr
   const { scored, missed } = usePredictionHistory(selectedUser, matches, ruleset);
 
   const isCurrentUser = selectedUser.id === user.id;
-  const title = isCurrentUser ? 'Meu Desempenho' : `Desempenho de ${selectedUser.name}`;
   const subtitle = isCurrentUser ? 'Análise detalhada de seus palpites' : 'Análise detalhada dos palpites';
 
   return (
@@ -551,9 +550,6 @@ const StatsPage: React.FC<StatsPageProps> = ({ user, matches, ruleset, users, pr
         </div>
         <div className="relative z-10 space-y-4">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-black text-brand-dark tracking-tighter mb-1 uppercase">
-              {title}
-            </h2>
             <p className="text-brand-dark/70 text-xs font-bold uppercase tracking-widest">
               {subtitle}
             </p>

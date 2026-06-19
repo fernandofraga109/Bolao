@@ -40,7 +40,7 @@ const makeUser = (predictions: any, overrides: any = {}): any => ({
 describe("StatsPage", () => {
   it("renders the performance header without crashing", () => {
     render(<StatsPage user={makeUser({})} matches={[]} />);
-    expect(screen.getByText("Meu Desempenho")).toBeInTheDocument();
+    expect(screen.getByText("Análise detalhada de seus palpites")).toBeInTheDocument();
   });
 
   it("shows the empty-state message when there are no finished predictions", () => {
@@ -119,15 +119,15 @@ describe("StatsPage", () => {
     expect(screen.getByText("30.0")).toBeInTheDocument();
   });
 
-  it("keeps the logged-in user as the default title when multiple members are provided", () => {
+  it("keeps the default subtitle for the logged-in user when multiple members are provided", () => {
     const me = makeUser({ m1: { home: 2, away: 1, points: 10 } });
     const other = makeUser({}, { id: "u2", name: "Maria", groupIds: ["g1"] });
     render(<StatsPage user={me} users={[me, other]} groupId="g1" matches={[makeMatch()]} />);
 
-    expect(screen.getByText("Meu Desempenho")).toBeInTheDocument();
+    expect(screen.getByText("Análise detalhada de seus palpites")).toBeInTheDocument();
   });
 
-  it("switches the title and stats when selecting another member from the dropdown", async () => {
+  it("switches the subtitle and stats when selecting another member from the dropdown", async () => {
     const me = makeUser({ m1: { home: 2, away: 1, points: 10 } });
     const other = makeUser(
       { m1: { home: 0, away: 0, points: 0 } },
@@ -143,7 +143,7 @@ describe("StatsPage", () => {
     fireEvent.click(options[1]);
 
     await waitFor(() => {
-      expect(screen.getByText("Desempenho de Maria")).toBeInTheDocument();
+      expect(screen.getByText("Análise detalhada dos palpites")).toBeInTheDocument();
     });
     // Maria's missed prediction should appear in the "Não Pontuados" section
     expect(screen.getByText("Não Pontuados")).toBeInTheDocument();
