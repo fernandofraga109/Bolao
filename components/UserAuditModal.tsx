@@ -320,6 +320,14 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
   const formatTeamList = (teamIds: string[]) =>
     teamIds.map((teamId) => formatTeamName(teamId)).join(", ");
 
+  const formatTopScorerNames = (playerIds?: string[] | null) => {
+    if (!playerIds || playerIds.length === 0) return undefined;
+    const names = playerIds
+      .map((id) => db.players.find((p) => p.id === id)?.name)
+      .filter(Boolean);
+    return names.length > 0 ? names.join(", ") : undefined;
+  };
+
   const phaseStarted = (phaseName: string) => {
     const now = Date.now();
     const normalized = phaseName.toLowerCase();
@@ -435,7 +443,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
         items.push({
           label: "Artilheiro",
           predicted: pred.topScorer.player,
-          actual: actual.topScorer?.player || "–",
+          actual: formatTopScorerNames(actual.topScorerPlayerIds) || actual.topScorer?.player || "–",
           pts,
         });
       }
@@ -588,7 +596,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
         items.push({
           label: "Artilheiro (nome)",
           predicted: pred.topScorer.player,
-          actual: actual.topScorer?.player || "–",
+          actual: formatTopScorerNames(actual.topScorerPlayerIds) || actual.topScorer?.player || "–",
           pts,
         });
       }
@@ -652,7 +660,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
 
     const total = items.reduce((sum, i) => sum + i.pts, 0);
     return { items, total };
-  }, [tournamentResults, user, allUsers, activeGroupId, ruleset, isPreCupSpecialVisible, teamNameById, auditMatches, db.extraPhasePredictions, db.competitions, activeCompCode]);
+  }, [tournamentResults, user, allUsers, activeGroupId, ruleset, isPreCupSpecialVisible, teamNameById, auditMatches, db.extraPhasePredictions, db.competitions, db.players, activeCompCode]);
 
   const grandTotal = matchTotal + (tournamentAudit?.total ?? 0);
 

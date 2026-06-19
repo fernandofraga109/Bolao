@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.59.9';
+export const CURRENT_VERSION = '1.60.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,11 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.60.0',
+    date: '2026-06-19',
+    changes: ['Auditoria de pontos exibe os artilheiros oficiais resolvidos a partir da lista de jogadores da competição, incluindo múltiplos artilheiros empatados.'],
+  },
   {
     version: '1.59.9',
     date: '2026-06-18',
