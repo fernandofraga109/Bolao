@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.60.0';
+export const CURRENT_VERSION = '1.61.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.61.0',
+    date: '2026-06-19',
+    changes: [
+      'Na seção "Jogos Anteriores" você pode alternar a ordenação dos jogos encerrados entre "Por grupo" e "Por dia" (do dia mais recente para o mais antigo)',
+    ],
+  },
   {
     version: '1.60.0',
     date: '2026-06-19',

@@ -5,7 +5,7 @@ import AdminMatchCard from "../AdminMatchCard";
 import { getMatchPhase } from "../../utils/scoring";
 import { translateGroupName } from "../../utils/translations";
 import RulesSection from "../RulesSection";
-import { CalendarDays, History, ChevronDown, ChevronUp, Users, Radio } from "lucide-react";
+import { CalendarDays, History, ChevronDown, ChevronUp, Users, Radio, Layers } from "lucide-react";
 
 // --- Helper: Date Group Accordion ---
 interface MatchGroupProps {
@@ -186,8 +186,9 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
   eligibleGroups = [],
 }) => {
   const [isPastMatchesOpen, setIsPastMatchesOpen] = useState(false);
+  const [pastView, setPastView] = useState<"group" | "day">("group");
 
-  const { liveMatches, pastGroups, todayMatches, futureGroups } = useMemo(() => {
+  const { liveMatches, pastGroups, pastDays, todayMatches, futureGroups } = useMemo(() => {
     const now = new Date();
 
     const getDayString = (d: Date) => {
@@ -200,6 +201,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
     const todayStr = getDayString(now);
     const live: Match[] = [];
     const past: Record<string, Match[]> = {};
+    const pastByDay: Record<string, Match[]> = {};
     const today: Match[] = [];
     const future: Record<string, Match[]> = {};
 
@@ -223,6 +225,9 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
         }
         if (!past[key]) past[key] = [];
         past[key].push(match);
+
+        if (!pastByDay[mDateStr]) pastByDay[mDateStr] = [];
+        pastByDay[mDateStr].push(match);
       } else if (mDateStr === todayStr) {
         today.push(match);
       } else {
@@ -239,7 +244,14 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
     );
 
-    return { liveMatches: live, pastGroups: past, todayMatches: today, futureGroups: future };
+    // Ordena jogos dentro de cada dia por horário
+    Object.values(pastByDay).forEach((dayMatches) =>
+      dayMatches.sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+      ),
+    );
+
+    return { liveMatches: live, pastGroups: past, pastDays: pastByDay, todayMatches: today, futureGroups: future };
   }, [matches]);
 
 
@@ -350,52 +362,102 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
           </button>
 
           {isPastMatchesOpen && (
-            <div className="mt-4 space-y-4 pl-2 border-l-2 border-slate-800 ml-4 animate-fadeIn">
-              {Object.entries(pastGroups)
-                .sort(([, matchesA], [, matchesB]) => {
-                  // Ordena pelo último jogo de cada fase (mais recente primeiro)
-                  const lastDateA = Math.max(
-                    ...matchesA.map((m) => new Date(m.date).getTime()),
-                  );
-                  const lastDateB = Math.max(
-                    ...matchesB.map((m) => new Date(m.date).getTime()),
-                  );
-                  // Ordem descendente: mais recente primeiro
-                  if (lastDateB !== lastDateA) return lastDateB - lastDateA;
+            <div className="mt-4 animate-fadeIn">
+              {/* Tabs: ordenar por grupo ou por dia */}
+              <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-800/60 border border-slate-700/50 mb-4">
+                <button
+                  onClick={() => setPastView("group")}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${pastView === "group"
+                      ? "bg-slate-700 text-white shadow"
+                      : "text-slate-400 hover:text-slate-200"
+                    }`}
+                >
+                  <Layers size={14} />
+                  Por grupo
+                </button>
+                <button
+                  onClick={() => setPastView("day")}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${pastView === "day"
+                      ? "bg-slate-700 text-white shadow"
+                      : "text-slate-400 hover:text-slate-200"
+                    }`}
+                >
+                  <CalendarDays size={14} />
+                  Por dia
+                </button>
+              </div>
 
-                  // Fallback: Rodada X (descendente)
-                  const [titleA] = matchesA;
-                  const [titleB] = matchesB;
-                  const numA = parseInt(
-                    titleA?.group?.replace(/\D/g, "") || "",
-                  );
-                  const numB = parseInt(
-                    titleB?.group?.replace(/\D/g, "") || "",
-                  );
-                  if (!isNaN(numA) && !isNaN(numB)) return numB - numA;
+              <div className="space-y-4 pl-2 border-l-2 border-slate-800 ml-4">
+                {pastView === "group"
+                  ? Object.entries(pastGroups)
+                    .sort(([, matchesA], [, matchesB]) => {
+                      // Ordena pelo último jogo de cada fase (mais recente primeiro)
+                      const lastDateA = Math.max(
+                        ...matchesA.map((m) => new Date(m.date).getTime()),
+                      );
+                      const lastDateB = Math.max(
+                        ...matchesB.map((m) => new Date(m.date).getTime()),
+                      );
+                      // Ordem descendente: mais recente primeiro
+                      if (lastDateB !== lastDateA) return lastDateB - lastDateA;
 
-                  return 0;
-                })
-                .map(([title, groupMatches]) => (
-                  <MatchGroup
-                    key={title}
-                    title={title}
-                    matches={groupMatches}
-                    isOpenDefault={false}
-                    icon={<History size={14} className="text-slate-500" />}
-                    userPredictions={userPredictions}
-                    leaderboardData={leaderboardData}
-                    currentUserId={currentUser.id}
-                    onPredict={onPredict}
-                    isAdmin={isAdmin}
-                    onAdminSaveMatch={onAdminSaveMatch}
-                    onAdminToggleSyncLock={onAdminToggleSyncLock}
-                    minRankDiff={minRankDiff}
-                    ruleset={ruleset}
-                    eligibleGroups={eligibleGroups}
-                    phaseLockSet={phaseLockSet}
-                  />
-                ))}
+                      // Fallback: Rodada X (descendente)
+                      const [titleA] = matchesA;
+                      const [titleB] = matchesB;
+                      const numA = parseInt(
+                        titleA?.group?.replace(/\D/g, "") || "",
+                      );
+                      const numB = parseInt(
+                        titleB?.group?.replace(/\D/g, "") || "",
+                      );
+                      if (!isNaN(numA) && !isNaN(numB)) return numB - numA;
+
+                      return 0;
+                    })
+                    .map(([title, groupMatches]) => (
+                      <MatchGroup
+                        key={title}
+                        title={title}
+                        matches={groupMatches}
+                        isOpenDefault={false}
+                        icon={<History size={14} className="text-slate-500" />}
+                        userPredictions={userPredictions}
+                        leaderboardData={leaderboardData}
+                        currentUserId={currentUser.id}
+                        onPredict={onPredict}
+                        isAdmin={isAdmin}
+                        onAdminSaveMatch={onAdminSaveMatch}
+                        onAdminToggleSyncLock={onAdminToggleSyncLock}
+                        minRankDiff={minRankDiff}
+                        ruleset={ruleset}
+                        eligibleGroups={eligibleGroups}
+                        phaseLockSet={phaseLockSet}
+                      />
+                    ))
+                  : Object.entries(pastDays)
+                    // Mais recente primeiro
+                    .sort(([dayA], [dayB]) => dayB.localeCompare(dayA))
+                    .map(([dateStr, dayMatches]) => (
+                      <MatchGroup
+                        key={dateStr}
+                        title={formatDateTitle(dateStr)}
+                        matches={dayMatches}
+                        isOpenDefault={false}
+                        icon={<CalendarDays size={14} className="text-slate-500" />}
+                        userPredictions={userPredictions}
+                        leaderboardData={leaderboardData}
+                        currentUserId={currentUser.id}
+                        onPredict={onPredict}
+                        isAdmin={isAdmin}
+                        onAdminSaveMatch={onAdminSaveMatch}
+                        onAdminToggleSyncLock={onAdminToggleSyncLock}
+                        minRankDiff={minRankDiff}
+                        ruleset={ruleset}
+                        eligibleGroups={eligibleGroups}
+                        phaseLockSet={phaseLockSet}
+                      />
+                    ))}
+              </div>
             </div>
           )}
         </div>
