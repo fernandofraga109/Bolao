@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { User, Match, MatchStatus, ExtraPhasePredictionDB, CompetitionDB } from '../../types';
 import {
   Target,
@@ -13,6 +13,7 @@ import {
   Calendar,
   MapPin,
 } from 'lucide-react';
+import AvatarWithFallback from '../ui/AvatarWithFallback';
 import { translateGroupName } from '../../utils/translations';
 import { getMatchDuration, getR1MatchScoringResult, getScoreCategoryRegulamento1, getScoreCategoryRegulamento2, getMatchPhase, calculateExtraPhasePoints, getExtraPhaseKey } from '../../utils/scoring';
 
@@ -414,23 +415,157 @@ const CollapsibleSection: React.FC<{
   );
 };
 
+// ─── User Selector Dropdown ───────────────────────────────────────────────────
+interface UserSelectorProps {
+  members: User[];
+  currentUserId: string;
+  selectedUserId: string;
+  onSelect: (userId: string) => void;
+}
+
+const UserSelector: React.FC<UserSelectorProps> = ({
+  members,
+  currentUserId,
+  selectedUserId,
+  onSelect,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedUser = members.find((u) => u.id === selectedUserId) || members[0];
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        className="w-full flex items-center justify-between gap-3 bg-brand-dark/40 hover:bg-brand-dark/60 border border-brand-dark/30 rounded-2xl px-4 py-3 transition-colors"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <AvatarWithFallback
+            src={selectedUser?.avatar}
+            alt={selectedUser?.name || 'Usuário'}
+            className="w-10 h-10 rounded-full border border-white/10"
+            iconSize={18}
+          />
+          <div className="text-left min-w-0">
+            <p className="text-[10px] font-black text-brand-dark/60 uppercase tracking-widest">
+              {selectedUser?.id === currentUserId ? 'Você' : 'Membro'}
+            </p>
+            <p className="text-base font-black text-brand-dark truncate">
+              {selectedUser?.name || 'Usuário'}
+            </p>
+          </div>
+        </div>
+        {isOpen ? (
+          <ChevronUp size={18} className="text-brand-dark/70 shrink-0" />
+        ) : (
+          <ChevronDown size={18} className="text-brand-dark/70 shrink-0" />
+        )}
+      </button>
+
+      {isOpen && (
+        <div
+          className="absolute z-50 top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-h-72 overflow-y-auto custom-scrollbar py-1"
+          role="listbox"
+          aria-label="Selecionar membro do grupo"
+        >
+          {members.map((member) => (
+            <button
+              key={member.id}
+              type="button"
+              role="option"
+              aria-selected={member.id === selectedUserId}
+              onClick={() => {
+                onSelect(member.id);
+                setIsOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                member.id === selectedUserId
+                  ? 'bg-brand-green/15 text-brand-green'
+                  : 'text-slate-200 hover:bg-slate-800'
+              }`}
+            >
+              <AvatarWithFallback
+                src={member.avatar}
+                alt={member.name}
+                className="w-8 h-8 rounded-full border border-white/10"
+                iconSize={16}
+              />
+              <span className="text-sm font-bold truncate">{member.name}</span>
+              {member.id === currentUserId && (
+                <span className="ml-auto text-[10px] font-black uppercase tracking-wider text-brand-dark/50">
+                  Você
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const StatsPage: React.FC<StatsPageProps> = ({ user, matches, ruleset, users, predictions, minRankDiff, groupId, extraPhasePredictions, competitions }) => {
-  const stats = useStats(user, matches, ruleset, users, predictions, minRankDiff, groupId, extraPhasePredictions, competitions);
-  const { scored, missed } = usePredictionHistory(user, matches, ruleset);
+  const groupMembers = useMemo(() => {
+    if (!users || !groupId) return [user];
+    const members = users.filter((u) => u.groupIds.includes(groupId));
+    // Garante que o usuário logado esteja presente e no topo
+    const sorted = members.sort((a, b) => {
+      if (a.id === user.id) return -1;
+      if (b.id === user.id) return 1;
+      return a.name.localeCompare(b.name);
+    });
+    return sorted.length > 0 ? sorted : [user];
+  }, [users, groupId, user]);
+
+  const [selectedUserId, setSelectedUserId] = useState(user.id);
+  const selectedUser = groupMembers.find((u) => u.id === selectedUserId) || user;
+
+  const stats = useStats(selectedUser, matches, ruleset, users, predictions, minRankDiff, groupId, extraPhasePredictions, competitions);
+  const { scored, missed } = usePredictionHistory(selectedUser, matches, ruleset);
+
+  const isCurrentUser = selectedUser.id === user.id;
+  const title = isCurrentUser ? 'Meu Desempenho' : `Desempenho de ${selectedUser.name}`;
+  const subtitle = isCurrentUser ? 'Análise detalhada de seus palpites' : 'Análise detalhada dos palpites';
 
   return (
     <div className="w-full max-w-2xl mx-auto pb-10 animate-fadeIn space-y-8">
       {/* Hero Header */}
-      <div className="bg-gradient-to-br from-brand-green to-emerald-800 p-8 rounded-3xl shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 blur-2xl rounded-full -mr-10 -mt-10" />
-        <div className="relative z-10">
-          <h2 className="text-3xl font-black text-brand-dark tracking-tighter mb-1 uppercase">
-            Meu Desempenho
-          </h2>
-          <p className="text-brand-dark/70 text-xs font-bold uppercase tracking-widest">
-            Análise detalhada de seus palpites
-          </p>
+      <div className="bg-gradient-to-br from-brand-green to-emerald-800 p-6 rounded-3xl shadow-2xl relative">
+        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 blur-2xl rounded-full -mr-10 -mt-10" />
+        </div>
+        <div className="relative z-10 space-y-4">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-black text-brand-dark tracking-tighter mb-1 uppercase">
+              {title}
+            </h2>
+            <p className="text-brand-dark/70 text-xs font-bold uppercase tracking-widest">
+              {subtitle}
+            </p>
+          </div>
+          {groupMembers.length > 1 && (
+            <UserSelector
+              members={groupMembers}
+              currentUserId={user.id}
+              selectedUserId={selectedUserId}
+              onSelect={setSelectedUserId}
+            />
+          )}
         </div>
       </div>
 
@@ -531,8 +666,8 @@ const StatsPage: React.FC<StatsPageProps> = ({ user, matches, ruleset, users, pr
             Resumo de Atividade
           </p>
           <p className="text-xs font-bold text-slate-400">
-            Você participou de <span className="text-white">{stats.gamesPredicted}</span> jogos
-            finalizados até agora.
+            {isCurrentUser ? 'Você participou' : `${selectedUser.name} participou`} de{' '}
+            <span className="text-white">{stats.gamesPredicted}</span> jogos finalizados até agora.
           </p>
         </div>
       </div>
@@ -545,7 +680,7 @@ const StatsPage: React.FC<StatsPageProps> = ({ user, matches, ruleset, users, pr
               Histórico de Palpites
             </h3>
             <p className="text-[11px] text-slate-500 mb-6">
-              Partidas finalizadas onde você fez palpite · ordenado por data
+              Partidas finalizadas com palpite · ordenado por data
             </p>
 
             <div className="space-y-8">

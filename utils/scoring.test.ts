@@ -298,9 +298,9 @@ describe("calculatePointsRegulamento2", () => {
 
 describe("calculateTournamentPointsRegulamento2", () => {
   const groupTournMock = [
-    { userId: "u1", championTeamId: "bra", topScorerPlayer: "Neymar" },
-    { userId: "u2", championTeamId: "fra", topScorerPlayer: "Mbappe" },
-    { userId: "u3", championTeamId: "bra", topScorerPlayer: "Messi" },
+    { userId: "u1", championTeamId: "bra", topScorerPlayerId: "neymar-uuid" },
+    { userId: "u2", championTeamId: "fra", topScorerPlayerId: "mbappe-uuid" },
+    { userId: "u3", championTeamId: "bra", topScorerPlayerId: "messi-uuid" },
   ];
 
   it("pontua campeão com rateio proporcional a quem acertou no grupo", () => {
@@ -328,10 +328,10 @@ describe("calculateTournamentPointsRegulamento2", () => {
   });
 
   it("pontua artilheiro com rateio proporcional", () => {
-    // Apenas u2 apostou 'Mbappe' (1 acerta = 60 pontos)
-    const actual = { topScorer: { player: "Mbappe", goals: 6 } };
+    // Apenas u2 apostou 'mbappe-uuid' (1 acerta = 60 pontos)
+    const actual = { topScorerPlayerIds: ["mbappe-uuid"] };
     const ptsU2 = calculateTournamentPointsRegulamento2(
-      { topScorer: { player: "Mbappe", goals: 6 } },
+      { topScorerPlayerId: "mbappe-uuid" },
       actual,
       groupTournMock,
       "u2"
@@ -827,21 +827,26 @@ describe("Torneio Regulamento 2 — campeão dividido (SCORE-35)", () => {
 });
 
 describe("Torneio Regulamento 2 — artilheiro dividido (SCORE-36)", () => {
-  const actual = { topScorer: { player: "Vini", goals: 6 } };
+  const actual = { topScorerPlayerIds: ["vini-uuid"] };
   const mk = (n: number) =>
-    Array.from({ length: n }, (_, i) => ({ userId: `u${i}`, topScorerPlayer: "Vini" }));
+    Array.from({ length: n }, (_, i) => ({ userId: `u${i}`, topScorerPlayerId: "vini-uuid" }));
 
   it("1 acertador → 60", () => {
-    expect(calculateTournamentPointsRegulamento2({ topScorer: { player: "Vini", goals: 6 } }, actual, mk(1), "u0")).toBe(60);
+    expect(calculateTournamentPointsRegulamento2({ topScorerPlayerId: "vini-uuid" }, actual, mk(1), "u0")).toBe(60);
   });
   it("2 acertadores → 40", () => {
-    expect(calculateTournamentPointsRegulamento2({ topScorer: { player: "Vini", goals: 6 } }, actual, mk(2), "u0")).toBe(40);
+    expect(calculateTournamentPointsRegulamento2({ topScorerPlayerId: "vini-uuid" }, actual, mk(2), "u0")).toBe(40);
   });
   it("3 acertadores → 30", () => {
-    expect(calculateTournamentPointsRegulamento2({ topScorer: { player: "Vini", goals: 6 } }, actual, mk(3), "u0")).toBe(30);
+    expect(calculateTournamentPointsRegulamento2({ topScorerPlayerId: "vini-uuid" }, actual, mk(3), "u0")).toBe(30);
   });
   it("4+ acertadores → 25", () => {
-    expect(calculateTournamentPointsRegulamento2({ topScorer: { player: "Vini", goals: 6 } }, actual, mk(4), "u0")).toBe(25);
+    expect(calculateTournamentPointsRegulamento2({ topScorerPlayerId: "vini-uuid" }, actual, mk(4), "u0")).toBe(25);
+  });
+  it("não pontua artilheiro via nome (campo nome ignorado)", () => {
+    const actualName = { topScorer: { player: "Vini", goals: 6 } } as any;
+    const predName = { topScorer: { player: "Vini", goals: 6 } } as any;
+    expect(calculateTournamentPointsRegulamento2(predName, actualName, [], "u0")).toBe(0);
   });
 });
 
@@ -864,6 +869,23 @@ describe("Torneio Regulamento 2 — artilheiro dividido por UUID", () => {
   });
   it("retorna 0 se o UUID do artilheiro não estiver correto", () => {
     expect(calculateTournamentPointsRegulamento2({ topScorerPlayerId: "wrong-uuid" }, actual, mk(1), "u0")).toBe(0);
+  });
+
+  it("empate de artilheiros: acertadores de A e de B compartilham o rateio", () => {
+    // Artilheiro A (player-uuid-1) e Artilheiro B (player-uuid-2) empatados em gols.
+    // 2 usuários palpitaram A, 1 usuário palpitou B → 3 acertadores no total → 30 pontos cada.
+    const tiedActual = { topScorerPlayerIds: ["player-uuid-1", "player-uuid-2"] };
+    const groupPreds = [
+      { userId: "u0", topScorerPlayerId: "player-uuid-1" },
+      { userId: "u1", topScorerPlayerId: "player-uuid-1" },
+      { userId: "u2", topScorerPlayerId: "player-uuid-2" },
+    ];
+    expect(
+      calculateTournamentPointsRegulamento2({ topScorerPlayerId: "player-uuid-1" }, tiedActual, groupPreds, "u0")
+    ).toBe(30);
+    expect(
+      calculateTournamentPointsRegulamento2({ topScorerPlayerId: "player-uuid-2" }, tiedActual, groupPreds, "u2")
+    ).toBe(30);
   });
 });
 

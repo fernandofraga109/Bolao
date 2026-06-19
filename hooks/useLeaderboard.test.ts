@@ -180,7 +180,7 @@ describe("useLeaderboard", () => {
           },
           tournamentPredictions: {
             championTeamId: "bra",
-            topScorer: { player: "Neymar", goals: 6 },
+            topScorerPlayerId: "neymar-uuid",
           },
         }),
         makeUser("u2", {
@@ -189,14 +189,14 @@ describe("useLeaderboard", () => {
           },
           tournamentPredictions: {
             championTeamId: "fra",
-            topScorer: { player: "Mbappe", goals: 5 },
+            topScorerPlayerId: "mbappe-uuid",
           },
         }),
       ];
       const currentUser = makeUser("u1");
       const tournamentResults = {
         championTeamId: "bra",
-        topScorer: { player: "Neymar", goals: 6 },
+        topScorerPlayerIds: ["neymar-uuid"],
       };
 
       const { result } = renderHook(() =>

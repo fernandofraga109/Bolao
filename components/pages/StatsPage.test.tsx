@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MatchStatus } from "../../types";
 import StatsPage from "./StatsPage";
@@ -24,7 +24,7 @@ const makeMatch = (over: any = {}) => ({
   ...over,
 });
 
-const makeUser = (predictions: any): any => ({
+const makeUser = (predictions: any, overrides: any = {}): any => ({
   id: "u1",
   name: "Eu",
   email: "e@e.com",
@@ -34,6 +34,7 @@ const makeUser = (predictions: any): any => ({
   groupIds: ["g1"],
   predictions,
   totalPoints: 0,
+  ...overrides,
 });
 
 describe("StatsPage", () => {
@@ -116,5 +117,35 @@ describe("StatsPage", () => {
 
     // Total points = 10 (match) + 20 (extra phase) = 30; avg = 30 / 1 game
     expect(screen.getByText("30.0")).toBeInTheDocument();
+  });
+
+  it("keeps the logged-in user as the default title when multiple members are provided", () => {
+    const me = makeUser({ m1: { home: 2, away: 1, points: 10 } });
+    const other = makeUser({}, { id: "u2", name: "Maria", groupIds: ["g1"] });
+    render(<StatsPage user={me} users={[me, other]} groupId="g1" matches={[makeMatch()]} />);
+
+    expect(screen.getByText("Meu Desempenho")).toBeInTheDocument();
+  });
+
+  it("switches the title and stats when selecting another member from the dropdown", async () => {
+    const me = makeUser({ m1: { home: 2, away: 1, points: 10 } });
+    const other = makeUser(
+      { m1: { home: 0, away: 0, points: 0 } },
+      { id: "u2", name: "Maria", groupIds: ["g1"] }
+    );
+    render(<StatsPage user={me} users={[me, other]} groupId="g1" matches={[makeMatch()]} />);
+
+    // Open the dropdown
+    await userEvent.click(screen.getByText("Você"));
+    // Select the other member (second option)
+    const options = screen.getAllByRole("option");
+    expect(options.length).toBe(2);
+    fireEvent.click(options[1]);
+
+    await waitFor(() => {
+      expect(screen.getByText("Desempenho de Maria")).toBeInTheDocument();
+    });
+    // Maria's missed prediction should appear in the "Não Pontuados" section
+    expect(screen.getByText("Não Pontuados")).toBeInTheDocument();
   });
 });

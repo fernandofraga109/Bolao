@@ -422,7 +422,7 @@ describe("usePointsProcessor — recalculateUserGroupPoints", () => {
     expect(u1.points).toBe(11);
   });
 
-  it("PROC-13: R2 resolve nome do artilheiro via UUID→players para a comparação", async () => {
+  it("PROC-13: R2 pontua artilheiro comparando UUIDs (nunca por nome)", async () => {
     datasets["matches"] = [];
     datasets["predictions"] = [];
     datasets["extra_phase_predictions"] = [];
@@ -432,7 +432,7 @@ describe("usePointsProcessor — recalculateUserGroupPoints", () => {
     ];
     datasets["players"] = [{ id: "player-uuid-1", name: "Mbappe" }];
     datasets["competitions"] = [
-      { code: "WC", topScorerName: "Mbappe", topScorerGoals: 6 },
+      { code: "WC", topScorerName: "Mbappe", topScorerGoals: 6, topScorerPlayerIds: ["player-uuid-1"] },
     ];
     datasets["user_groups"] = [{ userId: "u1", groupId: "g2", role: "USER", joinedAt: "x" }];
 

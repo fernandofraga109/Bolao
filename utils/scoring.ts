@@ -321,7 +321,6 @@ export const calculateTournamentPoints = (
 export interface TournamentPredictionContext {
   userId: string;
   championTeamId?: string;
-  topScorerPlayer?: string;
   topScorerPlayerId?: string;
 }
 
@@ -357,7 +356,7 @@ export const calculateTournamentPointsRegulamento2 = (
     }
   }
 
-  // 2. Top Scorer points
+  // 2. Top Scorer points (sempre por UUID dos jogadores — nunca por nome)
   let topScorerCorrect = false;
   let correctCount = 0;
 
@@ -366,17 +365,6 @@ export const calculateTournamentPointsRegulamento2 = (
       topScorerCorrect = true;
       const correctScorerUsers = allGroupPredictions.filter(
         (p) => p.topScorerPlayerId && actual.topScorerPlayerIds!.includes(p.topScorerPlayerId)
-      );
-      correctCount = correctScorerUsers.length;
-    }
-  } else if (prediction.topScorer?.player && actual.topScorer?.player) {
-    const predPlayer = prediction.topScorer.player.trim().toLowerCase();
-    const actualPlayer = actual.topScorer.player.trim().toLowerCase();
-
-    if (predPlayer === actualPlayer) {
-      topScorerCorrect = true;
-      const correctScorerUsers = allGroupPredictions.filter(
-        (p) => p.topScorerPlayer && p.topScorerPlayer.trim().toLowerCase() === actualPlayer
       );
       correctCount = correctScorerUsers.length;
     }

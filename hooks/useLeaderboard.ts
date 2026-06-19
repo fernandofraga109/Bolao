@@ -48,7 +48,6 @@ export const useLeaderboard = (
       .map((u) => ({
         userId: u.id,
         championTeamId: u.tournamentPredictions?.championTeamId,
-        topScorerPlayer: u.tournamentPredictions?.topScorer?.player,
         topScorerPlayerId: u.tournamentPredictions?.topScorerPlayerId,
       }));
 

@@ -158,6 +158,10 @@ export const usePointsProcessor = (dbRef: any) => {
               topScorer: compData.topScorerName
                 ? { player: compData.topScorerName, goals: compData.topScorerGoals || 0 }
                 : undefined,
+              topScorerPlayerIds:
+                compData.topScorerPlayerIds && compData.topScorerPlayerIds.length > 0
+                  ? compData.topScorerPlayerIds
+                  : undefined,
               bestPlayer: compData.bestPlayerName || undefined,
               bestGoalkeeper: compData.bestGoalkeeperName || undefined,
               mostGoalsTeamId: compData.mostGoalsTeamId || undefined,
@@ -261,29 +265,19 @@ export const usePointsProcessor = (dbRef: any) => {
           }
 
           if (isRegulamento2) {
+            // Regulamento 2: artilheiro sempre por UUID dos jogadores — nunca por nome.
             const groupTournPreds = (tournPreds || []).map((tp) => ({
               userId: tp.userId,
               championTeamId: tp.championTeamId || undefined,
-              topScorerPlayer: tp.topScorerPlayerId
-                ? playerNameById.get(tp.topScorerPlayerId) || undefined
-                : undefined,
               topScorerPlayerId: tp.topScorerPlayerId || undefined,
             }));
 
             (tournPreds || []).forEach((tp) => {
               if (!pointsByUser[tp.userId]) pointsByUser[tp.userId] = 0;
-              const tsName = tp.topScorerPlayerId
-                ? playerNameById.get(tp.topScorerPlayerId)
-                : undefined;
               const predTourn: TournamentPredictions = {
                 championTeamId: tp.championTeamId || undefined,
-                topScorer: tsName ? { player: tsName, goals: tp.topScorerGoals || 0 } : undefined,
                 topScorerPlayerId: tp.topScorerPlayerId || undefined,
-                bestPlayer: tp.bestPlayerId ? playerNameById.get(tp.bestPlayerId) : undefined,
                 bestPlayerId: tp.bestPlayerId || undefined,
-                bestGoalkeeper: tp.bestGoalkeeperId
-                  ? playerNameById.get(tp.bestGoalkeeperId)
-                  : undefined,
                 bestGoalkeeperId: tp.bestGoalkeeperId || undefined,
                 mostGoalsTeamId: tp.mostGoalsTeamId || undefined,
                 mostConcededTeamId: tp.mostConcededTeamId || undefined,
