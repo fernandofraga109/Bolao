@@ -209,7 +209,7 @@ export const LiveMatchTimeline: React.FC<LiveMatchTimelineProps> = ({
       .sort((a, b) => {
         const am = a.ev.elapsed + (a.ev.extra || 0) / 100;
         const bm = b.ev.elapsed + (b.ev.extra || 0) / 100;
-        return am - bm;
+        return bm - am;
       });
   }, [ld?.events, homeCanonical]);
 

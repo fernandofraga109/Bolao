@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.59.8';
+export const CURRENT_VERSION = '1.59.9';
 
 export interface Release {
   version: string;
@@ -7,6 +7,11 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.59.9',
+    date: '2026-06-18',
+    changes: ['A timeline de jogos ao vivo agora exibe os lances mais recentes primeiro (ordem decrescente).'],
+  },
   {
     version: '1.59.8',
     date: '2026-06-18',
