@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.61.0';
+export const CURRENT_VERSION = '1.62.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.62.0',
+    date: '2026-06-20',
+    changes: [
+      'Corrigida a exibição de substituições na timeline ao vivo: agora o jogador que entra aparece em destaque com seta verde para cima, e o jogador que sai aparece abaixo com seta vermelha para baixo',
+    ],
+  },
   {
     version: '1.61.0',
     date: '2026-06-19',

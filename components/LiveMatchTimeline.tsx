@@ -98,19 +98,19 @@ const EventCell: React.FC<{ ev: LiveMatchEvent; side: "home" | "away" }> = ({
 
   let text: React.ReactNode;
   if (subst) {
-    // api-sports: player = quem entra, assist = quem sai.
+    // api-sports: player = quem sai, assist = quem entra.
     text = (
       <div className={`flex flex-col min-w-0 ${align}`}>
         <span className="flex items-center gap-1 min-w-0 max-w-full">
           <ArrowUp size={10} className="text-brand-green shrink-0" />
           <span className="text-xs font-bold text-slate-200 truncate min-w-0">
-            {ev.player || "Entra"}
+            {ev.assist || "Entra"}
           </span>
         </span>
-        {ev.assist && (
+        {ev.player && (
           <span className="flex items-center gap-1 text-[10px] text-slate-500 min-w-0 max-w-full">
             <ArrowDown size={9} className="text-brand-red shrink-0" />
-            <span className="truncate min-w-0">{ev.assist}</span>
+            <span className="truncate min-w-0">{ev.player}</span>
           </span>
         )}
       </div>
