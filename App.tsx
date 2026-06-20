@@ -358,7 +358,7 @@ const App: React.FC = () => {
   });
 
   // --- Render Auth Screen ---
-  if (!authReady) {
+  if (!authReady || (authReady && !db.isInitialFetchComplete)) {
     return <SplashScreen />;
   }
 

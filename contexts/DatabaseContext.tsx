@@ -424,9 +424,20 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
 
   // --- Supabase Realtime & Sync Effect ---
   useEffect(() => {
-    if (!isSupabaseEnabled() || !supabase) return;
+    if (!isSupabaseEnabled() || !supabase) {
+      setIsInitialFetchComplete(true);
+      return;
+    }
 
     let isMounted = true;
+
+    // Safety net: se o fetch travar (sem internet, timeout), desbloqueia após 10s
+    const fetchFallbackTimer = setTimeout(() => {
+      if (isMounted && !isInitialFetchComplete) {
+        console.warn("[db] fetch fallback timeout — forçando isInitialFetchComplete");
+        setIsInitialFetchComplete(true);
+      }
+    }, 10000);
 
     // 1. Initial Fetch
     const fetchData = async () => {
@@ -913,6 +924,7 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
 
     return () => {
       isMounted = false;
+      clearTimeout(fetchFallbackTimer);
       authListener.subscription.unsubscribe();
       supabase.removeChannel(channel);
     };
