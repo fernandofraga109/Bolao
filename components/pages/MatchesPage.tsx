@@ -11,6 +11,8 @@ import { CalendarDays, History, ChevronDown, ChevronUp, Users, Radio, Layers } f
 interface MatchGroupProps {
   title: string;
   matches: Match[];
+  /** Lista completa de jogos — usada para calcular a forma recente dos times. */
+  allMatches: Match[];
   isOpenDefault?: boolean;
   icon?: React.ReactNode;
   userPredictions: Record<string, any>;
@@ -32,6 +34,7 @@ interface MatchGroupProps {
 const MatchGroup: React.FC<MatchGroupProps> = ({
   title,
   matches,
+  allMatches,
   isOpenDefault = false,
   icon,
   userPredictions,
@@ -140,6 +143,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
                 ruleset={ruleset}
                 eligibleGroups={eligibleGroups}
                 phaseLockSet={phaseLockSet}
+                competitionMatches={allMatches}
               />
             )
           )}
@@ -326,6 +330,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
       <MatchGroup
         title="Jogos Ao Vivo"
         matches={liveMatches}
+        allMatches={matches}
         isOpenDefault={true}
         isLive={true}
         icon={<Radio size={20} className="text-brand-red" />}
@@ -419,6 +424,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
                         key={title}
                         title={title}
                         matches={groupMatches}
+                        allMatches={matches}
                         isOpenDefault={false}
                         icon={<History size={14} className="text-slate-500" />}
                         userPredictions={userPredictions}
@@ -442,6 +448,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
                         key={dateStr}
                         title={formatDateTitle(dateStr)}
                         matches={dayMatches}
+                        allMatches={matches}
                         isOpenDefault={false}
                         icon={<CalendarDays size={14} className="text-slate-500" />}
                         userPredictions={userPredictions}
@@ -467,6 +474,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
       <MatchGroup
         title="Jogos do Dia"
         matches={todayMatches}
+        allMatches={matches}
         isOpenDefault={true}
         isToday={true}
         subtitle={new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
@@ -492,6 +500,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
             key={dateStr}
             title={formatDateTitle(dateStr)}
             matches={groupMatches}
+            allMatches={matches}
             isOpenDefault={false}
             icon={<CalendarDays size={18} className="text-slate-500" />}
             userPredictions={userPredictions}
