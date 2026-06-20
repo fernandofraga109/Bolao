@@ -321,11 +321,31 @@ const App: React.FC = () => {
     const activeGroupId = currentUser.activeGroupId || currentUser.groupIds?.[0];
     const section = leaderboardSections.find(s => s.groupId === activeGroupId);
     if (!section?.users.length) return 0;
-    const sorted = [...section.users].sort((a, b) => b.totalPoints - a.totalPoints);
-    const myPoints = sorted.find(u => u.id === currentUser.id)?.totalPoints;
-    if (myPoints === undefined) return 0;
-    return sorted.filter(u => u.totalPoints > myPoints).length + 1;
-  }, [currentUser, leaderboardSections]);
+
+    const isReg2 = currentGroup?.ruleset === "regulamento_2";
+    type SectionUser = (typeof section.users)[0];
+
+    const compare = (a: SectionUser, b: SectionUser): number => {
+      if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+      if (isReg2 && a.tieBreakStats && b.tieBreakStats) {
+        if (b.tieBreakStats.championHit !== a.tieBreakStats.championHit)
+          return b.tieBreakStats.championHit - a.tieBreakStats.championHit;
+        if (b.tieBreakStats.exactHits !== a.tieBreakStats.exactHits)
+          return b.tieBreakStats.exactHits - a.tieBreakStats.exactHits;
+        if (b.tieBreakStats.resultHits !== a.tieBreakStats.resultHits)
+          return b.tieBreakStats.resultHits - a.tieBreakStats.resultHits;
+        if (b.tieBreakStats.diffHits !== a.tieBreakStats.diffHits)
+          return b.tieBreakStats.diffHits - a.tieBreakStats.diffHits;
+      }
+      return 0;
+    };
+
+    const sorted = [...section.users].sort(compare);
+    const me = sorted.find(u => u.id === currentUser.id);
+    if (!me) return 0;
+
+    return sorted.filter(u => compare(u, me) < 0).length + 1;
+  }, [currentUser, leaderboardSections, currentGroup]);
 
   const currentUserPoints = useMemo(() => {
     if (!currentUser || !leaderboardSections.length) return 0;
