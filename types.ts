@@ -47,6 +47,11 @@ export interface LiveMatchDetails {
   venue: { name: string | null; city: string | null } | null;
   round?: string | null;
   events: LiveMatchEvent[];
+  /** Placar ao vivo reportado pela api-sports (goals.home/away). Exibição apenas —
+   *  NÃO entra em nenhum cálculo de pontos. Football-data.org sempre sobrescreve
+   *  os campos oficiais (resultHome/resultAway). */
+  liveScoreHome?: number | null;
+  liveScoreAway?: number | null;
   /** ISO do momento em que estes dados foram buscados/persistidos. */
   syncedAt: string;
 }

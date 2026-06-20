@@ -352,11 +352,15 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 <div className="flex flex-col items-center">
                   <div className="flex items-center gap-3">
                     <span className={`text-4xl font-black tracking-tighter ${isLive ? "text-brand-red" : "text-white"}`}>
-                      {displayResult?.home ?? 0}
+                      {isLive && match.liveDetails?.liveScoreHome != null
+                        ? match.liveDetails.liveScoreHome
+                        : displayResult?.home ?? 0}
                     </span>
                     <span className="text-xl font-black text-slate-600">×</span>
                     <span className={`text-4xl font-black tracking-tighter ${isLive ? "text-brand-red" : "text-white"}`}>
-                      {displayResult?.away ?? 0}
+                      {isLive && match.liveDetails?.liveScoreAway != null
+                        ? match.liveDetails.liveScoreAway
+                        : displayResult?.away ?? 0}
                     </span>
                   </div>
                   {!isLive && (

@@ -639,6 +639,8 @@ export const parseApiSportsFixtures = (payload: any): ParsedLiveFixture[] => {
         : null,
       round: item?.league?.round ?? null,
       events,
+      liveScoreHome: item?.goals?.home ?? null,
+      liveScoreAway: item?.goals?.away ?? null,
       syncedAt: new Date().toISOString(),
     };
 
