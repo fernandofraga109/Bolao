@@ -8,7 +8,7 @@ _Read this first at the start of every session. Update after every significant t
 
 React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Supabase (PostgreSQL + Auth + Realtime) + Tailwind CSS.
 
-**Current version:** `1.58.0`
+**Current version:** `1.65.0`
 **Test suite:** ~188 passing / 2 pre-existing failures in `useLeaderboard.test.ts` (Vitest + RTL + happy-dom)
 **Feature memories:** `.claude/memory/features/sync-system.md`
 
@@ -26,6 +26,16 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 | In Progress | E2E schema `test` + seed fixtures (piloto PRED) | `.claude/plans/e2e-seed-fixtures.md` | PARADO 2026-06-11. 13 passed/0 failed/16 skipped. Fix do `waitForMatchesLoaded` UNCOMMITTED (falta verificar). Detalhes completos no plano. |
 
 ---
+
+## Completed — "Últimos 5 jogos" no MatchCard + modal (2026-06-20)
+
+Plano: `.claude/plans/completed/match-card-last-five.md` | Branch `feat/match-card-last-five` | CURRENT_VERSION 1.65.0 | Confirmado pelo usuário.
+
+- **O quê:** faixa de forma recente (até 5 bolinhas V/E/D — verde/cinza/vermelho) por time no `MatchCard`, calculada dos jogos finalizados da mesma competição. Clicar na faixa ou no nome do time abre `LastFiveMatchesModal` (adversário, placar, data, mando, badge V/E/D). Apenas frontend — não toca pontuação/sync.
+- **Arquivos novos:** `utils/teamForm.ts` (`getTeamRecentForm` — filtra FINISHED + mesma competição, ordena por data desc, trata pênaltis via `getKnockoutAdvancingTeamId`; tudo em memória, sem ida ao banco), `components/LastFiveForm.tsx`, `components/LastFiveMatchesModal.tsx`.
+- **Modificados:** `MatchCard.tsx` (prop `competitionMatches`, `useMemo` home/away form, estado `formModalTeam`), `MatchesPage.tsx` (prop `allMatches` no `MatchGroup` → `competitionMatches` em todos os 5 call sites).
+- **Decisão:** faixa/nome clicável/modal **desativados em jogo encerrado** (`isFinished`) — só agendado/ao vivo.
+- ⚠️ Pendente: testes do `getTeamRecentForm` (test-runner, deferido).
 
 ## Completed — Painel de Estatísticas do jogo (fixtures/statistics) (2026-06-16)
 

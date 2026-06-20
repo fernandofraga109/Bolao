@@ -5,6 +5,7 @@ import {
   Prediction,
   Friend,
   GroupDB,
+  Team,
 } from "../types";
 import {
   calculatePoints,
@@ -43,6 +44,9 @@ import AvatarWithFallback from "./ui/AvatarWithFallback";
 import ReplicatePredictionModal from "./ReplicatePredictionModal";
 import LiveMatchTimeline from "./LiveMatchTimeline";
 import LiveMatchStats from "./LiveMatchStats";
+import LastFiveForm from "./LastFiveForm";
+import LastFiveMatchesModal from "./LastFiveMatchesModal";
+import { getTeamRecentForm } from "../utils/teamForm";
 import { useLiveMatchClock } from "../hooks/useLiveMatchClock";
 import { translateGroupName } from "../utils/translations";
 
@@ -62,6 +66,8 @@ interface MatchCardProps {
   ruleset?: "regulamento_1" | "regulamento_2";
   eligibleGroups?: GroupDB[];
   phaseLockSet?: Set<string>;
+  /** Lista completa de jogos (para calcular a forma recente dos times). */
+  competitionMatches?: Match[];
 }
 
 export const MatchCard: React.FC<MatchCardProps> = ({
@@ -74,6 +80,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   ruleset = "regulamento_1",
   eligibleGroups = [],
   phaseLockSet,
+  competitionMatches = [],
 }) => {
   const [showFriends, setShowFriends] = useState(false);
   // Timeline ao vivo abre por padrão durante a partida; fica recolhida quando finalizada.
@@ -99,6 +106,25 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const [whoClassifiesTeamId, setWhoClassifiesTeamId] = useState<string | null>(
     userPrediction?.whoClassifiesTeamId ?? null
   );
+  // Time cujo modal de "últimos jogos" está aberto (null = fechado).
+  const [formModalTeam, setFormModalTeam] = useState<Team | null>(null);
+
+  // Forma recente de cada time (até 5 jogos finalizados da mesma competição).
+  // Calculada em memória sobre a lista já carregada — sem chamada ao banco.
+  const homeForm = useMemo(
+    () => getTeamRecentForm(match.homeTeam.id, match.competitionCode, competitionMatches),
+    [match.homeTeam.id, match.competitionCode, competitionMatches],
+  );
+  const awayForm = useMemo(
+    () => getTeamRecentForm(match.awayTeam.id, match.competitionCode, competitionMatches),
+    [match.awayTeam.id, match.competitionCode, competitionMatches],
+  );
+  const formModalEntries =
+    formModalTeam?.id === match.homeTeam.id
+      ? homeForm
+      : formModalTeam?.id === match.awayTeam.id
+        ? awayForm
+        : [];
 
   // Relógio ao vivo (api-sports) — ticka localmente sem gastar chamadas de API.
   const liveClock = useLiveMatchClock(match.liveDetails);
@@ -336,12 +362,16 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               />
             </div>
 
-            <span className="w-full text-[10px] sm:text-xs font-black text-center text-slate-200 uppercase tracking-tight leading-none h-8 flex items-center justify-center">
+            <span
+              onClick={homeForm.length && !isFinished ? () => setFormModalTeam(match.homeTeam) : undefined}
+              className={`w-full text-[10px] sm:text-xs font-black text-center text-slate-200 uppercase tracking-tight leading-none h-8 flex items-center justify-center ${homeForm.length && !isFinished ? "cursor-pointer hover:text-brand-green transition-colors" : ""}`}
+            >
               {match.homeTeam.name}
             </span>
             {match.homeTeam.ranking ? (
               <span className="text-[10px] text-slate-500 text-center">#{match.homeTeam.ranking}</span>
             ) : null}
+            {!isFinished && <LastFiveForm entries={homeForm} onClick={() => setFormModalTeam(match.homeTeam)} />}
           </div>
 
           {/* Inputs/Results Container */}
@@ -499,12 +529,16 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               />
             </div>
 
-            <span className="w-full text-[10px] sm:text-xs font-black text-center text-slate-200 uppercase tracking-tight leading-none h-8 flex items-center justify-center">
+            <span
+              onClick={awayForm.length && !isFinished ? () => setFormModalTeam(match.awayTeam) : undefined}
+              className={`w-full text-[10px] sm:text-xs font-black text-center text-slate-200 uppercase tracking-tight leading-none h-8 flex items-center justify-center ${awayForm.length && !isFinished ? "cursor-pointer hover:text-brand-green transition-colors" : ""}`}
+            >
               {match.awayTeam.name}
             </span>
             {match.awayTeam.ranking ? (
               <span className="text-[10px] text-slate-500 text-center">#{match.awayTeam.ranking}</span>
             ) : null}
+            {!isFinished && <LastFiveForm entries={awayForm} onClick={() => setFormModalTeam(match.awayTeam)} />}
           </div>
         </div>
 
@@ -724,6 +758,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               })}
           </div>
         </div>
+      )}
+      {/* Últimos jogos do time (forma recente) — desativado em jogo encerrado */}
+      {formModalTeam && !isFinished && (
+        <LastFiveMatchesModal
+          team={formModalTeam}
+          entries={formModalEntries}
+          onClose={() => setFormModalTeam(null)}
+        />
       )}
       {/* Replicate Prediction Modal */}
       {isReplicateModalOpen && (

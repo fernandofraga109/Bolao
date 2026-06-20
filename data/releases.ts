@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.64.0';
+export const CURRENT_VERSION = '1.65.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.65.0',
+    date: '2026-06-20',
+    changes: [
+      'Os cards dos jogos agora mostram a "forma recente" de cada time: uma faixa com os últimos resultados na competição, em verde (vitória), cinza (empate) e vermelho (derrota)',
+      'Toque na faixa ou no nome do time para abrir os detalhes dos últimos jogos, com adversário, placar, data e mando de campo',
+      'A forma recente aparece em jogos agendados e ao vivo',
+    ],
+  },
   {
     version: '1.64.0',
     date: '2026-06-20',
