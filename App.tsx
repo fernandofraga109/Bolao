@@ -10,6 +10,7 @@ import { useLeaderboard } from "./hooks/useLeaderboard";
 import { usePasswordRecovery } from "./hooks/usePasswordRecovery";
 import { usePollingRefresh } from "./hooks/usePollingRefresh";
 import { useDatabase } from "./contexts/DatabaseContext";
+import LiveEventOverlay from "./components/animation/LiveEventOverlay";
 
 // Layout Components
 import Header from "./components/Header";
@@ -758,6 +759,9 @@ const App: React.FC = () => {
 
       {/* Sync Toast Notifications */}
       <SyncToastContainer toasts={toasts} onDismiss={dismiss} />
+
+      {/* Animação ao vivo de gol/cartão (modal efêmero) */}
+      <LiveEventOverlay matches={matches} />
 
       <BottomNav
         activeTab={activeTab}

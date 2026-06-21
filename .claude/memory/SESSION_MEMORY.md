@@ -24,6 +24,7 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 | Deferred | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Deferred |
 | Next | Sync call reduction (cadências desacopladas + gate por estado) | `.claude/plans/sync-call-reduction.md` | PLANEJADO — aguardando aprovação |
 | In Progress | E2E schema `test` + seed fixtures (piloto PRED) | `.claude/plans/e2e-seed-fixtures.md` | PARADO 2026-06-11. 13 passed/0 failed/16 skipped. Fix do `waitForMatchesLoaded` UNCOMMITTED (falta verificar). Detalhes completos no plano. |
+| In Progress | Animação ao vivo de Gol/Cartão (modal efêmero) | `.claude/plans/live-goal-card-animation.md` | EM IMPLEMENTAÇÃO em `feat/goal-animation`. Animações v1 (gol) + cartões prontas; falta hook detector + overlay + gatilho dev. |
 
 ---
 
