@@ -180,6 +180,7 @@ const DEFAULT_CONFIG: SystemConfigDB = {
   sync_interval_ms: 20000,
   live_details_interval_ms: 300000,
   underdog_min_rank_diff: 0,
+  live_animations_enabled: { goal: true, yellow: true, red: true },
 };
 
 const mergeMatchIntoList = (list: MatchDB[], incoming: MatchDB): MatchDB[] => {

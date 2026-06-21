@@ -10,6 +10,10 @@ import { useLeaderboard } from "./hooks/useLeaderboard";
 import { usePasswordRecovery } from "./hooks/usePasswordRecovery";
 import { usePollingRefresh } from "./hooks/usePollingRefresh";
 import { useDatabase } from "./contexts/DatabaseContext";
+import LiveEventOverlay from "./components/animation/LiveEventOverlay";
+import AdminAnimationsPage from "./components/animation/AdminAnimationsPage";
+import { useLiveEventAnnouncer } from "./hooks/useLiveEventAnnouncer";
+import { LiveEventKind } from "./utils/liveEvents";
 
 // Layout Components
 import Header from "./components/Header";
@@ -212,6 +216,27 @@ const App: React.FC = () => {
     });
     return locked;
   }, [matches, currentGroup?.ruleset]);
+
+  // Animações ao vivo (gol/cartão): flags do kill-switch global + detector/fila.
+  const animEnabled = useMemo<Record<LiveEventKind, boolean>>(() => {
+    const f = db.systemConfig.live_animations_enabled ?? {};
+    return { goal: f.goal !== false, yellow: f.yellow !== false, red: f.red !== false };
+  }, [db.systemConfig.live_animations_enabled]);
+
+  const {
+    current: liveAnimEvent,
+    dismiss: dismissLiveAnim,
+    trigger: triggerLiveAnim,
+  } = useLiveEventAnnouncer(matches, animEnabled);
+
+  const handleToggleAnimation = useCallback(
+    (kind: LiveEventKind, value: boolean) => {
+      void db.updateSystemConfig({
+        live_animations_enabled: { ...animEnabled, [kind]: value },
+      });
+    },
+    [db, animEnabled],
+  );
 
   const [activeTab, setActiveTab] = useState<Tab>("matches");
   const [groupError, setGroupError] = useState<string | null>(null);
@@ -735,6 +760,15 @@ const App: React.FC = () => {
             onManualSync={handleAdminSyncCompetition}
           />
         )}
+
+        {/* Admin: Animations Tab */}
+        {activeTab === "animations" && currentUser.role === "ADMIN" && (
+          <AdminAnimationsPage
+            onTrigger={triggerLiveAnim}
+            enabled={animEnabled}
+            onToggle={handleToggleAnimation}
+          />
+        )}
       </main>
 
       {/* What's New Modal */}
@@ -748,6 +782,9 @@ const App: React.FC = () => {
 
       {/* Sync Toast Notifications */}
       <SyncToastContainer toasts={toasts} onDismiss={dismiss} />
+
+      {/* Animação ao vivo de gol/cartão (modal efêmero) */}
+      <LiveEventOverlay current={liveAnimEvent} dismiss={dismissLiveAnim} />
 
       <BottomNav
         activeTab={activeTab}
