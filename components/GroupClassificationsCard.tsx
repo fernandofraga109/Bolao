@@ -485,17 +485,27 @@ export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> =
 
           {/* Other Users' Group Classifications - Always visible, data hidden until lock */}
           {currentGroupId && (() => {
-            const otherPreds = db.tournamentPredictions.filter(
-              (tp) => tp.groupId === currentGroupId && tp.userId !== currentUserId && tp.groupClassifications
+            const allPreds = db.tournamentPredictions.filter(
+              (tp) => tp.groupId === currentGroupId && tp.groupClassifications
             );
+
+            // Sort: current user first, then others alphabetically
+            const sortedPreds = [...allPreds].sort((a, b) => {
+              if (a.userId === currentUserId) return -1;
+              if (b.userId === currentUserId) return 1;
+              const nameA = db.users.find((u) => u.id === a.userId)?.name || "";
+              const nameB = db.users.find((u) => u.id === b.userId)?.name || "";
+              return nameA.localeCompare(nameB);
+            });
 
             return (
               <OtherGroupClassifications
-                otherPreds={otherPreds}
+                otherPreds={sortedPreds}
                 db={db}
                 groupTeams={groupTeams}
                 normalizeGroupName={normalizeGroupName}
                 isLocked={isLocked}
+                currentUserId={currentUserId}
               />
             );
           })()}
@@ -512,7 +522,8 @@ const OtherGroupClassifications: React.FC<{
   groupTeams: Record<string, Team[]>;
   normalizeGroupName: (g: string) => string;
   isLocked: boolean;
-}> = ({ otherPreds, db, groupTeams, normalizeGroupName, isLocked }) => {
+  currentUserId?: string;
+}> = ({ otherPreds, db, groupTeams, normalizeGroupName, isLocked, currentUserId }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const getUserName = (userId: string) => {
@@ -536,7 +547,7 @@ const OtherGroupClassifications: React.FC<{
         <div className="flex items-center gap-2 text-slate-300">
           <Users size={14} />
           <span className="text-xs font-bold uppercase tracking-wide">
-            Classificados do Grupo ({otherPreds.length})
+            Palpites do Grupo ({otherPreds.length})
           </span>
         </div>
         {isOpen ? <ChevronUp size={14} className="text-slate-500" /> : <ChevronDown size={14} className="text-slate-500" />}
@@ -545,7 +556,7 @@ const OtherGroupClassifications: React.FC<{
       {isOpen && (
         otherPreds.length === 0 ? (
           <div className="p-4 text-xs text-slate-500 text-center">
-            Nenhum outro participante fez palpites neste grupo ainda.
+            Nenhum participante fez palpites neste grupo ainda.
           </div>
         ) : (
         <div className="overflow-x-auto animate-fadeIn">
@@ -561,31 +572,41 @@ const OtherGroupClassifications: React.FC<{
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700/50">
-              {otherPreds.map((tp) => (
-                <tr key={tp.userId} className="hover:bg-slate-800/50 transition-colors">
-                  <td className="px-3 py-2 font-semibold text-slate-200 whitespace-nowrap">
-                    {getUserName(tp.userId)}
-                  </td>
-                  {groupNames.map((g) => {
-                    const picks = tp.groupClassifications?.[g] || [];
-                    return (
-                      <td key={g} className="px-2 py-2 text-center text-slate-300">
-                        <div className="flex flex-wrap gap-0.5 justify-center">
-                          {picks.length > 0
-                            ? isLocked
-                              ? picks.map((id: string) => (
-                                  <span key={id} className="text-[9px] bg-slate-800 px-1 py-0.5 rounded">
-                                    {getTeamCode(id)}
-                                  </span>
-                                ))
-                              : <span className="text-[9px] text-slate-500 italic">Oculto</span>
-                            : "—"}
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
+              {otherPreds.map((tp) => {
+                const isCurrentUser = tp.userId === currentUserId;
+                return (
+                  <tr key={tp.userId} className={`hover:bg-slate-800/50 transition-colors ${isCurrentUser ? 'bg-indigo-950/20' : ''}`}>
+                    <td className="px-3 py-2 font-semibold text-slate-200 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        {getUserName(tp.userId)}
+                        {isCurrentUser && (
+                          <span className="px-1.5 py-0.5 text-[9px] font-bold bg-indigo-600 text-white rounded-full">
+                            VOCÊ
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    {groupNames.map((g) => {
+                      const picks = tp.groupClassifications?.[g] || [];
+                      return (
+                        <td key={g} className="px-2 py-2 text-center text-slate-300">
+                          <div className="flex flex-wrap gap-0.5 justify-center">
+                            {picks.length > 0
+                              ? isLocked || isCurrentUser
+                                ? picks.map((id: string) => (
+                                    <span key={id} className="text-[9px] bg-slate-800 px-1 py-0.5 rounded">
+                                      {getTeamCode(id)}
+                                    </span>
+                                  ))
+                                : <span className="text-[9px] text-slate-500 italic">Oculto</span>
+                              : "—"}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

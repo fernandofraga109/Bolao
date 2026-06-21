@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.69.0';
+export const CURRENT_VERSION = '1.70.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.70.0',
+    date: '2026-06-21',
+    changes: [
+      'Card de Classificados dos Grupos agora mostra seu próprio palpite na lista com badge VOCÊ para facilitar comparação',
+    ],
+  },
   {
     version: '1.69.0',
     date: '2026-06-21',
