@@ -641,17 +641,7 @@ const App: React.FC = () => {
           activeGroupId={currentUser.activeGroupId}
           onSwitch={async (id) => {
             await switchGroup(currentUser.id, id);
-            const nextGroup = getGroupById(id);
-            if (canWriteCompetitionData) {
-              void syncMatchesAndStandings(
-                (
-                  nextGroup?.competitionCode || DEFAULT_COMPETITION_CODE
-                ).toUpperCase(),
-              );
-            }
-            // Forçar recarregamento dos palpites para o novo grupo
-            db.refetchPredictions();
-            setIsGroupSwitcherOpen(false);
+            window.location.reload();
           }}
           onCreate={handleCreateGroup}
           onJoin={handleJoinGroup}
