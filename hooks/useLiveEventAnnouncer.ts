@@ -38,7 +38,15 @@ const WARMUP_MS = 8000;
  * Retorna o evento em exibição (`current`), `dismiss` (pular) e `trigger`
  * (disparo manual — usado só para testes em dev).
  */
-export function useLiveEventAnnouncer(matches: Match[]) {
+/**
+ * @param matches lista de jogos (hidratada, com liveDetails).
+ * @param enabled flags por tipo de animação (kill-switch do admin). Ausente =
+ *   tudo habilitado. O disparo manual via `trigger` ignora estas flags.
+ */
+export function useLiveEventAnnouncer(
+  matches: Match[],
+  enabled?: Partial<Record<LiveEventKind, boolean>>,
+) {
   const [current, setCurrent] = useState<AnnouncedEvent | null>(null);
 
   const queueRef = useRef<AnnouncedEvent[]>([]);
@@ -47,6 +55,8 @@ export function useLiveEventAnnouncer(matches: Match[]) {
   const seenRef = useRef<Map<string, Set<string>>>(new Map());
   const baselinedRef = useRef<Set<string>>(new Set());
   const mountTimeRef = useRef(Date.now());
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
 
   const showNext = useCallback(() => {
     const next = queueRef.current.shift();
@@ -122,6 +132,8 @@ export function useLiveEventAnnouncer(matches: Match[]) {
         if (warming) continue;
         const kind = classifyLiveEvent(ev);
         if (!kind) continue;
+        // Kill-switch do admin: desabilitada → registra (sem replay futuro) e pula.
+        if (enabledRef.current && enabledRef.current[kind] === false) continue;
         enqueue({
           id: `${m.id}-${key}`,
           kind,

@@ -96,6 +96,9 @@ export interface SystemConfigDB {
    *  "Nova versão" para o outro antes do build correspondente subir. Chave ausente
    *  ou NULL = banner não dispara para aquele deploy. */
   app_versions?: Record<string, string> | null;
+  /** Kill-switch global das animações ao vivo (gol/cartão), keyed por tipo:
+   *  `{ goal, yellow, red }`. Chave ausente = habilitada (default true). */
+  live_animations_enabled?: Record<string, boolean> | null;
 }
 
 export interface CompetitionDB {
@@ -415,7 +418,7 @@ export interface Match {
 export type Group = GroupDB;
 export type Friend = User; // Legacy alias
 
-export type Tab = "matches" | "leaderboard" | "stats" | "tournament" | "admin" | "specials";
+export type Tab = "matches" | "leaderboard" | "stats" | "tournament" | "admin" | "specials" | "animations";
 
 export interface AIPredictionResult {
   homeScore: number;
