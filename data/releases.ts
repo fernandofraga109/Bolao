@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.66.0';
+export const CURRENT_VERSION = '1.68.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,23 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.68.0',
+    date: '2026-06-20',
+    changes: [
+      'Agora rola uma comemoracao na tela quando sai GOL ao vivo: uma bola entra no gol e a animacao some sozinha',
+      'Cartoes amarelos e vermelhos ao vivo tambem ganharam animacao na hora do lance',
+      'As animacoes so aparecem com o app aberto no momento do lance, sem repetir jogadas antigas',
+      'No painel do admin, a nova aba "Animacoes" permite pre-visualizar e ligar ou desligar cada animacao para todos os usuarios',
+    ],
+  },
+  {
+    version: '1.67.0',
+    date: '2026-06-20',
+    changes: [
+      'Troca de grupo pelo usuario, renderiza todo o app.',
+    ],
+  },
   {
     version: '1.66.0',
     date: '2026-06-20',
