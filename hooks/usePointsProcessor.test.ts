@@ -34,6 +34,7 @@ const h = vi.hoisted(() => {
 
   function makeBuilder(table: string) {
     const filters: Record<string, any> = {};
+    const lteFilters: Record<string, any> = {};
     let single = false;
     let maybeSingle = false;
 
@@ -41,7 +42,13 @@ const h = vi.hoisted(() => {
       if (tableErrors[table]) {
         return { data: null, error: tableErrors[table] };
       }
-      const rows = applyFilters(datasets[table] || [], filters);
+      let rows = applyFilters(datasets[table] || [], filters);
+      // Apply lte filters (less-than-or-equal)
+      if (Object.keys(lteFilters).length > 0) {
+        rows = rows.filter((r) =>
+          Object.entries(lteFilters).every(([col, val]) => r[col] <= val)
+        );
+      }
       if (single || maybeSingle) {
         return { data: rows[0] ?? null, error: null };
       }
@@ -56,6 +63,10 @@ const h = vi.hoisted(() => {
       },
       in: (col: string, vals: any[]) => {
         filters[col] = vals;
+        return builder;
+      },
+      lte: (col: string, val: any) => {
+        lteFilters[col] = val;
         return builder;
       },
       order: () => builder,

@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.68.0';
+export const CURRENT_VERSION = '1.69.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.69.0',
+    date: '2026-06-21',
+    changes: [
+      'Melhoria na Regra de calculo para classificados da fase de grupos para o Regulamento 2',
+    ],
+  },
   {
     version: '1.68.0',
     date: '2026-06-20',

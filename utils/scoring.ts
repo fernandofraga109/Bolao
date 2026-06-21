@@ -405,12 +405,17 @@ export const calculateTournamentPointsRegulamento2 = (
   // 4. Group classifications & Knockout qualifiers points: 10 points per correct group team, 5 points per correct knockout team
   if (prediction.groupClassifications && actual.groupClassifications) {
     Object.entries(prediction.groupClassifications).forEach(([groupName, predTeams]) => {
-      const actualTeams = actual.groupClassifications?.[groupName];
+      const isKnockout = ["Oitavas", "Quartas", "Semis"].includes(groupName);
+      let actualTeams = actual.groupClassifications?.[groupName];
+      // Defensive cap: group-stage entries must have at most 2 qualifiers (1st and 2nd place).
+      // A 3rd-place qualifier must never score points per the regulation.
+      if (!isKnockout && actualTeams) {
+        actualTeams = actualTeams.slice(0, 2);
+      }
       if (actualTeams && Array.isArray(predTeams) && Array.isArray(actualTeams)) {
         const validPreds = predTeams.filter(Boolean);
         validPreds.forEach((teamId) => {
-          if (actualTeams.includes(teamId)) {
-            const isKnockout = ["Oitavas", "Quartas", "Semis"].includes(groupName);
+          if (actualTeams!.includes(teamId)) {
             points += isKnockout ? 5 : 10;
           }
         });

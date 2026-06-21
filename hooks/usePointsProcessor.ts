@@ -152,6 +152,66 @@ export const usePointsProcessor = (dbRef: any) => {
           }
         }
 
+        // --- GROUP CLASSIFICATIONS for tournament points ---
+        // Admin override takes immediate precedence (always).
+        // Fallback: auto-compute from standings positions 1 & 2, but ONLY after
+        // all group-stage matches for this competition are FINISHED.
+        let resolvedGroupClassifications: Record<string, string[]> | undefined = undefined;
+
+        const adminGroupClassif = compData?.groupClassifications as Record<string, string[]> | null | undefined;
+        const hasAdminOverride = !!adminGroupClassif && Object.keys(adminGroupClassif).length > 0;
+
+        if (hasAdminOverride) {
+          resolvedGroupClassifications = adminGroupClassif!;
+          console.log(`[Points] ✅ groupClassifications: usando override do admin para ${compCode}`);
+        } else {
+          // Check if all group-stage matches are finished.
+          // We identify group stage matches by their `group` field (GROUP_A..L or Grupo A..L)
+          // instead of using getMatchPhase, which is a catch-all that would incorrectly
+          // include ROUND_OF_32 / LAST_32 matches as "groups".
+          const GROUP_STAGE_PATTERN = /^(GROUP[_\s]+[A-L]|Grupo\s+[A-L])$/i;
+          const allLocalMatches = dbRef.current.matches as any[];
+          const compGroupMatches = allLocalMatches.filter((m: any) => {
+            if ((m.competitionCode || 'WC').toUpperCase() !== compCode.toUpperCase()) return false;
+            return GROUP_STAGE_PATTERN.test((m.group || '').trim());
+          });
+
+          const groupStageComplete =
+            compGroupMatches.length > 0 &&
+            compGroupMatches.every((m: any) => m.status === MatchStatus.FINISHED);
+
+          if (groupStageComplete) {
+            console.log(`[Points] ✅ Fase de grupos completa para ${compCode}. Buscando standings...`);
+            const { data: standingsData } = await supabase
+              .from('team_standings')
+              .select('teamId, group, position')
+              .eq('competitionCode', compCode)
+              .lte('position', 2);
+
+            if (standingsData && standingsData.length > 0) {
+              resolvedGroupClassifications = {};
+              standingsData.forEach((s: any) => {
+                const raw = (s.group as string | null)?.trim();
+                if (!raw) return;
+                // Normalize API format GROUP_A → Grupo A (also handles Grupo A)
+                const apiMatch = /^GROUP[_\s]+([A-Z])$/i.exec(raw);
+                const g = apiMatch
+                  ? `Grupo ${apiMatch[1].toUpperCase()}`
+                  : raw.startsWith('Grupo')
+                  ? raw
+                  : null;
+                if (!g) return;
+                if (!resolvedGroupClassifications![g]) resolvedGroupClassifications![g] = [];
+                resolvedGroupClassifications![g][(s.position as number) - 1] = s.teamId;
+              });
+              const groupCount = Object.keys(resolvedGroupClassifications).length;
+              console.log(`[Points] ✅ ${groupCount} grupos resolvidos via standings para ${compCode}`);
+            }
+          } else {
+            console.log(`[Points] ⏳ Fase de grupos ainda não encerrada para ${compCode} (${compGroupMatches.filter((m: any) => m.status !== MatchStatus.FINISHED).length} jogos pendentes). Pontos de classificados não aplicados.`);
+          }
+        }
+
         const tournamentResults: TournamentPredictions | null = compData
           ? {
               championTeamId: compData.championTeamId || undefined,
@@ -174,6 +234,7 @@ export const usePointsProcessor = (dbRef: any) => {
                 compData.mostConcededTeamIds && compData.mostConcededTeamIds.length > 0
                   ? compData.mostConcededTeamIds
                   : undefined,
+              groupClassifications: resolvedGroupClassifications || undefined,
             }
           : null;
 

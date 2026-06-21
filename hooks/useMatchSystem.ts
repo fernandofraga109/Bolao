@@ -141,18 +141,27 @@ export const useMatchSystem = (
       // Dynamically compute actual groupClassifications (qualifiers) from teamStandings
       db.teamStandings.forEach((standing) => {
         if (
-          normalizeCompetitionCode(standing.competitionCode) ===
-            normalizeCompetitionCode(activeCompetitionCode) &&
-          standing.group &&
-          standing.group.startsWith("Grupo") &&
-          standing.position != null &&
-          (standing.position === 1 || standing.position === 2)
-        ) {
-          if (!groupClassifications[standing.group]) {
-            groupClassifications[standing.group] = [];
-          }
-          groupClassifications[standing.group][standing.position - 1] = standing.teamId;
+          normalizeCompetitionCode(standing.competitionCode) !==
+            normalizeCompetitionCode(activeCompetitionCode) ||
+          !standing.group ||
+          standing.position == null ||
+          (standing.position !== 1 && standing.position !== 2)
+        ) return;
+
+        // Normalize API format GROUP_A → Grupo A (also handles already-normalized Grupo A)
+        const raw = standing.group.trim();
+        const apiMatch = /^GROUP[_\s]+([A-Z])$/i.exec(raw);
+        const normalizedGroup = apiMatch
+          ? `Grupo ${apiMatch[1].toUpperCase()}`
+          : raw.startsWith("Grupo")
+          ? raw
+          : null;
+        if (!normalizedGroup) return;
+
+        if (!groupClassifications[normalizedGroup]) {
+          groupClassifications[normalizedGroup] = [];
         }
+        groupClassifications[normalizedGroup][standing.position - 1] = standing.teamId;
       });
     }
 
