@@ -8,7 +8,7 @@ _Read this first at the start of every session. Update after every significant t
 
 React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Supabase (PostgreSQL + Auth + Realtime) + Tailwind CSS.
 
-**Current version:** `1.65.0`
+**Current version:** `1.68.0`
 **Test suite:** ~188 passing / 2 pre-existing failures in `useLeaderboard.test.ts` (Vitest + RTL + happy-dom)
 **Feature memories:** `.claude/memory/features/sync-system.md`
 
@@ -24,9 +24,19 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 | Deferred | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Deferred |
 | Next | Sync call reduction (cadências desacopladas + gate por estado) | `.claude/plans/sync-call-reduction.md` | PLANEJADO — aguardando aprovação |
 | In Progress | E2E schema `test` + seed fixtures (piloto PRED) | `.claude/plans/e2e-seed-fixtures.md` | PARADO 2026-06-11. 13 passed/0 failed/16 skipped. Fix do `waitForMatchesLoaded` UNCOMMITTED (falta verificar). Detalhes completos no plano. |
-| In Progress | Animação ao vivo de Gol/Cartão (modal efêmero) | `.claude/plans/live-goal-card-animation.md` | EM IMPLEMENTAÇÃO em `feat/goal-animation`. Animações v1 (gol) + cartões prontas; falta hook detector + overlay + gatilho dev. |
 
 ---
+
+## Completed — Animação ao vivo de Gol/Cartão + aba Animations (2026-06-20)
+
+Plano: `.claude/plans/completed/live-goal-card-animation.md` | Branch `feat/goal-animation` | CURRENT_VERSION 1.68.0 | Confirmado pelo usuário. Push origin + miguelfork (`feature/fernando-20062026-goal-card-animations`).
+
+- **O quê:** com o app aberto, evento NOVO no `liveDetails.events` dispara um modal efêmero (some sozinho): gol → `TriondaGoalAnimation` (v1); amarelo/vermelho → `CardAnimation`. Anti-retroativo: baseline POR PARTIDA na 1ª vez que o `liveDetails` dela aparece + janela de aquecimento de 8s (cobre carga escalonada matches→eventos). `Set` de chaves por jogo deduplica realtime.
+- **Arquivos novos:** `utils/liveEvents.ts` (`classifyLiveEvent`/`liveEventKey`/`formatEventMinute`), `hooks/useLiveEventAnnouncer.ts` (detector + fila + `trigger`), `components/animation/` (`TriondaGoalAnimation`, `CardAnimation`, `ScaledStage`, `LiveEventOverlay`, `GoalAnimationPreview`, `AdminAnimationsPage`, + `TriondaNetAnimation` descartada/preview).
+- **ScaledStage:** escala a cena 640×380 p/ caber em telas estreitas (corrige corte). Rotas `/animation*` (via short-circuit no `index.tsx`) para preview isolado.
+- **Aba admin "Animations"** (`BottomNav` admin-only): executar (preview) + ativar/desativar cada animação. Kill-switch GLOBAL via `system_config.live_animations_enabled` (jsonb) — migration **0038** (já aplicada no dev; aplicar em prod). `useLiveEventAnnouncer(matches, enabled)` respeita as flags; `trigger` as ignora.
+- **v2 "estufar a rede"** descartada (CSS não atinge o fotorrealismo dos frames de referência); ficou só como preview.
+- ⚠️ Pendência: testes de `classifyLiveEvent`/`liveEventKey` (test-runner). Migration 0038 em prod.
 
 ## Completed — "Últimos 5 jogos" no MatchCard + modal (2026-06-20)
 

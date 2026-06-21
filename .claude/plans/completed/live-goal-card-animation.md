@@ -1,6 +1,6 @@
 # Plano — Animação ao vivo de Gol / Cartão (modal efêmero)
 
-_Status_: PROPOSED — 2026-06-20
+_Status_: DONE — 2026-06-20
 
 ## Context
 
