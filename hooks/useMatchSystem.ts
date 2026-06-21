@@ -139,30 +139,43 @@ export const useMatchSystem = (
       groupClassifications = { ...comp.groupClassifications };
     } else {
       // Dynamically compute actual groupClassifications (qualifiers) from teamStandings
-      db.teamStandings.forEach((standing) => {
-        if (
-          normalizeCompetitionCode(standing.competitionCode) !==
-            normalizeCompetitionCode(activeCompetitionCode) ||
-          !standing.group ||
-          standing.position == null ||
-          (standing.position !== 1 && standing.position !== 2)
-        ) return;
-
-        // Normalize API format GROUP_A → Grupo A (also handles already-normalized Grupo A)
-        const raw = standing.group.trim();
-        const apiMatch = /^GROUP[_\s]+([A-Z])$/i.exec(raw);
-        const normalizedGroup = apiMatch
-          ? `Grupo ${apiMatch[1].toUpperCase()}`
-          : raw.startsWith("Grupo")
-          ? raw
-          : null;
-        if (!normalizedGroup) return;
-
-        if (!groupClassifications[normalizedGroup]) {
-          groupClassifications[normalizedGroup] = [];
-        }
-        groupClassifications[normalizedGroup][standing.position - 1] = standing.teamId;
+      // ONLY after all group-stage matches are FINISHED (same gate as usePointsProcessor)
+      const GROUP_STAGE_PATTERN = /^(GROUP[_\s]+[A-L]|Grupo\s+[A-L])$/i;
+      const compGroupMatches = db.matches.filter((m) => {
+        if ((m.competitionCode || 'WC').toUpperCase() !== normalizeCompetitionCode(activeCompetitionCode)) return false;
+        return GROUP_STAGE_PATTERN.test((m.group || '').trim());
       });
+
+      const groupStageComplete =
+        compGroupMatches.length > 0 &&
+        compGroupMatches.every((m) => m.status === MatchStatus.FINISHED);
+
+      if (groupStageComplete) {
+        db.teamStandings.forEach((standing) => {
+          if (
+            normalizeCompetitionCode(standing.competitionCode) !==
+              normalizeCompetitionCode(activeCompetitionCode) ||
+            !standing.group ||
+            standing.position == null ||
+            (standing.position !== 1 && standing.position !== 2)
+          ) return;
+
+          // Normalize API format GROUP_A → Grupo A (also handles already-normalized Grupo A)
+          const raw = standing.group.trim();
+          const apiMatch = /^GROUP[_\s]+([A-Z])$/i.exec(raw);
+          const normalizedGroup = apiMatch
+            ? `Grupo ${apiMatch[1].toUpperCase()}`
+            : raw.startsWith("Grupo")
+            ? raw
+            : null;
+          if (!normalizedGroup) return;
+
+          if (!groupClassifications[normalizedGroup]) {
+            groupClassifications[normalizedGroup] = [];
+          }
+          groupClassifications[normalizedGroup][standing.position - 1] = standing.teamId;
+        });
+      }
     }
 
     // --- KNOCKOUT CLASSIFICATIONS ---
