@@ -38,6 +38,7 @@ type UserRoleRow = {
   email?: string;
   avatar?: string | null;
   role: UserDB["role"];
+  createdAt?: string | null;
 };
 
 type ProfileRow = {
@@ -70,6 +71,7 @@ const mapUserRoleToUser = (row: UserRoleRow): UserDB => ({
   status: "ACTIVE",
   activeGroupId: undefined,
   totalPoints: 0,
+  createdAt: row.createdAt ?? undefined,
 });
 
 const mapProfileToUser = (row: ProfileRow): UserDB => ({

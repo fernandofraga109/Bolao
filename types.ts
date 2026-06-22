@@ -269,6 +269,7 @@ export interface UserDB {
   status: "ACTIVE" | "INVITED";
   activeGroupId?: string; // Persists user preference
   totalPoints: number; // Cache for performance, or calculated on fly
+  createdAt?: string; // Data de cadastro (user_roles.createdAt) — usada na elegibilidade de enquetes
 }
 
 export interface GroupDB {
@@ -418,7 +419,55 @@ export interface Match {
 export type Group = GroupDB;
 export type Friend = User; // Legacy alias
 
-export type Tab = "matches" | "leaderboard" | "stats" | "tournament" | "admin" | "specials" | "animations";
+export type Tab = "matches" | "leaderboard" | "stats" | "tournament" | "admin" | "specials" | "animations" | "polls";
+
+// =============================================================================
+// Enquetes / Polls
+// =============================================================================
+
+/** null = todos os usuários; 'both' = quem tem grupo de reg1 OU reg2 (qualquer grupo). */
+export type PollTargetRuleset = "regulamento_1" | "regulamento_2" | "both" | null;
+
+export type PollStatus = "active" | "closed";
+
+export interface PollDB {
+  id: string;
+  question: string;
+  options: string[];
+  allow_multiple: boolean;
+  target_ruleset: PollTargetRuleset;
+  status: PollStatus;
+  created_at: string;
+  closes_at?: string | null;
+}
+
+export type Poll = PollDB;
+
+export interface PollResponseDB {
+  poll_id: string;
+  user_id: string;
+  option_index: number;
+  created_at?: string;
+}
+
+/** Agregado anônimo vindo da RPC get_poll_results. Nunca contém user_id. */
+export interface PollOptionResult {
+  optionIndex: number;
+  label: string;
+  votes: number;
+  /** votos / total de respondentes (0..1). Em allow_multiple a soma passa de 1. */
+  percentage: number;
+}
+
+export interface PollResults {
+  pollId: string;
+  totalRespondents: number;
+  /** Usuários elegíveis pelo targeting (não-admin). Denominador da participação. */
+  eligibleUsers: number;
+  /** totalRespondents / eligibleUsers (0..1). */
+  participationRate: number;
+  options: PollOptionResult[];
+}
 
 export interface AIPredictionResult {
   homeScore: number;
