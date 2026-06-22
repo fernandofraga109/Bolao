@@ -85,6 +85,7 @@ export const OtherUsersPredictions: React.FC<OtherUsersPredictionsProps> = ({
                                         </>
                                     ) : (
                                         <>
+                                            <th className="px-2 py-2 text-center font-medium">Gols</th>
                                             <th className="px-2 py-2 text-center font-medium">Mel. Jogador</th>
                                             <th className="px-2 py-2 text-center font-medium">Mel. Goleiro</th>
                                         </>
@@ -147,6 +148,9 @@ export const OtherUsersPredictions: React.FC<OtherUsersPredictionsProps> = ({
                                             </>
                                         ) : (
                                             <>
+                                                <td className="px-2 py-2 text-center text-slate-300 whitespace-nowrap">
+                                                    {isLocked ? (tp.topScorerGoals != null ? tp.topScorerGoals : '—') : 'Oculto'}
+                                                </td>
                                                 <td className="px-2 py-2 text-center text-slate-300 whitespace-nowrap">
                                                     {isLocked ? (tp.bestPlayerId ? getPlayerName(tp.bestPlayerId) : '—') : 'Oculto'}
                                                 </td>
