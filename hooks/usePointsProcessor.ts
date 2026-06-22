@@ -10,6 +10,7 @@ import {
   calculateExtraPhasePoints,
   getExtraPhaseKey,
   getMatchPhase,
+  isTournamentFinalFinished,
 } from '../utils/scoring';
 import { supabase } from '../services/supabase';
 
@@ -365,26 +366,30 @@ export const usePointsProcessor = (dbRef: any) => {
               }
             });
           } else {
-            // Regulamento 1: Stateless tournament points
-            (tournPreds || []).forEach((tp) => {
-              if (!pointsByUser[tp.userId]) pointsByUser[tp.userId] = 0;
-              const tsName = tp.topScorerPlayerId
-                ? playerNameById.get(tp.topScorerPlayerId)
-                : undefined;
-              const predTourn: TournamentPredictions = {
-                championTeamId: tp.championTeamId || undefined,
-                topScorer: tsName ? { player: tsName, goals: tp.topScorerGoals || 0 } : undefined,
-                bestPlayer: tp.bestPlayerId ? playerNameById.get(tp.bestPlayerId) : undefined,
-                bestGoalkeeper: tp.bestGoalkeeperId
-                  ? playerNameById.get(tp.bestGoalkeeperId)
-                  : undefined,
-              };
+            // Regulamento 1: só calcula pontos de torneio se a final estiver finalizada
+            const isFinalFinished = isTournamentFinalFinished(rawMatches);
+            if (isFinalFinished) {
+              // Regulamento 1: Stateless tournament points
+              (tournPreds || []).forEach((tp) => {
+                if (!pointsByUser[tp.userId]) pointsByUser[tp.userId] = 0;
+                const tsName = tp.topScorerPlayerId
+                  ? playerNameById.get(tp.topScorerPlayerId)
+                  : undefined;
+                const predTourn: TournamentPredictions = {
+                  championTeamId: tp.championTeamId || undefined,
+                  topScorer: tsName ? { player: tsName, goals: tp.topScorerGoals || 0 } : undefined,
+                  bestPlayer: tp.bestPlayerId ? playerNameById.get(tp.bestPlayerId) : undefined,
+                  bestGoalkeeper: tp.bestGoalkeeperId
+                    ? playerNameById.get(tp.bestGoalkeeperId)
+                    : undefined,
+                };
 
-              const pts = calculateTournamentPoints(predTourn, tournamentResults);
-              if (pts > 0) {
-                pointsByUser[tp.userId] += pts;
-              }
-            });
+                const pts = calculateTournamentPoints(predTourn, tournamentResults);
+                if (pts > 0) {
+                  pointsByUser[tp.userId] += pts;
+                }
+              });
+            }
           }
         }
 

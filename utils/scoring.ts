@@ -1,4 +1,4 @@
-import { TournamentPredictions } from '../types';
+import { TournamentPredictions, MatchStatus } from '../types';
 
 export const POINTS_EXACT = 10;
 export const POINTS_GOAL_DIFF = 7;
@@ -68,6 +68,16 @@ export const getExtraPhaseKey = (stage?: string, group?: string): ExtraPhaseKey 
   if (s.includes('ROUND_OF_32') || g.includes('16_AVOS') || g.includes('16AVOS')) return 'round_of_32';
   if (s.includes('REGULAR') || s.includes('GROUP') || g.includes('GRUPO')) return 'groups';
   return null;
+};
+
+/**
+ * Checks if the tournament final match has finished.
+ * Used to determine when to calculate tournament prediction points (Regulamento 1).
+ */
+export const isTournamentFinalFinished = (matches: { stage?: string; group?: string; status: string }[]): boolean => {
+  return matches.some(
+    (m) => getMatchPhase(m.stage, m.group) === 'final' && m.status === MatchStatus.FINISHED
+  );
 };
 
 /**

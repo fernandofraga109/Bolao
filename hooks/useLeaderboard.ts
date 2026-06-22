@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { User, Match, MatchStatus, TournamentPredictions, Group, ExtraPhasePredictionDB, CompetitionDB } from "../types";
-import { calculatePoints, calculateTournamentPoints, calculatePointsRegulamento2, getMatchPhase, calculateTournamentPointsRegulamento2, getScoreCategoryRegulamento1, getScoreCategoryRegulamento2, getR1MatchScoringResult, getKnockoutAdvancingTeamId, calculateExtraPhasePoints, getExtraPhaseKey } from "../utils/scoring";
+import { calculatePoints, calculateTournamentPoints, calculatePointsRegulamento2, getMatchPhase, calculateTournamentPointsRegulamento2, getScoreCategoryRegulamento1, getScoreCategoryRegulamento2, getR1MatchScoringResult, getKnockoutAdvancingTeamId, calculateExtraPhasePoints, getExtraPhaseKey, isTournamentFinalFinished } from "../utils/scoring";
 import { DEFAULT_COMPETITION_CODE } from "../data/competitions";
 
 interface UserGroupDB {
@@ -174,10 +174,14 @@ export const useLeaderboard = (
             total += tournPts;
             specialPoints += tournPts;
           } else {
-            total += calculateTournamentPoints(
-              user.tournamentPredictions,
-              tournamentResults,
-            );
+            // Regulamento 1: só calcula pontos de torneio se a final estiver finalizada
+            const isFinalFinished = isTournamentFinalFinished(groupMatches);
+            if (isFinalFinished) {
+              total += calculateTournamentPoints(
+                user.tournamentPredictions,
+                tournamentResults,
+              );
+            }
           }
         }
 
