@@ -23,10 +23,20 @@ React SPA for World Cup prediction pools. Stack: React + TypeScript + Vite + Sup
 | Deferred | Large file refactor (5 phases) | `.claude/plans/large-file-refactors.md` | Planned, not started — branch `chore/structural-refactor` |
 | Deferred | Production Vercel finalization | `docs/DEPLOY_VERCEL.md` | Deferred |
 | Next | Sync call reduction (cadências desacopladas + gate por estado) | `.claude/plans/sync-call-reduction.md` | PLANEJADO — aguardando aprovação |
-| In Progress | Enquetes/Polls (perguntas p/ usuários + voto anônimo) | `.claude/plans/polls-feature.md` | EM ANDAMENTO 2026-06-21 — Fase 1 (migration 0039). Modal bloqueante, voto travado, targeting por ruleset, aba admin "Enquetes". |
 | In Progress | E2E schema `test` + seed fixtures (piloto PRED) | `.claude/plans/e2e-seed-fixtures.md` | PARADO 2026-06-11. 13 passed/0 failed/16 skipped. Fix do `waitForMatchesLoaded` UNCOMMITTED (falta verificar). Detalhes completos no plano. |
 
 ---
+
+## Completed — Enquetes / Polls (2026-06-22)
+
+Plano: `.claude/plans/completed/polls-feature.md` | Branch `feat/polls-enquetes` (origin + miguelfork) | CURRENT_VERSION 1.73.0 | Validado pelo usuário.
+
+- **O quê:** admin cadastra perguntas (aba "Enquetes", admin-only) que aparecem ao usuário ao abrir o app via **modal bloqueante** (`components/polls/PollModal.tsx`); escolha única ou múltipla. **Voto travado** (respondeu → some). Resultados **anônimos**: admin vê % por opção + total, nunca quem votou.
+- **DB (migration 0039, aplicar em prod):** `polls` + `poll_responses` (sem prefixo e `v2_`). RLS de `poll_responses` é **EXCEÇÃO restritiva** ao padrão aberto (own-row select/insert, sem update/delete). RPC `get_poll_results`/`v2_get_poll_results` (SECURITY DEFINER) devolve só agregado. Colunas snake_case (`user_id`, `option_index`) de propósito.
+- **Targeting** por ruleset avaliado no client (`hooks/usePollSystem.ts`, consumidor): null=todos | regulamento_1 | regulamento_2 | both. ADMIN nunca é alvo.
+- **Elegibilidade por data:** só responde/conta quem se cadastrou ATÉ `poll.created_at`. Usa `user_roles.createdAt` — exposto agora em `UserDB.createdAt` + `mapUserRoleToUser`.
+- **Admin:** seletor Todas/Ativas/Encerradas + barra de **participação** (respondentes / usuários elegíveis, denominador respeita targeting+data).
+- ⚠️ Pendência: aplicar migration 0039 em prod. Testes deferidos ao test-runner.
 
 ## Completed — Animação ao vivo de Gol/Cartão + aba Animations (2026-06-20)
 

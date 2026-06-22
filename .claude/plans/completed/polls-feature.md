@@ -1,6 +1,6 @@
 # Plano — Enquetes / Polls (perguntas para os usuários)
 
-_Status_: IN PROGRESS — Fases 1–4 implementadas 2026-06-21 (aguardando aplicar migration + teste do usuário). Faltam Fase 5 (testes) e 6 (changelog).
+_Status_: DONE — 2026-06-22. Validado pelo usuário, migration 0039 aplicada, changelog em 1.73.0, branch `feat/polls-enquetes` (origin + miguelfork). Fase 5 (testes) deferida ao test-runner.
 
 ## Progresso
 - Fase 1 ✅ `database/migrations/0039_create_polls.sql` (tabelas sem/with v2_, RLS restritivo em poll_responses, RPC get_poll_results/v2_).
