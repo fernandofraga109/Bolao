@@ -21,6 +21,7 @@ import {
   calculateUnderdogBonus,
   calculateExtraPhasePoints,
   getExtraPhaseKey,
+  isTournamentFinalFinished,
 } from "../utils/scoring";
 import { translateGroupName } from "../utils/translations";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
@@ -596,76 +597,79 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
         });
       }
     } else {
-      // Regulamento 1
-      if (isPreCupSpecialVisible && pred.topScorer?.player) {
-        const pts =
-          actual.topScorer?.player &&
-          pred.topScorer.player.trim().toLowerCase() ===
-            actual.topScorer.player.trim().toLowerCase()
-            ? POINTS_TOP_SCORER_NAME
-            : 0;
-        items.push({
-          label: "Artilheiro (nome)",
-          predicted: pred.topScorer.player,
-          actual: formatTopScorerNames(actual.topScorerPlayerIds) || actual.topScorer?.player || "–",
-          pts,
-        });
-      }
+      // Regulamento 1: só calcula pontos de torneio se a final estiver finalizada
+      const isFinalFinished = isTournamentFinalFinished(auditMatches);
+      if (isFinalFinished) {
+        if (isPreCupSpecialVisible && pred.topScorer?.player) {
+          const pts =
+            actual.topScorer?.player &&
+            pred.topScorer.player.trim().toLowerCase() ===
+              actual.topScorer.player.trim().toLowerCase()
+              ? POINTS_TOP_SCORER_NAME
+              : 0;
+          items.push({
+            label: "Artilheiro (nome)",
+            predicted: pred.topScorer.player,
+            actual: formatTopScorerNames(actual.topScorerPlayerIds) || actual.topScorer?.player || "–",
+            pts,
+          });
+        }
 
-      if (isPreCupSpecialVisible && pred.topScorer?.goals) {
-        const pts =
-          actual.topScorer?.goals && pred.topScorer.goals === actual.topScorer.goals
-            ? POINTS_TOP_SCORER_GOALS
-            : 0;
-        items.push({
-          label: "Artilheiro (gols)",
-          predicted: String(pred.topScorer.goals),
-          actual: actual.topScorer?.goals ? String(actual.topScorer.goals) : "–",
-          pts,
-        });
-      }
+        if (isPreCupSpecialVisible && pred.topScorer?.goals) {
+          const pts =
+            actual.topScorer?.goals && pred.topScorer.goals === actual.topScorer.goals
+              ? POINTS_TOP_SCORER_GOALS
+              : 0;
+          items.push({
+            label: "Artilheiro (gols)",
+            predicted: String(pred.topScorer.goals),
+            actual: actual.topScorer?.goals ? String(actual.topScorer.goals) : "–",
+            pts,
+          });
+        }
 
-      if (isPreCupSpecialVisible && pred.championTeamId) {
-        const pts =
-          actual.championTeamId && pred.championTeamId === actual.championTeamId
-            ? POINTS_CHAMPION
-            : 0;
-        items.push({
-          label: "Campeão",
-          predicted: formatTeamName(pred.championTeamId),
-          actual: formatTeamName(actual.championTeamId),
-          pts,
-        });
-      }
+        if (isPreCupSpecialVisible && pred.championTeamId) {
+          const pts =
+            actual.championTeamId && pred.championTeamId === actual.championTeamId
+              ? POINTS_CHAMPION
+              : 0;
+          items.push({
+            label: "Campeão",
+            predicted: formatTeamName(pred.championTeamId),
+            actual: formatTeamName(actual.championTeamId),
+            pts,
+          });
+        }
 
-      if (isPreCupSpecialVisible && pred.bestPlayer) {
-        const pts =
-          actual.bestPlayer &&
-          pred.bestPlayer.trim().toLowerCase() ===
-            actual.bestPlayer.trim().toLowerCase()
-            ? POINTS_BEST_PLAYER
-            : 0;
-        items.push({
-          label: "Melhor jogador",
-          predicted: pred.bestPlayer,
-          actual: actual.bestPlayer || "–",
-          pts,
-        });
-      }
+        if (isPreCupSpecialVisible && pred.bestPlayer) {
+          const pts =
+            actual.bestPlayer &&
+            pred.bestPlayer.trim().toLowerCase() ===
+              actual.bestPlayer.trim().toLowerCase()
+              ? POINTS_BEST_PLAYER
+              : 0;
+          items.push({
+            label: "Melhor jogador",
+            predicted: pred.bestPlayer,
+            actual: actual.bestPlayer || "–",
+            pts,
+          });
+        }
 
-      if (isPreCupSpecialVisible && pred.bestGoalkeeper) {
-        const pts =
-          actual.bestGoalkeeper &&
-          pred.bestGoalkeeper.trim().toLowerCase() ===
-            actual.bestGoalkeeper.trim().toLowerCase()
-            ? POINTS_BEST_GOALKEEPER
-            : 0;
-        items.push({
-          label: "Melhor goleiro",
-          predicted: pred.bestGoalkeeper,
-          actual: actual.bestGoalkeeper || "–",
-          pts,
-        });
+        if (isPreCupSpecialVisible && pred.bestGoalkeeper) {
+          const pts =
+            actual.bestGoalkeeper &&
+            pred.bestGoalkeeper.trim().toLowerCase() ===
+              actual.bestGoalkeeper.trim().toLowerCase()
+              ? POINTS_BEST_GOALKEEPER
+              : 0;
+          items.push({
+            label: "Melhor goleiro",
+            predicted: pred.bestGoalkeeper,
+            actual: actual.bestGoalkeeper || "–",
+            pts,
+          });
+        }
       }
     }
 
