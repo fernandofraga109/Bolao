@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tab, UserRole } from '../types';
-import { Calendar, Trophy, ShieldCheck, Table2, Activity, Sparkles, Clapperboard } from 'lucide-react';
+import { Calendar, Trophy, ShieldCheck, Table2, Activity, Sparkles, Clapperboard, MessageSquare } from 'lucide-react';
 
 interface BottomNavProps {
   activeTab: Tab;
@@ -94,6 +94,15 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, userRole
             onClick={() => setActiveTab('animations')}
             icon={<Clapperboard size={20} strokeWidth={activeTab === 'animations' ? 3 : 2} />}
             label="Animações"
+          />
+        )}
+        {userRole === 'ADMIN' && (
+          <NavButton
+            tab="polls"
+            activeTab={activeTab}
+            onClick={() => setActiveTab('polls')}
+            icon={<MessageSquare size={20} strokeWidth={activeTab === 'polls' ? 3 : 2} />}
+            label="Enquetes"
           />
         )}
         {userRole === 'ADMIN' && (

@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.72.0';
+export const CURRENT_VERSION = '1.73.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,19 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.73.0',
+    date: '2026-06-22',
+    changes: [
+      'Nova funcionalidade de Enquetes: responda perguntas que aparecem ao abrir o app',
+      'Enquetes com escolha única ou múltipla escolha, em modal para você responder',
+      'Depois de votar, a enquete não aparece mais para você',
+      'Resultados anônimos: ninguém vê em qual opção você votou',
+      'Nova aba Enquetes no menu admin, com filtro por status e barra de participação',
+      'Enquetes podem ser direcionadas a todos ou apenas a participantes do Regulamento 1 e/ou Regulamento 2',
+      'Cada enquete aparece somente para quem já estava cadastrado quando ela foi criada',
+    ],
+  },
   {
     version: '1.72.0',
     date: '2026-06-21',

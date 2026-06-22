@@ -12,6 +12,9 @@ import { usePollingRefresh } from "./hooks/usePollingRefresh";
 import { useDatabase } from "./contexts/DatabaseContext";
 import LiveEventOverlay from "./components/animation/LiveEventOverlay";
 import AdminAnimationsPage from "./components/animation/AdminAnimationsPage";
+import AdminPollsPage from "./components/polls/AdminPollsPage";
+import PollModal from "./components/polls/PollModal";
+import { usePollSystem } from "./hooks/usePollSystem";
 import { useLiveEventAnnouncer } from "./hooks/useLiveEventAnnouncer";
 import { LiveEventKind } from "./utils/liveEvents";
 
@@ -71,6 +74,9 @@ const App: React.FC = () => {
   } = useUserSystem();
 
   const { isPasswordRecoveryFlow, finishPasswordRecoveryFlow } = usePasswordRecovery(currentUser);
+
+  const polls = usePollSystem(currentUser);
+  const nextPendingPoll = polls.pendingPolls[0];
 
   const activeGroupIdForContext =
     currentUser?.activeGroupId || currentUser?.groupIds?.[0];
@@ -769,7 +775,28 @@ const App: React.FC = () => {
             onToggle={handleToggleAnimation}
           />
         )}
+
+        {/* Admin: Polls (Enquetes) Tab */}
+        {activeTab === "polls" && currentUser.role === "ADMIN" && (
+          <AdminPollsPage
+            fetchAllPolls={polls.fetchAllPolls}
+            getPollResults={polls.getPollResults}
+            createPoll={polls.createPoll}
+            setPollStatus={polls.setPollStatus}
+            deletePoll={polls.deletePoll}
+          />
+        )}
       </main>
+
+      {/* Poll Modal (bloqueante) — só para não-admin com pendência */}
+      {nextPendingPoll && currentUser.role !== "ADMIN" && (
+        <PollModal
+          key={nextPendingPoll.id}
+          poll={nextPendingPoll}
+          remaining={polls.pendingPolls.length}
+          onSubmit={(opts) => polls.submitResponse(nextPendingPoll.id, opts)}
+        />
+      )}
 
       {/* What's New Modal */}
       {showWhatsNew && <WhatsNewModal onClose={handleWhatsNewClose} />}
