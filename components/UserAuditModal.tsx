@@ -598,7 +598,9 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
       }
     } else {
       // Regulamento 1: só calcula pontos de torneio se a final estiver finalizada
-      const isFinalFinished = isTournamentFinalFinished(auditMatches);
+      // Filtra apenas jogos da competição ativa para verificar a final
+      const compMatches = auditMatches.filter((m) => (m.competitionCode || 'WC').toUpperCase() === activeCompCode);
+      const isFinalFinished = isTournamentFinalFinished(compMatches);
       if (isFinalFinished) {
         if (isPreCupSpecialVisible && pred.topScorer?.player) {
           const pts =

@@ -12,7 +12,7 @@ import {
   ChevronUp,
   Check,
 } from 'lucide-react';
-import { calculateTournamentPoints } from '../../utils/scoring';
+import { calculateTournamentPoints, isTournamentFinalFinished } from '../../utils/scoring';
 import { useDatabase } from '../../contexts/DatabaseContext';
 import { PlayerCombobox } from './PlayerCombobox';
 import { OtherUsersPredictions } from './OtherUsersPredictions';
@@ -241,21 +241,28 @@ const TournamentPredictionsCard: React.FC<TournamentPredictionsCardProps> = ({
       finalResult.mostConcededTeamIds.includes(mostConcededTeamId)) ||
       (!finalResult?.mostConcededTeamIds?.length && finalResult?.mostConcededTeamId === mostConcededTeamId));
 
+  // Regulamento 1: só calcula pontos de torneio se a final estiver finalizada
+  // Filtra apenas jogos da competição ativa
+  const compCode = (competitionCode || 'WC').toUpperCase();
+  const compMatches = db.matches.filter((m: any) => (m.competitionCode || 'WC').toUpperCase() === compCode);
+  const isFinalFinished = isTournamentFinalFinished(compMatches);
   const totalPoints =
     ruleset === 'regulamento_2'
       ? 0 // Handled in-database for rateio
-      : calculateTournamentPoints(
-          {
-            championTeamId: championId,
-            topScorer: { player: tsPlayerName, goals: parseInt(tsGoals) || 0 },
-            topScorerPlayerId: tsPlayerId || undefined,
-            bestPlayer: bestPlayerName,
-            bestPlayerId: bestPlayerId || undefined,
-            bestGoalkeeper: bestGkName,
-            bestGoalkeeperId: bestGkId || undefined,
-          },
-          finalResult
-        );
+      : isFinalFinished
+        ? calculateTournamentPoints(
+            {
+              championTeamId: championId,
+              topScorer: { player: tsPlayerName, goals: parseInt(tsGoals) || 0 },
+              topScorerPlayerId: tsPlayerId || undefined,
+              bestPlayer: bestPlayerName,
+              bestPlayerId: bestPlayerId || undefined,
+              bestGoalkeeper: bestGkName,
+              bestGoalkeeperId: bestGkId || undefined,
+            },
+            finalResult
+          )
+        : 0;
 
   // Approximate point display for Regulamento 2
   const r2PointsLabel = useMemo(() => {
