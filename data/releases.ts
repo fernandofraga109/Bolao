@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.74.0';
+export const CURRENT_VERSION = '1.75.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,14 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.75.0',
+    date: '2026-06-22',
+    changes: [
+      'Pontos de palpites especiais no Regulamento 1 só são calculados após a final da copa ser finalizada',
+      'Modal de auditoria de pontos agora aplica a mesma regra para o Regulamento 1',
+    ],
+  },
   {
     version: '1.74.0',
     date: '2026-06-22',
