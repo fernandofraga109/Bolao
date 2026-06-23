@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.78.0';
+export const CURRENT_VERSION = '1.79.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.79.0',
+    date: '2026-06-22',
+    changes: [
+      'Melhoria no placar ao vivo: agora depende exclusivamente da API football-data.org, garantindo consistência oficial',
+    ],
+  },
   {
     version: '1.78.0',
     date: '2026-06-22',
