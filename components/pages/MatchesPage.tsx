@@ -164,7 +164,7 @@ interface MatchesPageProps {
   canWriteCompetitionData: boolean;
   onManualSync: () => void;
   onPredict: (id: string, h: number, a: number, targetGroupIds?: string[], whoClassifiesTeamId?: string | null) => Promise<void>;
-  onAdminSaveMatch: (id: string, status: "started" | "live" | "ended", h: number, a: number) => void;
+  onAdminSaveMatch: (id: string, status: "started" | "live" | "delayed" | "ended", h: number, a: number) => void;
   onAdminToggleSyncLock?: (matchId: string, locked: boolean) => void;
   onOpenGroupSwitcher?: () => void;
   minRankDiff?: number;
@@ -212,7 +212,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
     matches.forEach((match) => {
       // Jogos ao vivo aparecem só na seção "Ao Vivo", independente da data.
       // Resolve o caso do jogo que cruza a meia-noite e sumiria dos "Jogos do Dia".
-      if (match.status === MatchStatus.LIVE) {
+      if (match.status === MatchStatus.LIVE || match.status === MatchStatus.DELAYED) {
         live.push(match);
         return;
       }

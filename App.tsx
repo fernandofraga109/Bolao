@@ -295,7 +295,7 @@ const App: React.FC = () => {
 
   const handleAdminSaveMatch = async (
     matchId: string,
-    status: "started" | "live" | "ended",
+    status: "started" | "live" | "delayed" | "ended",
     home: number,
     away: number,
   ) => {
@@ -310,6 +310,10 @@ const App: React.FC = () => {
         });
       } else if (status === "ended") {
         await adminControls.finishMatch(matchId, home, away);
+      } else if (status === "delayed") {
+        // delayed - mesmo comportamento de live, mas com status diferente
+        await adminControls.updateLiveScore(matchId, home, away);
+        await db.updateMatch(matchId, { status: MatchStatus.DELAYED });
       } else {
         // live
         await adminControls.updateLiveScore(matchId, home, away);

@@ -6,7 +6,7 @@ import { Calendar, Clock, LockKeyhole, Save, Loader2, X } from "lucide-react";
 
 interface Props {
   match: Match;
-  onAdminSaveMatch: (matchId: string, status: "started" | "live" | "ended", home: number, away: number) => Promise<void> | void;
+  onAdminSaveMatch: (matchId: string, status: "started" | "live" | "delayed" | "ended", home: number, away: number) => Promise<void> | void;
   onAdminToggleSyncLock?: (matchId: string, locked: boolean) => void;
 }
 
@@ -18,15 +18,15 @@ const numOrNull = (s: string): number | null => {
 const AdminMatchCard: React.FC<Props> = ({ match, onAdminSaveMatch, onAdminToggleSyncLock }) => {
   const db = useDatabase();
 
-  const isLive = match.status === MatchStatus.LIVE;
+  const isLive = match.status === MatchStatus.LIVE || match.status === MatchStatus.DELAYED;
   const isFinished = match.status === MatchStatus.FINISHED;
   const isKnockout = getMatchPhase(match.stage, match.group) !== "groups";
   const showFlatCols = (isLive || isFinished) && isKnockout;
 
   const [resultHome, setResultHome] = useState(String(match.result?.home ?? ""));
   const [resultAway, setResultAway] = useState(String(match.result?.away ?? ""));
-  const [adminStatus, setAdminStatus] = useState<"started" | "live" | "ended">(
-    isFinished ? "ended" : isLive ? "live" : "started"
+  const [adminStatus, setAdminStatus] = useState<"started" | "live" | "delayed" | "ended">(
+    isFinished ? "ended" : match.status === MatchStatus.DELAYED ? "delayed" : isLive ? "live" : "started"
   );
   const [regularHome, setRegularHome] = useState(String(match.regularHome ?? ""));
   const [regularAway, setRegularAway] = useState(String(match.regularAway ?? ""));
@@ -40,7 +40,7 @@ const AdminMatchCard: React.FC<Props> = ({ match, onAdminSaveMatch, onAdminToggl
   useEffect(() => {
     setResultHome(String(match.result?.home ?? ""));
     setResultAway(String(match.result?.away ?? ""));
-    setAdminStatus(isFinished ? "ended" : isLive ? "live" : "started");
+    setAdminStatus(isFinished ? "ended" : match.status === MatchStatus.DELAYED ? "delayed" : isLive ? "live" : "started");
     setRegularHome(String(match.regularHome ?? ""));
     setRegularAway(String(match.regularAway ?? ""));
     setExtraHome(String(match.extraTimeHome ?? ""));
@@ -284,11 +284,12 @@ const AdminMatchCard: React.FC<Props> = ({ match, onAdminSaveMatch, onAdminToggl
               <label className="text-[10px] uppercase tracking-widest text-slate-400 shrink-0">Status</label>
               <select
                 value={adminStatus}
-                onChange={(e) => setAdminStatus(e.target.value as "started" | "live" | "ended")}
+                onChange={(e) => setAdminStatus(e.target.value as "started" | "live" | "delayed" | "ended")}
                 className="bg-slate-900 text-white text-xs font-bold px-3 py-2 rounded-2xl border border-slate-700 focus:outline-none min-w-0 flex-1"
               >
                 <option value="started">SCHEDULED</option>
                 <option value="live">LIVE</option>
+                <option value="delayed">DELAYED</option>
                 <option value="ended">FINISHED</option>
               </select>
             </div>

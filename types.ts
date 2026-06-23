@@ -2,6 +2,7 @@ export enum MatchStatus {
   SCHEDULED = "SCHEDULED",
   TIMED = "TIMED",
   LIVE = "LIVE",
+  DELAYED = "DELAYED",
   IN_PLAY = "IN_PLAY",
   PAUSED = "PAUSED",
   FINISHED = "FINISHED",

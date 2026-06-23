@@ -115,7 +115,7 @@ export const useMatchSystem = (
 
   useEffect(() => {
     const liveMatches = matches.filter(
-      m => m.status === MatchStatus.LIVE && m.result != null
+      m => (m.status === MatchStatus.LIVE || m.status === MatchStatus.DELAYED) && m.result != null
     );
     if (liveMatches.length > 0) {
       updateLocalPointsWithLive(liveMatches.map(m => m.id));

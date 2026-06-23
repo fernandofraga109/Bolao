@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.77.0';
+export const CURRENT_VERSION = '1.78.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.78.0',
+    date: '2026-06-22',
+    changes: [
+      'Novo status DELAYED para jogos paralisados: admin pode marcar jogos como PARALIZADO no painel',
+      'Jogos DELAYED aparecem na seção Jogos Ao Vivo com badge amber e ícone de exclamação',
+      'Comportamento igual ao LIVE: bloqueia palpites, placar vermelho, timeline e estatísticas ativas',
+    ],
+  },
   {
     version: '1.77.0',
     date: '2026-06-22',

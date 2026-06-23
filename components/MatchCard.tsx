@@ -39,6 +39,7 @@ import {
   RefreshCw,
   Activity,
   BarChart3,
+  AlertCircle,
 } from "lucide-react";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
 import ReplicatePredictionModal from "./ReplicatePredictionModal";
@@ -85,7 +86,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const [showFriends, setShowFriends] = useState(false);
   // Timeline ao vivo abre por padrão durante a partida; fica recolhida quando finalizada.
   const [showTimeline, setShowTimeline] = useState(
-    match.status === MatchStatus.LIVE,
+    match.status === MatchStatus.LIVE || match.status === MatchStatus.DELAYED,
   );
   const [showStats, setShowStats] = useState(false);
 
@@ -194,20 +195,21 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const matchDate = new Date(match.date);
   const isLocked = new Date() > matchDate || match.status !== MatchStatus.SCHEDULED;
   const isLive = match.status === MatchStatus.LIVE;
+  const isDelayed = match.status === MatchStatus.DELAYED;
   const isFinished = match.status === MatchStatus.FINISHED;
   const isPhaseLocked = ruleset === "regulamento_2" && phaseLockSet?.has(getMatchPhase(match.stage, match.group));
-  const isPredictionDisabled = isFinished || isLive || isLocked || !!isPhaseLocked;
+  const isPredictionDisabled = isFinished || isLive || isDelayed || isLocked || !!isPhaseLocked;
   const isKnockoutMatch = ruleset === "regulamento_1" && getMatchPhase(match.stage, match.group) !== "groups";
   const homeInputNum = parseInt(homeInput);
   const awayInputNum = parseInt(awayInput);
   const isPredictingDraw = !isPredictionDisabled && isKnockoutMatch && !isNaN(homeInputNum) && !isNaN(awayInputNum) && homeInputNum === awayInputNum;
 
-  // Open friends panel by default when match is live
+  // Open friends panel by default when match is live or delayed
   useEffect(() => {
-    if (isLive) {
+    if (isLive || isDelayed) {
       setShowFriends(true);
     }
-  }, [isLive]);
+  }, [isLive, isDelayed]);
 
   const underdogTeam = (match.homeTeam?.ranking ?? 0) > (match.awayTeam?.ranking ?? 0)
     ? match.homeTeam
@@ -284,7 +286,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   }, [match.result, match.regularHome, match.regularAway, match.extraTimeHome, match.penaltiesHome, match.score, ruleset]);
 
   const userScoring = useMemo(() => {
-    if ((isFinished || isLive) && match.result && userPrediction) {
+    if ((isFinished || isLive || isDelayed) && match.result && userPrediction) {
       const details = getScoringDetails(userPrediction.homeScore, userPrediction.awayScore, userPrediction.whoClassifiesTeamId);
       if (typeof userPrediction.points === 'number') {
         return { points: userPrediction.points, bonus: details.bonus, category: details.category, aloneBonus: details.aloneBonus, classifiesBonus: details.classifiesBonus ?? 0 };
@@ -292,7 +294,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       return { ...details, classifiesBonus: details.classifiesBonus ?? 0 };
     }
     return { points: 0, bonus: 0, category: "wrong" as ScoringCategory, aloneBonus: false, classifiesBonus: 0 };
-  }, [isFinished, isLive, match.result, userPrediction]);
+  }, [isFinished, isLive, isDelayed, match.result, userPrediction]);
 
   const getPointsStyle = (category: ScoringCategory) => SCORING_COLORS[category].bg + " shadow-lg";
 
@@ -312,6 +314,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {isDelayed && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30">
+               <AlertCircle size={10} className="text-amber-400" />
+               <span className="text-[10px] font-black text-amber-400 uppercase tracking-tighter whitespace-nowrap">
+                 PARALIZADO
+               </span>
+            </div>
+          )}
           {isLive && (
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-red/10 border border-brand-red/30">
                <span className="w-1.5 h-1.5 rounded-full bg-brand-red animate-pulse"></span>
@@ -343,7 +353,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       </div>
 
       <div className="p-4 sm:p-6">
-        {match.group && !isFinished && !isLive && (
+        {match.group && !isFinished && !isLive && !isDelayed && (
           <div className="flex justify-center mb-3">
             <span className="px-2.5 py-0.5 rounded-full bg-brand-green/10 border border-brand-green/20 text-[9px] font-black text-brand-green uppercase tracking-widest">
               {translateGroupName(match.group)}
@@ -363,25 +373,25 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             </div>
 
             <span
-              onClick={homeForm.length && !isFinished ? () => setFormModalTeam(match.homeTeam) : undefined}
-              className={`w-full text-[10px] sm:text-xs font-black text-center text-slate-200 uppercase tracking-tight leading-none h-8 flex items-center justify-center ${homeForm.length && !isFinished ? "cursor-pointer hover:text-brand-green transition-colors" : ""}`}
+              onClick={homeForm.length && !isFinished && !isDelayed ? () => setFormModalTeam(match.homeTeam) : undefined}
+              className={`w-full text-[10px] sm:text-xs font-black text-center text-slate-200 uppercase tracking-tight leading-none h-8 flex items-center justify-center ${homeForm.length && !isFinished && !isDelayed ? "cursor-pointer hover:text-brand-green transition-colors" : ""}`}
             >
               {match.homeTeam.name}
             </span>
             {match.homeTeam.ranking ? (
               <span className="text-[10px] text-slate-500 text-center">#{match.homeTeam.ranking}</span>
             ) : null}
-            {!isFinished && <LastFiveForm entries={homeForm} onClick={() => setFormModalTeam(match.homeTeam)} />}
+            {!isFinished && !isDelayed && <LastFiveForm entries={homeForm} onClick={() => setFormModalTeam(match.homeTeam)} />}
           </div>
 
           {/* Inputs/Results Container */}
           <div className="flex flex-col items-center gap-4">
-            {(isFinished || isLive) ? (
+            {(isFinished || isLive || isDelayed) ? (
               <div className="flex flex-col items-center gap-2 animate-fadeIn">
                 {/* Score — regular time (or live) */}
                 <div className="flex flex-col items-center">
                   <div className="flex items-center gap-3">
-                    <span className={`text-4xl font-black tracking-tighter ${isLive ? "text-brand-red" : "text-white"}`}>
+                    <span className={`text-4xl font-black tracking-tighter ${(isLive || isDelayed) ? "text-brand-red" : "text-white"}`}>
                       {isLive &&
                       match.liveDetails?.liveScoreHome != null &&
                       match.liveDetails?.liveScoreAway != null &&
@@ -391,7 +401,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                         : displayResult?.home ?? 0}
                     </span>
                     <span className="text-xl font-black text-slate-600">×</span>
-                    <span className={`text-4xl font-black tracking-tighter ${isLive ? "text-brand-red" : "text-white"}`}>
+                    <span className={`text-4xl font-black tracking-tighter ${(isLive || isDelayed) ? "text-brand-red" : "text-white"}`}>
                       {isLive &&
                       match.liveDetails?.liveScoreHome != null &&
                       match.liveDetails?.liveScoreAway != null &&
@@ -401,7 +411,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                         : displayResult?.away ?? 0}
                     </span>
                   </div>
-                  {!isLive && (
+                  {!isLive && !isDelayed && (
                     <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">
                       {ruleset === "regulamento_1" && getMatchDuration(match) !== 'REGULAR'
                         ? "Tempo Regular"
@@ -538,20 +548,20 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             </div>
 
             <span
-              onClick={awayForm.length && !isFinished ? () => setFormModalTeam(match.awayTeam) : undefined}
-              className={`w-full text-[10px] sm:text-xs font-black text-center text-slate-200 uppercase tracking-tight leading-none h-8 flex items-center justify-center ${awayForm.length && !isFinished ? "cursor-pointer hover:text-brand-green transition-colors" : ""}`}
+              onClick={awayForm.length && !isFinished && !isDelayed ? () => setFormModalTeam(match.awayTeam) : undefined}
+              className={`w-full text-[10px] sm:text-xs font-black text-center text-slate-200 uppercase tracking-tight leading-none h-8 flex items-center justify-center ${awayForm.length && !isFinished && !isDelayed ? "cursor-pointer hover:text-brand-green transition-colors" : ""}`}
             >
               {match.awayTeam.name}
             </span>
             {match.awayTeam.ranking ? (
               <span className="text-[10px] text-slate-500 text-center">#{match.awayTeam.ranking}</span>
             ) : null}
-            {!isFinished && <LastFiveForm entries={awayForm} onClick={() => setFormModalTeam(match.awayTeam)} />}
+            {!isFinished && !isDelayed && <LastFiveForm entries={awayForm} onClick={() => setFormModalTeam(match.awayTeam)} />}
           </div>
         </div>
 
         {/* Extra Time + Penalties row — shown below teams for finished R1 knockout matches */}
-        {(isFinished || isLive) && ruleset === "regulamento_1" && (
+        {(isFinished || isLive || isDelayed) && ruleset === "regulamento_1" && (
           getMatchDuration(match) !== 'REGULAR' ||
           (match.penaltiesHome != null || match.penaltiesAway != null)
         ) && (
@@ -651,7 +661,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
             {(
               <div className="flex-1 flex justify-end pl-4">
-                {(isFinished || isLive) && match.result ? (
+                {(isFinished || isLive || isDelayed) && match.result ? (
                    <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl border border-white/5 ${getPointsStyle(userScoring.category)}`}>
                       <Trophy size={16} className={userScoring.category === "exact" ? "fill-brand-dark/30" : ""} />
                       <div className="flex flex-col">
