@@ -81,11 +81,25 @@ describe("AdminSpecialsOverrides", () => {
       screen.getByText("Classificados dos Grupos (1º e 2º)")
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Classificados 2ª Fase (Oitavas, Quartas, Semis)")
+      screen.getByText("Classificados 2ª Fase (16 Avos, Oitavas, Quartas, Semis)")
     ).toBeInTheDocument();
     expect(
       screen.getByText("Maior Diferença de Gols (por Fase)")
     ).toBeInTheDocument();
+  });
+
+  it("renders the 16 Avos de Final phase in the knockout classifications section", async () => {
+    render(<AdminSpecialsOverrides selectedCompetitionCode="WC" />);
+    await userEvent.click(screen.getByText("Overrides Manuais — Especiais"));
+
+    // The new round-of-32 phase should appear in the classifications section.
+    // (It appears both in the "Maior Diferença" phase list and as a
+    // classifications sub-section, hence getAllByText.)
+    const labels = screen.getAllByText(/16 Avos de Final/);
+    expect(labels.length).toBeGreaterThanOrEqual(1);
+
+    // The classifications sub-header shows the phase label with a counter (0/32).
+    expect(screen.getByText(/16 Avos de Final \(\d+\/32\)/)).toBeInTheDocument();
   });
 
   it("renders the derived group names from standings", async () => {

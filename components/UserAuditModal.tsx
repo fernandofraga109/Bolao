@@ -337,6 +337,9 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
       const stage = (match.stage || "").toUpperCase();
       const group = (match.group || "").toUpperCase();
 
+      if (normalized === "dezesseisavos") {
+        return stage.includes("ROUND_OF_32") || stage.includes("LAST_32") || group.includes("16_AVOS") || group.includes("16AVOS");
+      }
       if (normalized === "oitavas") {
         return stage.includes("ROUND_OF_16") || group.includes("OITAVAS");
       }
@@ -496,7 +499,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
           const actualTeams = actual.groupClassifications?.[groupName];
           if (actualTeams && Array.isArray(predTeams)) {
             const validPreds = predTeams.filter(Boolean);
-            const isKnockout = ["Oitavas", "Quartas", "Semis"].includes(groupName);
+            const isKnockout = ["DezesseisAvos", "Oitavas", "Quartas", "Semis"].includes(groupName);
             let pts = 0;
             validPreds.forEach((teamId) => {
               if (actualTeams.includes(teamId)) {
@@ -504,8 +507,9 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
               }
             });
             if (validPreds.length > 0) {
+              const knockoutLabel = groupName === "DezesseisAvos" ? "16 Avos" : groupName;
               items.push({
-                label: `Classificados – ${groupName}`,
+                label: `Classificados – ${knockoutLabel}`,
                 predicted: formatTeamList(validPreds),
                 actual: formatTeamList(actualTeams),
                 pts,

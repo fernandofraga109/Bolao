@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.79.0';
+export const CURRENT_VERSION = '1.80.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,17 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.80.0',
+    date: '2026-06-24',
+    changes: [
+      'Nova fase de Dezesseis Avos de Final (32 seleções) disponível nos palpites de Classificação da 2ª Fase, exibida apenas nas competições que possuem essa fase',
+      'Cada acerto de classificado nos Dezesseis Avos vale 5 pontos',
+      'Banner de pendências agora alerta sobre palpites de Dezesseis Avos não preenchidos',
+      'Admin pode cadastrar o resultado oficial dos classificados de Dezesseis Avos',
+      'Correção dos rótulos das fases: Dezesseis Avos (32 seleções) e Oitavas de Final agora aparecem corretamente',
+    ],
+  },
   {
     version: '1.79.0',
     date: '2026-06-22',
