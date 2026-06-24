@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.80.0';
+export const CURRENT_VERSION = '1.81.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.81.0',
+    date: '2026-06-24',
+    changes: [
+      'Agora o botão de palpite avisa quando você ainda não salvou: fica amarelo com "Salvar" enquanto você edita e verde com "Salvo" depois de confirmar',
+    ],
+  },
   {
     version: '1.80.0',
     date: '2026-06-24',

@@ -103,6 +103,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const [hasSavedPrediction, setHasSavedPrediction] = useState(
     Boolean(userPrediction),
   );
+  const [justSaved, setJustSaved] = useState(false);
   const [isReplicateModalOpen, setIsReplicateModalOpen] = useState(false);
   const [whoClassifiesTeamId, setWhoClassifiesTeamId] = useState<string | null>(
     userPrediction?.whoClassifiesTeamId ?? null
@@ -184,6 +185,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         const effectiveTieWinner = isKnockoutMatch && h === a ? whoClassifiesTeamId : null;
         await onPredict(match.id, h, a, undefined, effectiveTieWinner);
         setHasSavedPrediction(true);
+        setJustSaved(true);
       } catch (error: any) {
         setPredictionError(error?.message || "Erro ao salvar palpite.");
       } finally {
@@ -203,6 +205,26 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const homeInputNum = parseInt(homeInput);
   const awayInputNum = parseInt(awayInput);
   const isPredictingDraw = !isPredictionDisabled && isKnockoutMatch && !isNaN(homeInputNum) && !isNaN(awayInputNum) && homeInputNum === awayInputNum;
+
+  const savedHome = userPrediction?.homeScore ?? null;
+  const savedAway = userPrediction?.awayScore ?? null;
+  const savedWho = userPrediction?.whoClassifiesTeamId ?? null;
+
+  const isDirty = useMemo(() => {
+    const currentHome = homeInput === "" ? null : parseInt(homeInput);
+    const currentAway = awayInput === "" ? null : parseInt(awayInput);
+    if (savedHome === null || savedAway === null) {
+      return currentHome !== null || currentAway !== null;
+    }
+    return currentHome !== savedHome || currentAway !== savedAway || whoClassifiesTeamId !== savedWho;
+  }, [homeInput, awayInput, whoClassifiesTeamId, savedHome, savedAway, savedWho]);
+
+  // Limpa o feedback de "Salvo" quando o usuário começa a editar novamente.
+  useEffect(() => {
+    if (justSaved && isDirty) {
+      setJustSaved(false);
+    }
+  }, [justSaved, isDirty]);
 
   // Open friends panel by default when match is live or delayed
   useEffect(() => {
@@ -687,11 +709,15 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 ) : (
                   <button
                     onClick={handlePredict}
-                    disabled={isSavingPrediction}
-                    className="group/save flex items-center gap-2 bg-brand-green text-brand-dark px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-brand-green/20 hover:scale-105 active:scale-95 transition-all"
+                    disabled={isSavingPrediction || (!isDirty && !userPrediction)}
+                    className={`group/save flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 ${
+                      isDirty
+                        ? "bg-amber-500 text-brand-dark shadow-amber-500/20"
+                        : "bg-brand-green text-brand-dark shadow-brand-green/20"
+                    }`}
                   >
-                    {isSavingPrediction ? <Loader2 size={16} className="animate-spin" /> : (hasSavedPrediction ? <Pencil size={16} /> : <Save size={16} />)}
-                    {isSavingPrediction ? "Salvando" : (hasSavedPrediction ? "Salvar" : "Palpitar")}
+                    {isSavingPrediction ? <Loader2 size={16} className="animate-spin" /> : justSaved ? <CheckCircle size={16} /> : userPrediction ? <Pencil size={16} /> : <Save size={16} />}
+                    {isSavingPrediction ? "Salvando" : justSaved ? "Salvo" : isDirty ? "Salvar" : userPrediction ? "Salvo" : "Palpitar"}
                   </button>
                 )}
               </div>
@@ -788,6 +814,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             const effectiveTieWinner = isKnockoutMatch && h === a ? whoClassifiesTeamId : null;
             await onPredict(match.id, h, a, targetGroupIds, effectiveTieWinner);
             setHasSavedPrediction(true);
+            setJustSaved(true);
           }}
         />
       )}
