@@ -87,6 +87,49 @@ describe("KnockoutClassificationsCard", () => {
     expect(screen.getByText("Brasil")).toBeInTheDocument();
   });
 
+  it("hides the 16 Avos de Final tab when there are no round-of-32 matches", async () => {
+    render(
+      <KnockoutClassificationsCard
+        matches={[makeMatch()]}
+        prediction={undefined}
+        lockDate={futureLock}
+        onPredict={vi.fn()}
+        currentUserId="u1"
+        currentGroupId="g1"
+      />
+    );
+    await userEvent.click(screen.getByText("Classificados 2º Fase"));
+
+    // Only Oitavas-onward matches exist, so the round-of-32 tab stays hidden.
+    expect(screen.queryByText("16 Avos de Final")).not.toBeInTheDocument();
+    expect(screen.getByText("Oitavas de Final")).toBeInTheDocument();
+  });
+
+  it("shows the 16 Avos de Final tab when a round-of-32 (LAST_32) match exists", async () => {
+    render(
+      <KnockoutClassificationsCard
+        matches={[
+          makeMatch({
+            id: "r32-1",
+            stage: "LAST_32",
+            group: "16 Avos de Final",
+          }),
+          makeMatch(),
+        ]}
+        prediction={undefined}
+        lockDate={futureLock}
+        onPredict={vi.fn()}
+        currentUserId="u1"
+        currentGroupId="g1"
+      />
+    );
+    await userEvent.click(screen.getByText("Classificados 2º Fase"));
+
+    expect(screen.getByText("16 Avos de Final")).toBeInTheDocument();
+    // Default active phase is still Oitavas.
+    expect(screen.getByText("Oitavas de Final")).toBeInTheDocument();
+  });
+
   it("renders the search box and filters teams by name when unlocked", async () => {
     render(
       <KnockoutClassificationsCard
@@ -107,10 +150,12 @@ describe("KnockoutClassificationsCard", () => {
     expect(screen.queryByText("França")).not.toBeInTheDocument();
   });
 
-  it("shows the Bloqueado state and hides the search box when the phase is globally locked", async () => {
+  it("shows the Bloqueado state and hides the search box when the phase is locked", async () => {
+    // The phase lock is driven by the phase's first match date, not the
+    // lockDate prop. A match in the past locks the Oitavas phase.
     render(
       <KnockoutClassificationsCard
-        matches={[makeMatch()]}
+        matches={[makeMatch({ date: "2000-07-01T18:00:00Z" })]}
         prediction={undefined}
         lockDate={pastLock}
         onPredict={vi.fn()}

@@ -50,6 +50,11 @@ function getPhaseStartMs(matches: Match[], phase: string): number | null {
         matches,
         (m) => m.stage === "REGULAR_SEASON" || (!!m.group && !/^(LAST_|ROUND_OF_|QUARTER|SEMI|FINAL|THIRD)/i.test(m.group))
       );
+    case "dezesseisAvos":
+      return getFirstMatchDate(
+        matches,
+        (m) => /ROUND_OF_32|LAST_32/i.test(m.stage || "") || /16_?AVOS/i.test(m.group || "")
+      );
     case "oitavas":
       return getFirstMatchDate(
         matches,
@@ -192,10 +197,15 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
         }
 
         // Knockout classifications — só na janela de 5 dias
+        const dezesseisAvosStart = getPhaseStartMs(matches, "dezesseisAvos");
         const oitavasStart = getPhaseStartMs(matches, "oitavas");
         const quartasStart = getPhaseStartMs(matches, "quartas");
         const semisStart = getPhaseStartMs(matches, "semis");
 
+        if (isWithinAlertWindow(dezesseisAvosStart, now)) {
+          const dezesseisAvos = gc["DezesseisAvos"] || [];
+          if (dezesseisAvos.length < 32) labels.push("Classificados 16 Avos");
+        }
         if (isWithinAlertWindow(oitavasStart, now)) {
           const oitavas = gc["Oitavas"] || [];
           if (oitavas.length < 16) labels.push("Classificados Oitavas");

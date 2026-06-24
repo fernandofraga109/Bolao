@@ -405,6 +405,27 @@ describe("calculateTournamentPointsRegulamento2", () => {
     // 20 (Grupo A) + 10 (Oitavas) + 5 (Quartas) = 35 pts
     expect(pts).toBe(35);
   });
+
+  it("pontua classificados de 16 Avos (DezesseisAvos) com 5 pts por acerto, não 10", () => {
+    const prediction = {
+      groupClassifications: {
+        "DezesseisAvos": ["bra", "arg", "fra", "ger"], // 4 no palpite
+      },
+    };
+    const actual = {
+      groupClassifications: {
+        "DezesseisAvos": ["bra", "arg", "ita", "esp"], // bra, arg corretos = 2 * 5 = 10 pts
+      },
+    };
+    const pts = calculateTournamentPointsRegulamento2(
+      prediction as any,
+      actual as any,
+      groupTournMock,
+      "u2"
+    );
+    // 2 acertos de fase knockout * 5 pts = 10 pts (knockout, não 10 por time)
+    expect(pts).toBe(10);
+  });
 });
 
 describe("getScoreCategoryRegulamento1", () => {

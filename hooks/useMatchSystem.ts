@@ -182,6 +182,9 @@ export const useMatchSystem = (
     // Admin override takes precedence over computed data
     if (comp.knockoutClassifications && Object.keys(comp.knockoutClassifications).length > 0) {
       // Use admin-set knockout classifications
+      if (comp.knockoutClassifications["DezesseisAvos"]) {
+        groupClassifications["DezesseisAvos"] = comp.knockoutClassifications["DezesseisAvos"];
+      }
       if (comp.knockoutClassifications["Oitavas"]) {
         groupClassifications["Oitavas"] = comp.knockoutClassifications["Oitavas"];
       }
@@ -193,6 +196,7 @@ export const useMatchSystem = (
       }
     } else {
       // Populate knockout stage actual qualifiers based on matches that are scheduled/played with real teams
+      const dezesseisAvosTeams = new Set<string>();
       const oitavasTeams = new Set<string>();
       const quartasTeams = new Set<string>();
       const semisTeams = new Set<string>();
@@ -217,11 +221,15 @@ export const useMatchSystem = (
           const stage = (m.stage || "").toUpperCase();
           const groupStr = (m.group || "").toUpperCase();
 
+          const isDezesseisAvos = stage.includes("ROUND_OF_32") || stage.includes("LAST_32") || groupStr.includes("16_AVOS") || groupStr.includes("16AVOS");
           const isOitavas = stage.includes("ROUND_OF_16") || groupStr.includes("OITAVAS");
           const isQuartas = stage.includes("QUARTER") || groupStr.includes("QUARTAS");
           const isSemis = stage.includes("SEMI") || groupStr.includes("SEMI");
 
-          if (isOitavas) {
+          if (isDezesseisAvos) {
+            if (m.homeTeamId && !isPlaceholder(m.homeTeamId)) dezesseisAvosTeams.add(m.homeTeamId);
+            if (m.awayTeamId && !isPlaceholder(m.awayTeamId)) dezesseisAvosTeams.add(m.awayTeamId);
+          } else if (isOitavas) {
             if (m.homeTeamId && !isPlaceholder(m.homeTeamId)) oitavasTeams.add(m.homeTeamId);
             if (m.awayTeamId && !isPlaceholder(m.awayTeamId)) oitavasTeams.add(m.awayTeamId);
           } else if (isQuartas) {
@@ -234,6 +242,9 @@ export const useMatchSystem = (
         }
       });
 
+      if (dezesseisAvosTeams.size > 0) {
+        groupClassifications["DezesseisAvos"] = Array.from(dezesseisAvosTeams);
+      }
       if (oitavasTeams.size > 0) {
         groupClassifications["Oitavas"] = Array.from(oitavasTeams);
       }
