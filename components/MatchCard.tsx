@@ -14,6 +14,7 @@ import {
   getScoreCategoryRegulamento1,
   getScoreCategoryRegulamento2,
   getMatchPhase,
+  getPhaseLockKey,
   getR1MatchScoringResult,
   getMatchDuration,
   getKnockoutAdvancingTeamId,
@@ -199,7 +200,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const isLive = match.status === MatchStatus.LIVE;
   const isDelayed = match.status === MatchStatus.DELAYED;
   const isFinished = match.status === MatchStatus.FINISHED;
-  const isPhaseLocked = ruleset === "regulamento_2" && phaseLockSet?.has(getMatchPhase(match.stage, match.group));
+  const isPhaseLocked = ruleset === "regulamento_2" && phaseLockSet?.has(getPhaseLockKey(match.stage, match.group));
   const isPredictionDisabled = isFinished || isLive || isDelayed || isLocked || !!isPhaseLocked;
   const isKnockoutMatch = ruleset === "regulamento_1" && getMatchPhase(match.stage, match.group) !== "groups";
   const homeInputNum = parseInt(homeInput);

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { Tab, MatchStatus } from "./types";
-import { getMatchPhase } from "./utils/scoring";
+import { getPhaseLockKey } from "./utils/scoring";
 
 // Custom Hooks
 import { useUserSystem } from "./hooks/useUserSystem";
@@ -217,7 +217,7 @@ const App: React.FC = () => {
     matches.forEach((m) => {
       const started = m.status !== MatchStatus.SCHEDULED || now > new Date(m.date);
       if (started) {
-        locked.add(getMatchPhase(m.stage, m.group));
+        locked.add(getPhaseLockKey(m.stage, m.group));
       }
     });
     return locked;

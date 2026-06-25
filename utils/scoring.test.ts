@@ -9,6 +9,8 @@ import {
   getScoreCategoryRegulamento1,
   getScoreCategoryRegulamento2,
   getMatchPhase,
+  getPhaseLockKey,
+  getExtraPhaseKey,
   getMatchDuration,
   getKnockoutAdvancingTeamId,
   getR1MatchScoringResult,
@@ -960,5 +962,65 @@ describe("Torneio — prediction/actual indefinidos (SCORE-41)", () => {
   it("SCORE-41 (R2): retorna 0 com prediction/actual indefinidos", () => {
     expect(calculateTournamentPointsRegulamento2(undefined, { championTeamId: "bra" }, [], "u0")).toBe(0);
     expect(calculateTournamentPointsRegulamento2({ championTeamId: "bra" }, undefined, [], "u0")).toBe(0);
+  });
+});
+
+describe("getPhaseLockKey", () => {
+  it("mapeia fase de grupos", () => {
+    expect(getPhaseLockKey("REGULAR_SEASON", "Grupo A")).toBe("groups");
+    expect(getPhaseLockKey("GROUP_STAGE", "Grupo B")).toBe("groups");
+    expect(getPhaseLockKey(undefined, "Grupo C")).toBe("groups");
+  });
+
+  it("mapeia 16 avos de final (LAST_32 / ROUND_OF_32)", () => {
+    expect(getPhaseLockKey("LAST_32", "16 Avos")).toBe("round_of_32");
+    expect(getPhaseLockKey("ROUND_OF_32", undefined)).toBe("round_of_32");
+    expect(getPhaseLockKey(undefined, "16 AVOS")).toBe("round_of_32");
+  });
+
+  it("mapeia oitavas, quartas, semis e final separadamente", () => {
+    expect(getPhaseLockKey("ROUND_OF_16", "Oitavas")).toBe("oitavas");
+    expect(getPhaseLockKey("QUARTER_FINAL", "Quartas")).toBe("quartas");
+    expect(getPhaseLockKey("SEMI_FINAL", "Semis")).toBe("semis");
+    expect(getPhaseLockKey("FINAL", undefined)).toBe("final");
+  });
+
+  it("mapeia disputa de terceiro lugar", () => {
+    expect(getPhaseLockKey("THIRD_PLACE", undefined)).toBe("third_place");
+    expect(getPhaseLockKey(undefined, "Terceiro Lugar")).toBe("third_place");
+  });
+
+  it("cai em groups quando stage e group são desconhecidos", () => {
+    expect(getPhaseLockKey(undefined, undefined)).toBe("groups");
+  });
+});
+
+describe("getMatchPhase", () => {
+  it("reconhece LAST_16 e LAST_32 como mata-mata", () => {
+    expect(getMatchPhase("LAST_16", undefined)).toBe("ko");
+    expect(getMatchPhase("LAST_32", undefined)).toBe("ko");
+  });
+
+  it("mantém FINAL e THIRD_PLACE separados", () => {
+    expect(getMatchPhase("FINAL", undefined)).toBe("final");
+    expect(getMatchPhase("THIRD_PLACE", undefined)).toBe("third_place");
+  });
+
+  it("mantém GROUP_STAGE como fase de grupos", () => {
+    expect(getMatchPhase("GROUP_STAGE", undefined)).toBe("groups");
+  });
+});
+
+describe("getExtraPhaseKey", () => {
+  it("reconhece as fases de mata-mata da Copa", () => {
+    expect(getExtraPhaseKey("LAST_32", undefined)).toBe("round_of_32");
+    expect(getExtraPhaseKey("LAST_16", undefined)).toBe("oitavas");
+    expect(getExtraPhaseKey("QUARTER_FINALS", undefined)).toBe("quartas");
+    expect(getExtraPhaseKey("SEMI_FINALS", undefined)).toBe("semis");
+  });
+
+  it("retorna groups para fase de grupos", () => {
+    expect(getExtraPhaseKey("GROUP_STAGE", undefined)).toBe("groups");
+    expect(getExtraPhaseKey("REGULAR_SEASON", undefined)).toBe("groups");
   });
 });

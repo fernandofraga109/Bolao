@@ -38,7 +38,9 @@ export const getMatchPhase = (stage?: string, group?: string): MatchPhase => {
     return 'third_place';
   }
   if (
+    s.includes('LAST_16') ||
     s.includes('ROUND_OF_16') ||
+    s.includes('LAST_32') ||
     s.includes('QUARTER') ||
     s.includes('SEMI') ||
     g.includes('OITAVAS') ||
@@ -46,6 +48,41 @@ export const getMatchPhase = (stage?: string, group?: string): MatchPhase => {
     g.includes('SEMI')
   ) {
     return 'ko';
+  }
+  return 'groups';
+};
+
+export type PhaseLockKey = 'groups' | 'round_of_32' | 'oitavas' | 'quartas' | 'semis' | 'third_place' | 'final';
+
+/**
+ * Maps a match stage and group to the phase-lock key used in Regulamento 2.
+ * Each tournament stage gets its own key so that phases lock independently.
+ */
+export const getPhaseLockKey = (stage?: string, group?: string): PhaseLockKey => {
+  const s = (stage || '').toUpperCase();
+  const g = (group || '').toUpperCase();
+
+  if (
+    s.includes('FINAL') &&
+    !s.includes('SEMI') &&
+    !s.includes('QUARTER') &&
+    !s.includes('ROUND_OF_16') &&
+    !s.includes('THIRD')
+  ) {
+    return 'final';
+  }
+  if (s.includes('THIRD') || g.includes('TERCEIRO') || g.includes('3º') || g.includes('3O')) {
+    return 'third_place';
+  }
+  if (s.includes('SEMI') || g.includes('SEMI')) return 'semis';
+  if (s.includes('QUARTER') || g.includes('QUARTAS')) return 'quartas';
+  if (s.includes('ROUND_OF_16') || s.includes('LAST_16') || g.includes('OITAVAS')) return 'oitavas';
+  if (
+    s.includes('ROUND_OF_32') ||
+    s.includes('LAST_32') ||
+    /16\s*AVOS/i.test(group || '')
+  ) {
+    return 'round_of_32';
   }
   return 'groups';
 };
@@ -64,8 +101,8 @@ export const getExtraPhaseKey = (stage?: string, group?: string): ExtraPhaseKey 
 
   if (s.includes('SEMI') || g.includes('SEMI')) return 'semis';
   if (s.includes('QUARTER') || g.includes('QUARTAS')) return 'quartas';
-  if (s.includes('ROUND_OF_16') || g.includes('OITAVAS')) return 'oitavas';
-  if (s.includes('ROUND_OF_32') || g.includes('16_AVOS') || g.includes('16AVOS')) return 'round_of_32';
+  if (s.includes('ROUND_OF_16') || s.includes('LAST_16') || g.includes('OITAVAS')) return 'oitavas';
+  if (s.includes('ROUND_OF_32') || s.includes('LAST_32') || g.includes('16_AVOS') || g.includes('16AVOS')) return 'round_of_32';
   if (s.includes('REGULAR') || s.includes('GROUP') || g.includes('GRUPO')) return 'groups';
   return null;
 };

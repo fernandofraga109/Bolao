@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.82.0';
+export const CURRENT_VERSION = '1.83.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,16 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.83.0',
+    date: '2026-06-25',
+    changes: [
+      'No Regulamento 2, cada fase do mata-mata agora trava de forma independente: palpites só ficam bloqueados quando o primeiro jogo daquela fase começa',
+      'O card "O que a galera acha" continua escondendo os palpites até a fase começar, garantindo fair play',
+      'Agora a fase do jogo aparece como uma etiqueta discreta ao lado da data nos cabeçalhos da lista de jogos',
+      'Suporte aos nomes de fase oficiais da API (LAST_32, LAST_16, QUARTER_FINALS, SEMI_FINALS, etc.)',
+    ],
+  },
   {
     version: '1.82.0',
     date: '2026-06-24',

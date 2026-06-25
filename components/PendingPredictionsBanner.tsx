@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { Match, MatchStatus, TournamentPredictions, ExtraPhasePredictionDB } from "../types";
-import { getMatchPhase } from "../utils/scoring";
+import { getPhaseLockKey } from "../utils/scoring";
 import { AlertTriangle, Clock, Hourglass, Sparkles } from "lucide-react";
 
 interface PendingPredictionsBannerProps {
@@ -16,10 +16,13 @@ interface PendingPredictionsBannerProps {
   userId?: string;
 }
 
-const PHASE_ORDER = ["groups", "ko", "third_place", "final"];
+const PHASE_ORDER = ["groups", "round_of_32", "oitavas", "quartas", "semis", "third_place", "final"];
 const PHASE_LABELS: Record<string, string> = {
   groups: "Fase de Grupos",
-  ko: "Mata-Mata",
+  round_of_32: "16 Avos de Final",
+  oitavas: "Oitavas de Final",
+  quartas: "Quartas de Final",
+  semis: "Semifinais",
   third_place: "Disputa de 3º Lugar",
   final: "Final",
 };
@@ -44,35 +47,7 @@ function getFirstMatchDate(matches: Match[], predicate: (m: Match) => boolean): 
 }
 
 function getPhaseStartMs(matches: Match[], phase: string): number | null {
-  switch (phase) {
-    case "groups":
-      return getFirstMatchDate(
-        matches,
-        (m) => m.stage === "REGULAR_SEASON" || (!!m.group && !/^(LAST_|ROUND_OF_|QUARTER|SEMI|FINAL|THIRD)/i.test(m.group))
-      );
-    case "dezesseisAvos":
-      return getFirstMatchDate(
-        matches,
-        (m) => /ROUND_OF_32|LAST_32/i.test(m.stage || "") || /16_?AVOS/i.test(m.group || "")
-      );
-    case "oitavas":
-      return getFirstMatchDate(
-        matches,
-        (m) => /ROUND_OF_16|LAST_16/i.test(m.stage || "") || /OITAVAS/i.test(m.group || "")
-      );
-    case "quartas":
-      return getFirstMatchDate(
-        matches,
-        (m) => /QUARTER/i.test(m.stage || "") || /QUARTAS/i.test(m.group || "")
-      );
-    case "semis":
-      return getFirstMatchDate(
-        matches,
-        (m) => /SEMI/i.test(m.stage || "") || /SEMIS/i.test(m.group || "")
-      );
-    default:
-      return null;
-  }
+  return getFirstMatchDate(matches, (m) => getPhaseLockKey(m.stage, m.group) === phase);
 }
 
 function isWithinAlertWindow(phaseStartMs: number | null, now: number): boolean {
@@ -127,7 +102,7 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
       // Regulamento 2
       const byPhase: Record<string, Match[]> = {};
       schedulable.forEach((m) => {
-        const phase = getMatchPhase(m.stage, m.group);
+        const phase = getPhaseLockKey(m.stage, m.group);
         if (!byPhase[phase]) byPhase[phase] = [];
         byPhase[phase].push(m);
       });
@@ -197,7 +172,7 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
         }
 
         // Knockout classifications — só na janela de 5 dias
-        const dezesseisAvosStart = getPhaseStartMs(matches, "dezesseisAvos");
+        const dezesseisAvosStart = getPhaseStartMs(matches, "round_of_32");
         const oitavasStart = getPhaseStartMs(matches, "oitavas");
         const quartasStart = getPhaseStartMs(matches, "quartas");
         const semisStart = getPhaseStartMs(matches, "semis");

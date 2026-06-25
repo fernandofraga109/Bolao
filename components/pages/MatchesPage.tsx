@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Match, MatchStatus, User, GroupDB } from "../../types";
 import { MatchCard } from "../MatchCard.tsx";
 import AdminMatchCard from "../AdminMatchCard";
-import { getMatchPhase } from "../../utils/scoring";
+import { getPhaseLockKey } from "../../utils/scoring";
 import { translateGroupName } from "../../utils/translations";
 import RulesSection from "../RulesSection";
 import { CalendarDays, History, ChevronDown, ChevronUp, Users, Radio, Layers } from "lucide-react";
@@ -25,6 +25,7 @@ interface MatchGroupProps {
   isToday?: boolean;
   isLive?: boolean;
   subtitle?: string;
+  badge?: string;
   minRankDiff?: number;
   ruleset?: "regulamento_1" | "regulamento_2";
   eligibleGroups?: GroupDB[];
@@ -47,6 +48,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
   isToday,
   isLive,
   subtitle,
+  badge,
   minRankDiff,
   ruleset,
   eligibleGroups = [],
@@ -96,6 +98,11 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {badge && (
+            <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-300 uppercase tracking-wider">
+              {badge}
+            </span>
+          )}
           {isHighlighted && (
             <span
               className={`text-xs font-black px-2 py-0.5 rounded-full ${isLive ? "bg-brand-red/20 text-brand-red" : "bg-brand-green/20 text-brand-green"
@@ -268,6 +275,24 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
     });
   };
 
+  const PHASE_LABELS: Record<string, string> = {
+    groups: "Fase de Grupos",
+    round_of_32: "16 Avos de Final",
+    oitavas: "Oitavas de Final",
+    quartas: "Quartas de Final",
+    semis: "Semifinais",
+    third_place: "Disputa de 3º Lugar",
+    final: "Final",
+  };
+
+  const getPhaseBadge = (matches: Match[]): string | undefined => {
+    const phases = new Set(matches.map((m) => getPhaseLockKey(m.stage, m.group)));
+    const labels = Array.from(phases)
+      .map((p) => PHASE_LABELS[p])
+      .filter(Boolean);
+    return labels.length > 0 ? labels.join(" · ") : undefined;
+  };
+
   const phaseLockSet = useMemo(() => {
     if (ruleset !== "regulamento_2") return new Set<string>();
     const locked = new Set<string>();
@@ -275,7 +300,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
     matches.forEach((m) => {
       const started = m.status !== MatchStatus.SCHEDULED || now > new Date(m.date);
       if (started) {
-        locked.add(getMatchPhase(m.stage, m.group));
+        locked.add(getPhaseLockKey(m.stage, m.group));
       }
     });
     return locked;
@@ -447,6 +472,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
                       <MatchGroup
                         key={dateStr}
                         title={formatDateTitle(dateStr)}
+                        badge={getPhaseBadge(dayMatches)}
                         matches={dayMatches}
                         allMatches={matches}
                         isOpenDefault={false}
@@ -499,6 +525,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
           <MatchGroup
             key={dateStr}
             title={formatDateTitle(dateStr)}
+            badge={getPhaseBadge(groupMatches)}
             matches={groupMatches}
             allMatches={matches}
             isOpenDefault={false}
