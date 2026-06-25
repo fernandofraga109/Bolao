@@ -744,7 +744,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             {friends
               .filter((f) => f.predictions[match.id] && f.id !== currentUserId)
               .sort((a, b) => {
-                if (!isLive) return 0;
                 const aScoring = getScoringDetails(a.predictions[match.id].home, a.predictions[match.id].away, undefined, a.id);
                 const bScoring = getScoringDetails(b.predictions[match.id].home, b.predictions[match.id].away, undefined, b.id);
                 return bScoring.points - aScoring.points;

@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.81.0';
+export const CURRENT_VERSION = '1.82.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.82.0',
+    date: '2026-06-24',
+    changes: [
+      'O card "O que a galera acha" agora sempre ordena os palpites por pontuação, do maior para o menor, em qualquer estado do jogo',
+    ],
+  },
   {
     version: '1.81.0',
     date: '2026-06-24',
