@@ -408,15 +408,15 @@ describe("calculateTournamentPointsRegulamento2", () => {
     expect(pts).toBe(35);
   });
 
-  it("pontua classificados de 16 Avos (DezesseisAvos) com 5 pts por acerto, não 10", () => {
+  it("não pontua classificados de 16 Avos (DezesseisAvos) removidos do Regulamento 2", () => {
     const prediction = {
       groupClassifications: {
-        "DezesseisAvos": ["bra", "arg", "fra", "ger"], // 4 no palpite
+        "DezesseisAvos": ["bra", "arg", "fra", "ger"],
       },
     };
     const actual = {
       groupClassifications: {
-        "DezesseisAvos": ["bra", "arg", "ita", "esp"], // bra, arg corretos = 2 * 5 = 10 pts
+        "DezesseisAvos": ["bra", "arg", "ita", "esp"],
       },
     };
     const pts = calculateTournamentPointsRegulamento2(
@@ -425,8 +425,8 @@ describe("calculateTournamentPointsRegulamento2", () => {
       groupTournMock,
       "u2"
     );
-    // 2 acertos de fase knockout * 5 pts = 10 pts (knockout, não 10 por time)
-    expect(pts).toBe(10);
+    // 16 Avos foi removido do Regulamento 2; palpites antigos não pontuam
+    expect(pts).toBe(0);
   });
 });
 

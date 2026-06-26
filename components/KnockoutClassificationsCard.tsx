@@ -3,7 +3,7 @@ import { Match, Team, TournamentPredictions } from "../types";
 import { Check, Lock, ChevronDown, ChevronUp, Search, Trophy, Sparkles, AlertCircle, Save, Users } from "lucide-react";
 import { useDatabase } from "../contexts/DatabaseContext";
 
-type KnockoutPhase = "DezesseisAvos" | "Oitavas" | "Quartas" | "Semis";
+type KnockoutPhase = "Oitavas" | "Quartas" | "Semis";
 
 interface KnockoutClassificationsCardProps {
   matches: Match[];
@@ -43,7 +43,6 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
 
   // Group matches by phase to determine lock times and finished states
   const phaseMatches = useMemo(() => {
-    const dezesseisAvos: Match[] = [];
     const oitavas: Match[] = [];
     const quartas: Match[] = [];
     const semis: Match[] = [];
@@ -52,10 +51,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
       const stage = (m.stage || "").toUpperCase();
       const groupStr = (m.group || "").toUpperCase();
 
-      // 16 avos = round of 32 (32 teams). Test it before the round-of-16 branch.
-      if (stage.includes("ROUND_OF_32") || stage.includes("LAST_32") || groupStr.includes("16_AVOS") || groupStr.includes("16AVOS")) {
-        dezesseisAvos.push(m);
-      } else if (stage.includes("ROUND_OF_16") || stage.includes("LAST_16") || groupStr.includes("OITAVAS")) {
+      if (stage.includes("ROUND_OF_16") || stage.includes("LAST_16") || groupStr.includes("OITAVAS")) {
         oitavas.push(m);
       } else if (stage.includes("QUARTER") || groupStr.includes("QUARTAS")) {
         quartas.push(m);
@@ -64,7 +60,34 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
       }
     });
 
-    return { DezesseisAvos: dezesseisAvos, Oitavas: oitavas, Quartas: quartas, Semis: semis };
+    return { Oitavas: oitavas, Quartas: quartas, Semis: semis };
+  }, [matches]);
+
+  // Matches that feed teams into each phase (previous round)
+  const sourceMatchesByPhase = useMemo(() => {
+    const oitavas: Match[] = [];
+    const quartas: Match[] = [];
+    const semis: Match[] = [];
+
+    matches.forEach((m) => {
+      const stage = (m.stage || "").toUpperCase();
+      const groupStr = (m.group || "").toUpperCase();
+
+      // 16 Avos (round of 32) feeds Oitavas
+      if (stage.includes("ROUND_OF_32") || stage.includes("LAST_32") || groupStr.includes("16_AVOS") || groupStr.includes("16AVOS")) {
+        oitavas.push(m);
+      }
+      // Oitavas feeds Quartas
+      if (stage.includes("ROUND_OF_16") || stage.includes("LAST_16") || groupStr.includes("OITAVAS")) {
+        quartas.push(m);
+      }
+      // Quartas feeds Semis
+      if (stage.includes("QUARTER") || groupStr.includes("QUARTAS")) {
+        semis.push(m);
+      }
+    });
+
+    return { Oitavas: oitavas, Quartas: quartas, Semis: semis };
   }, [matches]);
 
   // Determine lock state per phase
@@ -83,7 +106,6 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
 
   // Local state for selections
   const [selectedTeams, setSelectedTeams] = useState<Record<string, string[]>>({
-    DezesseisAvos: [],
     Oitavas: [],
     Quartas: [],
     Semis: [],
@@ -93,7 +115,6 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
   useEffect(() => {
     if (prediction?.groupClassifications) {
       setSelectedTeams({
-        DezesseisAvos: prediction.groupClassifications["DezesseisAvos"] || [],
         Oitavas: prediction.groupClassifications["Oitavas"] || [],
         Quartas: prediction.groupClassifications["Quartas"] || [],
         Semis: prediction.groupClassifications["Semis"] || [],
@@ -109,26 +130,24 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
     return () => clearInterval(timer);
   }, []);
 
-  // Filtered teams list based on search query
+  // Filtered teams list based on search query and active phase
+  // Each phase only lists teams that played in the previous round.
+  // If the previous round has no matches yet, the list stays empty.
   const filteredTeams = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
+    const phase = activePhase;
 
-    // Extract participating team IDs from the active competition matches to filter out club teams (times) from other leagues
-    const activeTeamIds = new Set<string>();
-    matches.forEach((m) => {
-      if (m.homeTeam?.id) activeTeamIds.add(m.homeTeam.id);
-      if (m.awayTeam?.id) activeTeamIds.add(m.awayTeam.id);
-    });
+    const sourceTeamIds = new Set<string>();
 
-    // Fallback: if matches list is empty, fall back to team standings
-    if (activeTeamIds.size === 0) {
-      db.teamStandings.forEach((ts) => {
-        if (ts.teamId) activeTeamIds.add(ts.teamId);
+    if (phase) {
+      sourceMatchesByPhase[phase].forEach((m) => {
+        if (m.homeTeam?.id) sourceTeamIds.add(m.homeTeam.id);
+        if (m.awayTeam?.id) sourceTeamIds.add(m.awayTeam.id);
       });
     }
 
-    const allActiveTeams = db.teams.filter((t) => activeTeamIds.has(t.id));
-    const sortedTeams = [...allActiveTeams].sort((a, b) => a.name.localeCompare(b.name));
+    const eligibleTeams = db.teams.filter((t) => sourceTeamIds.has(t.id));
+    const sortedTeams = [...eligibleTeams].sort((a, b) => a.name.localeCompare(b.name));
 
     if (!query) return sortedTeams;
     return sortedTeams.filter(
@@ -136,7 +155,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
         t.name.toLowerCase().includes(query) ||
         t.code.toLowerCase().includes(query)
     );
-  }, [db.teams, db.teamStandings, matches, searchQuery]);
+  }, [db.teams, sourceMatchesByPhase, searchQuery, activePhase]);
 
   // Toggle selection for active phase
   const handleToggleTeam = (teamId: string) => {
@@ -145,7 +164,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
 
     const currentSelection = selectedTeams[phase];
     const maxAllowed =
-      phase === "DezesseisAvos" ? 32 : phase === "Oitavas" ? 16 : phase === "Quartas" ? 8 : 4;
+      phase === "Oitavas" ? 16 : phase === "Quartas" ? 8 : 4;
 
     if (currentSelection.includes(teamId)) {
       setSelectedTeams((prev) => ({
@@ -204,17 +223,12 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
   };
 
   const phaseConfig = {
-    DezesseisAvos: { max: 32, label: "16 Avos de Final" },
     Oitavas: { max: 16, label: "Oitavas de Final" },
     Quartas: { max: 8, label: "Quartas de Final" },
     Semis: { max: 4, label: "Semifinais" },
   };
 
-  // Only surface the round-of-32 phase for tournaments that actually have it
-  // (e.g. some competitions jump straight to the round of 16).
-  const visiblePhases = (["DezesseisAvos", "Oitavas", "Quartas", "Semis"] as const).filter(
-    (phase) => phase !== "DezesseisAvos" || phaseMatches.DezesseisAvos.length > 0
-  );
+  const visiblePhases = (["Oitavas", "Quartas", "Semis"] as const);
 
   const visiblePhaseConfig = Object.fromEntries(
     visiblePhases.map((phase) => [phase, phaseConfig[phase]])
@@ -453,18 +467,23 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
             );
           })()}
 
-          {/* Card-level: All users' knockout predictions for all phases - Always visible, data hidden until lock */}
+          {/* Card-level: All users' knockout predictions for all phases - Always visible, data hidden until each phase locks */}
           {currentGroupId && (() => {
             const allOtherPreds = db.tournamentPredictions.filter(
               (tp) => tp.groupId === currentGroupId && tp.userId !== currentUserId && tp.groupClassifications
             );
+
+            const phaseLockMap: Record<string, boolean> = {};
+            visiblePhases.forEach((p) => {
+              phaseLockMap[p] = isPhaseLocked(p);
+            });
 
             return (
               <AllKnockoutPredictionsCard
                 otherPreds={allOtherPreds}
                 db={db}
                 phaseConfig={visiblePhaseConfig}
-                isLocked={isGloballyLocked}
+                phaseLockMap={phaseLockMap}
               />
             );
           })()}
@@ -479,8 +498,8 @@ const AllKnockoutPredictionsCard: React.FC<{
   otherPreds: any[];
   db: ReturnType<typeof useDatabase>;
   phaseConfig: Record<string, { max: number; label: string }>;
-  isLocked: boolean;
-}> = ({ otherPreds, db, phaseConfig, isLocked }) => {
+  phaseLockMap: Record<string, boolean>;
+}> = ({ otherPreds, db, phaseConfig, phaseLockMap }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const getUserName = (uid: string) => {
@@ -536,11 +555,12 @@ const AllKnockoutPredictionsCard: React.FC<{
                   </td>
                   {phases.map((p) => {
                     const picks = tp.groupClassifications?.[p] || [];
+                    const phaseIsLocked = phaseLockMap[p] ?? false;
                     return (
                       <td key={p} className="px-2 py-2 text-center text-slate-300">
                         <div className="flex flex-wrap gap-0.5 justify-center">
                           {picks.length > 0
-                            ? isLocked
+                            ? phaseIsLocked
                               ? picks.map((id: string) => (
                                   <span key={id} className="text-[9px] bg-slate-800 text-slate-300 px-1 py-0.5 rounded border border-slate-700">
                                     {getTeamCode(id)}

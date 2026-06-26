@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.83.0';
+export const CURRENT_VERSION = '1.84.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.84.0',
+    date: '2026-06-25',
+    changes: [
+      'Corrigido bloqueio de fases no card "Maior Diferença de Gols por Fase": todas as fases (incluindo grupos) agora travam quando o primeiro jogo da fase começa',
+      'Palpites dos outros usuários mostram "Oculto" até o primeiro jogo da fase começar, mantendo fair play',
+      'Adicionado suporte a LAST_32 e LAST_16 nos nomes de fase da API para mapeamento correto dos jogos',
+    ],
+  },
   {
     version: '1.83.0',
     date: '2026-06-25',

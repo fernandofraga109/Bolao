@@ -89,9 +89,9 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
         semis.push(m);
       } else if (stage.includes("QUARTER") || groupStr.includes("QUARTAS")) {
         quartas.push(m);
-      } else if (stage.includes("ROUND_OF_16") || groupStr.includes("OITAVAS")) {
+      } else if (stage.includes("ROUND_OF_16") || stage.includes("LAST_16") || groupStr.includes("OITAVAS")) {
         oitavas.push(m);
-      } else if (stage.includes("ROUND_OF_32") || groupStr.includes("16_AVOS") || groupStr.includes("16AVOS")) {
+      } else if (stage.includes("ROUND_OF_32") || stage.includes("LAST_32") || groupStr.includes("16_AVOS") || groupStr.includes("16AVOS")) {
         round_of_32.push(m);
       } else if (stage.includes("REGULAR") || stage.includes("GROUP") || groupStr.includes("GRUPO")) {
         groups.push(m);
@@ -127,19 +127,14 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
     { id: "semis", label: "Semifinais", matches: matchesByPhase.semis },
   ];
 
-  // Helper to determine if betting for a phase is locked
-  const isPhaseLocked = (phaseId: string, phaseMatches: MatchDB[]) => {
+  // Helper to determine if betting for a phase is locked.
+  // A phase locks when its first match starts (applies to all phases including groups).
+  // If no matches exist yet for a phase, it remains open (unlocked).
+  const isPhaseLocked = (phaseMatches: MatchDB[]) => {
+    if (phaseMatches.length === 0) return false;
     const now = new Date();
-    // Special lock: Tournament lockDate applies to groups
-    if (phaseId === "groups") {
-      return now >= lockDate;
-    }
-    // For KO phases, lock betting once the first match of that phase starts
-    if (phaseMatches.length > 0) {
-      const firstMatchDate = new Date(phaseMatches[0].date);
-      return now >= firstMatchDate;
-    }
-    return now >= lockDate;
+    const firstMatchDate = new Date(phaseMatches[0].date);
+    return now >= firstMatchDate;
   };
 
   const handleSave = async (phaseId: string) => {
@@ -190,7 +185,7 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
       {isExpanded && (
       <div className="p-4 space-y-3 border-t border-slate-700">
         {phases.map((phase) => {
-          const isLocked = isPhaseLocked(phase.id, phase.matches);
+          const isLocked = isPhaseLocked(phase.matches);
           const savedPred = predictionsByPhase[phase.id];
           const isPhaseExpanded = expandedPhase === phase.id;
           const selectedMatchId = selectedMatchIds[phase.id];
@@ -508,7 +503,7 @@ const OtherExtraPhasePredictions: React.FC<{
                     {getUserName(p.userId)}
                   </td>
                   <td className="px-2 py-1.5 text-center text-slate-300 whitespace-nowrap">
-                    {isLocked ? getMatchLabel(p.matchId) : "Oculto"}
+                    {isLocked ? getMatchLabel(p.matchId) : <span className="text-slate-500 italic">Oculto</span>}
                   </td>
                 </tr>
               ))}

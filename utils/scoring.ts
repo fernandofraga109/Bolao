@@ -450,9 +450,11 @@ export const calculateTournamentPointsRegulamento2 = (
   }
 
   // 4. Group classifications & Knockout qualifiers points: 10 points per correct group team, 5 points per correct knockout team
+  // 16 Avos de Final (DezesseisAvos) was removed from Regulamento 2, so skip it entirely.
   if (prediction.groupClassifications && actual.groupClassifications) {
     Object.entries(prediction.groupClassifications).forEach(([groupName, predTeams]) => {
-      const isKnockout = ["DezesseisAvos", "Oitavas", "Quartas", "Semis"].includes(groupName);
+      if (groupName === "DezesseisAvos") return;
+      const isKnockout = ["Oitavas", "Quartas", "Semis"].includes(groupName);
       let actualTeams = actual.groupClassifications?.[groupName];
       // Defensive cap: group-stage entries must have at most 2 qualifiers (1st and 2nd place).
       // A 3rd-place qualifier must never score points per the regulation.

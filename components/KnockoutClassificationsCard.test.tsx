@@ -15,6 +15,7 @@ const teams = [
   { id: "t1", name: "Brasil", code: "BRA", flag: "bra.png", ranking: 1 },
   { id: "t2", name: "Argentina", code: "ARG", flag: "arg.png", ranking: 2 },
   { id: "t3", name: "França", code: "FRA", flag: "fra.png", ranking: 3 },
+  { id: "t4", name: "Alemanha", code: "GER", flag: "ger.png", ranking: 4 },
 ];
 
 // Hydrated Match (UI model) used by the card's `matches` prop
@@ -36,6 +37,7 @@ const baseDb = () => ({
     { teamId: "t1", competitionCode: "WC" },
     { teamId: "t2", competitionCode: "WC" },
     { teamId: "t3", competitionCode: "WC" },
+    { teamId: "t4", competitionCode: "WC" },
   ],
   tournamentPredictions: [] as any[],
   users: [
@@ -69,7 +71,10 @@ describe("KnockoutClassificationsCard", () => {
   it("expands to show the three phase tabs and the team selection grid", async () => {
     render(
       <KnockoutClassificationsCard
-        matches={[makeMatch()]}
+        matches={[
+          makeMatch({ id: "r32-1", stage: "LAST_32", group: "16 Avos de Final" }),
+          makeMatch(),
+        ]}
         prediction={undefined}
         lockDate={futureLock}
         onPredict={vi.fn()}
@@ -83,29 +88,12 @@ describe("KnockoutClassificationsCard", () => {
     expect(screen.getByText("Oitavas de Final")).toBeInTheDocument();
     expect(screen.getByText("Quartas de Final")).toBeInTheDocument();
     expect(screen.getByText("Semifinais")).toBeInTheDocument();
-    // Active phase = Oitavas by default; team grid shows the teams
+    // Active phase = Oitavas by default; source matches are LAST_32
     expect(screen.getByText("Brasil")).toBeInTheDocument();
+    expect(screen.getByText("Argentina")).toBeInTheDocument();
   });
 
-  it("hides the 16 Avos de Final tab when there are no round-of-32 matches", async () => {
-    render(
-      <KnockoutClassificationsCard
-        matches={[makeMatch()]}
-        prediction={undefined}
-        lockDate={futureLock}
-        onPredict={vi.fn()}
-        currentUserId="u1"
-        currentGroupId="g1"
-      />
-    );
-    await userEvent.click(screen.getByText("Classificados 2º Fase"));
-
-    // Only Oitavas-onward matches exist, so the round-of-32 tab stays hidden.
-    expect(screen.queryByText("16 Avos de Final")).not.toBeInTheDocument();
-    expect(screen.getByText("Oitavas de Final")).toBeInTheDocument();
-  });
-
-  it("shows the 16 Avos de Final tab when a round-of-32 (LAST_32) match exists", async () => {
+  it("never shows the 16 Avos de Final tab", async () => {
     render(
       <KnockoutClassificationsCard
         matches={[
@@ -125,15 +113,106 @@ describe("KnockoutClassificationsCard", () => {
     );
     await userEvent.click(screen.getByText("Classificados 2º Fase"));
 
-    expect(screen.getByText("16 Avos de Final")).toBeInTheDocument();
-    // Default active phase is still Oitavas.
+    expect(screen.queryByText("16 Avos de Final")).not.toBeInTheDocument();
     expect(screen.getByText("Oitavas de Final")).toBeInTheDocument();
+    expect(screen.getByText("Quartas de Final")).toBeInTheDocument();
+    expect(screen.getByText("Semifinais")).toBeInTheDocument();
+  });
+
+  it("only lists teams from the previous round for Oitavas", async () => {
+    render(
+      <KnockoutClassificationsCard
+        matches={[
+          makeMatch({
+            id: "r32-1",
+            stage: "LAST_32",
+            group: "16 Avos de Final",
+          }),
+          makeMatch({
+            id: "r16-1",
+            stage: "ROUND_OF_16",
+            group: "Oitavas",
+            homeTeam: teams[2],
+            awayTeam: teams[3],
+          }),
+        ]}
+        prediction={undefined}
+        lockDate={futureLock}
+        onPredict={vi.fn()}
+        currentUserId="u1"
+        currentGroupId="g1"
+      />
+    );
+    await userEvent.click(screen.getByText("Classificados 2º Fase"));
+
+    // Active phase = Oitavas; source matches are LAST_32 (Brasil vs Argentina)
+    expect(screen.getByText("Brasil")).toBeInTheDocument();
+    expect(screen.getByText("Argentina")).toBeInTheDocument();
+    expect(screen.queryByText("França")).not.toBeInTheDocument();
+    expect(screen.queryByText("Alemanha")).not.toBeInTheDocument();
+  });
+
+  it("only lists teams from the previous round for Quartas", async () => {
+    render(
+      <KnockoutClassificationsCard
+        matches={[
+          makeMatch({
+            id: "r16-1",
+            stage: "ROUND_OF_16",
+            group: "Oitavas",
+          }),
+          makeMatch({
+            id: "qf-1",
+            stage: "QUARTER_FINAL",
+            group: "Quartas",
+            homeTeam: teams[2],
+            awayTeam: teams[3],
+          }),
+        ]}
+        prediction={undefined}
+        lockDate={futureLock}
+        onPredict={vi.fn()}
+        currentUserId="u1"
+        currentGroupId="g1"
+      />
+    );
+    await userEvent.click(screen.getByText("Classificados 2º Fase"));
+    await userEvent.click(screen.getByText("Quartas de Final"));
+
+    // Source matches for Quartas are Oitavas (Brasil vs Argentina)
+    expect(screen.getByText("Brasil")).toBeInTheDocument();
+    expect(screen.getByText("Argentina")).toBeInTheDocument();
+    expect(screen.queryByText("França")).not.toBeInTheDocument();
+    expect(screen.queryByText("Alemanha")).not.toBeInTheDocument();
+  });
+
+  it("shows empty grid when the previous round is not yet defined", async () => {
+    render(
+      <KnockoutClassificationsCard
+        matches={[makeMatch({ id: "r32-1", stage: "LAST_32", group: "16 Avos de Final" })]}
+        prediction={undefined}
+        lockDate={futureLock}
+        onPredict={vi.fn()}
+        currentUserId="u1"
+        currentGroupId="g1"
+      />
+    );
+    await userEvent.click(screen.getByText("Classificados 2º Fase"));
+    await userEvent.click(screen.getByText("Quartas de Final"));
+
+    // No Oitavas matches exist yet, so Quartas has no source teams
+    expect(screen.queryByText("Brasil")).not.toBeInTheDocument();
+    expect(screen.queryByText("Argentina")).not.toBeInTheDocument();
+    expect(screen.getByText("Nenhuma seleção encontrada.")).toBeInTheDocument();
   });
 
   it("renders the search box and filters teams by name when unlocked", async () => {
     render(
       <KnockoutClassificationsCard
-        matches={[makeMatch()]}
+        matches={[
+          makeMatch({ id: "r32-1", stage: "LAST_32", group: "16 Avos de Final" }),
+          makeMatch(),
+        ]}
         prediction={undefined}
         lockDate={futureLock}
         onPredict={vi.fn()}
@@ -176,7 +255,10 @@ describe("KnockoutClassificationsCard", () => {
   it("toggles a team selection and reflects the count in the active tab", async () => {
     render(
       <KnockoutClassificationsCard
-        matches={[makeMatch()]}
+        matches={[
+          makeMatch({ id: "r32-1", stage: "LAST_32", group: "16 Avos de Final" }),
+          makeMatch(),
+        ]}
         prediction={undefined}
         lockDate={futureLock}
         onPredict={vi.fn()}
@@ -218,7 +300,7 @@ describe("KnockoutClassificationsCard", () => {
     expect(screen.getAllByText("Oculto").length).toBeGreaterThan(0);
   });
 
-  it("reveals other members' team codes in the all-phases table once globally locked", async () => {
+  it("reveals other members' team codes in the all-phases table once the phase is locked", async () => {
     fakeDb.tournamentPredictions = [
       {
         userId: "u2",
@@ -228,7 +310,7 @@ describe("KnockoutClassificationsCard", () => {
     ];
     render(
       <KnockoutClassificationsCard
-        matches={[makeMatch()]}
+        matches={[makeMatch({ date: "2000-07-01T18:00:00Z" })]}
         prediction={undefined}
         lockDate={pastLock}
         onPredict={vi.fn()}
