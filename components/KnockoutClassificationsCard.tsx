@@ -8,6 +8,7 @@ type KnockoutPhase = "Oitavas" | "Quartas" | "Semis";
 interface KnockoutClassificationsCardProps {
   matches: Match[];
   prediction: TournamentPredictions | undefined;
+  tournamentResults?: TournamentPredictions | null;
   lockDate: Date;
   onPredict: (data: TournamentPredictions) => void;
   currentUserId?: string;
@@ -18,6 +19,7 @@ interface KnockoutClassificationsCardProps {
 export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardProps> = ({
   matches,
   prediction,
+  tournamentResults,
   lockDate,
   onPredict,
   currentUserId,
@@ -230,11 +232,10 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
     setTimeout(() => setSaveSuccess(null), 3000);
   };
 
-  // Get point results if finished
+  // Get point results based on admin-set tournamentResults (knockoutClassifications)
   const getPhaseResults = (phase: KnockoutPhase) => {
-    const actualList = db.tournamentPredictions.find(
-      (tp) => tp.userId === "actual" || tp.groupId === "actual"
-    )?.groupClassifications?.[phase] || [];
+    // Use tournamentResults prop (from useMatchSystem which merges knockoutClassifications)
+    const actualList = tournamentResults?.groupClassifications?.[phase] || [];
 
     const userPreds = selectedTeams[phase];
     let correctCount = 0;
@@ -245,12 +246,14 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
       }
     });
 
+    const hasActualData = actualList.length > 0;
     const isFinished = phaseMatches[phase].length > 0 && phaseMatches[phase].every(m => m.status === "FINISHED");
 
     return {
       actualList,
       correctCount,
       totalEarnedPoints: correctCount * 5,
+      hasActualData,
       isFinished,
     };
   };
@@ -316,12 +319,12 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
                     <span className="text-[10px] bg-slate-950/60 text-slate-400 px-1.5 py-0.5 rounded font-black border border-slate-800">
                       {count}/{config.max}
                     </span>
-                    {results.isFinished && results.totalEarnedPoints > 0 && (
+                    {results.hasActualData && results.totalEarnedPoints > 0 && (
                       <span className="text-[10px] bg-brand-green/20 text-brand-green border border-brand-green/30 px-1 py-0.5 rounded font-black">
                         +{results.totalEarnedPoints} PTS
                       </span>
                     )}
-                    {isLocked && !results.isFinished && (
+                    {isLocked && !results.hasActualData && (
                       <Lock size={10} className="text-slate-500 shrink-0" />
                     )}
                     <span className="sm:hidden">
@@ -428,7 +431,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
                     {filteredTeams.map((team) => {
                       const isSelected = selectedTeams[phase].includes(team.id);
                       const isCorrect = results.actualList.includes(team.id);
-                      const isFinished = results.isFinished;
+                      const hasActualData = results.hasActualData;
 
                       return (
                         <button
@@ -437,7 +440,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
                           onClick={() => handleToggleTeam(team.id)}
                           className={`group relative flex flex-col items-center p-3 sm:p-4 rounded-2xl border transition-all duration-200 ${
                             isSelected
-                              ? isFinished
+                              ? hasActualData
                                 ? isCorrect
                                   ? "bg-brand-green/10 border-brand-green/50 ring-1 ring-brand-green/30"
                                   : "bg-red-500/10 border-red-500/50 ring-1 ring-red-500/30"
@@ -462,7 +465,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
                           <span className={`text-[10px] sm:text-xs font-bold uppercase tracking-tight text-center truncate w-full ${isSelected ? "text-white" : "text-slate-400 group-hover:text-slate-300"}`}>
                             {team.name}
                           </span>
-                          {isFinished && isSelected && (
+                          {hasActualData && isSelected && (
                             <div className={`mt-1.5 text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${isCorrect ? "bg-brand-green text-slate-900" : "bg-red-500 text-white"}`}>
                               {isCorrect ? "+5 PTS" : "0 PTS"}
                             </div>

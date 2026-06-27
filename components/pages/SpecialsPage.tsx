@@ -148,6 +148,7 @@ const SpecialsPage: React.FC<SpecialsPageProps> = ({
           <KnockoutClassificationsCard
             matches={matches}
             prediction={currentUser.tournamentPredictions}
+            tournamentResults={tournamentResults}
             lockDate={lockDate ? new Date(lockDate) : new Date(0)}
             onPredict={onPredictTournament}
             currentUserId={currentUser.id}

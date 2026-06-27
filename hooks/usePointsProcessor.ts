@@ -163,7 +163,7 @@ export const usePointsProcessor = (dbRef: any) => {
         const hasAdminOverride = !!adminGroupClassif && Object.keys(adminGroupClassif).length > 0;
 
         if (hasAdminOverride) {
-          resolvedGroupClassifications = adminGroupClassif!;
+          resolvedGroupClassifications = { ...adminGroupClassif! };
           console.log(`[Points] ✅ groupClassifications: usando override do admin para ${compCode}`);
         } else {
           // Check if all group-stage matches are finished.
@@ -211,6 +211,20 @@ export const usePointsProcessor = (dbRef: any) => {
           } else {
             console.log(`[Points] ⏳ Fase de grupos ainda não encerrada para ${compCode} (${compGroupMatches.filter((m: any) => m.status !== MatchStatus.FINISHED).length} jogos pendentes). Pontos de classificados não aplicados.`);
           }
+        }
+
+        // Merge admin knockoutClassifications (Oitavas, Quartas, Semis) into
+        // resolvedGroupClassifications so calculateTournamentPointsRegulamento2
+        // can award 5pts per correct knockout pick.
+        const adminKnockoutClassif = compData?.knockoutClassifications as Record<string, string[]> | null | undefined;
+        if (adminKnockoutClassif && Object.keys(adminKnockoutClassif).length > 0) {
+          if (!resolvedGroupClassifications) resolvedGroupClassifications = {};
+          Object.entries(adminKnockoutClassif).forEach(([phase, teams]) => {
+            if (Array.isArray(teams) && teams.length > 0) {
+              resolvedGroupClassifications![phase] = teams;
+            }
+          });
+          console.log(`[Points] ✅ knockoutClassifications mesclados para ${compCode}: ${Object.keys(adminKnockoutClassif).join(', ')}`);
         }
 
         const tournamentResults: TournamentPredictions | null = compData

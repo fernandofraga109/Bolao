@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.85.0';
+export const CURRENT_VERSION = '1.86.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.86.0',
+    date: '2026-06-27',
+    changes: [
+      'Melhorias para o Regulamento 2, cálculo de pontos para classificados nas oitavas de final',
+    ],
+  },
   {
     version: '1.85.0',
     date: '2026-06-27',
