@@ -152,6 +152,7 @@ const SpecialsPage: React.FC<SpecialsPageProps> = ({
             onPredict={onPredictTournament}
             currentUserId={currentUser.id}
             currentGroupId={currentUser.activeGroupId}
+            competitionCode={competitionCode}
           />
         </>
       )}

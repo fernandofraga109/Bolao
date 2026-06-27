@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.84.0';
+export const CURRENT_VERSION = '1.85.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.85.0',
+    date: '2026-06-27',
+    changes: [
+      'Melhoria no componente CLASSIFICADOS 2º FASE (Regulamento 2)',
+    ],
+  },
   {
     version: '1.84.0',
     date: '2026-06-25',

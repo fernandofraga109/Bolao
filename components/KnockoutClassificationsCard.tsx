@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Match, Team, TournamentPredictions } from "../types";
 import { Check, Lock, ChevronDown, ChevronUp, Search, Trophy, Sparkles, AlertCircle, Save, Users } from "lucide-react";
 import { useDatabase } from "../contexts/DatabaseContext";
@@ -12,6 +12,7 @@ interface KnockoutClassificationsCardProps {
   onPredict: (data: TournamentPredictions) => void;
   currentUserId?: string;
   currentGroupId?: string;
+  competitionCode?: string;
 }
 
 export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardProps> = ({
@@ -21,6 +22,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
   onPredict,
   currentUserId,
   currentGroupId,
+  competitionCode,
 }) => {
   const db = useDatabase();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -111,14 +113,27 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
     Semis: [],
   });
 
+  // Track the last synced groupClassifications to avoid resetting unsaved
+  // selections every time the background sync reloads tournamentPredictions
+  // (which creates a new object reference even with the same content).
+  const lastSyncedClassificationsRef = useRef<string | null>(null);
+
   // Sync saved database predictions into local state
   useEffect(() => {
     if (prediction?.groupClassifications) {
-      setSelectedTeams({
+      const incoming = JSON.stringify({
         Oitavas: prediction.groupClassifications["Oitavas"] || [],
         Quartas: prediction.groupClassifications["Quartas"] || [],
         Semis: prediction.groupClassifications["Semis"] || [],
       });
+      if (incoming !== lastSyncedClassificationsRef.current) {
+        lastSyncedClassificationsRef.current = incoming;
+        setSelectedTeams({
+          Oitavas: prediction.groupClassifications["Oitavas"] || [],
+          Quartas: prediction.groupClassifications["Quartas"] || [],
+          Semis: prediction.groupClassifications["Semis"] || [],
+        });
+      }
     }
   }, [prediction]);
 
@@ -130,9 +145,10 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
     return () => clearInterval(timer);
   }, []);
 
-  // Filtered teams list based on search query and active phase
-  // Each phase only lists teams that played in the previous round.
-  // If the previous round has no matches yet, the list stays empty.
+  // Filtered teams list based on search query and active phase.
+  // For Oitavas: if no LAST_32 matches exist yet, fall back to all teams
+  // that finished 1st, 2nd or 3rd in their group (Copa 2026 format: top 3
+  // from 12 groups = 36 candidates, 32 actually advance).
   const filteredTeams = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     const phase = activePhase;
@@ -140,10 +156,27 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
     const sourceTeamIds = new Set<string>();
 
     if (phase) {
-      sourceMatchesByPhase[phase].forEach((m) => {
-        if (m.homeTeam?.id) sourceTeamIds.add(m.homeTeam.id);
-        if (m.awayTeam?.id) sourceTeamIds.add(m.awayTeam.id);
-      });
+      const sourceMatches = sourceMatchesByPhase[phase];
+      if (sourceMatches.length > 0) {
+        sourceMatches.forEach((m) => {
+          if (m.homeTeam?.id) sourceTeamIds.add(m.homeTeam.id);
+          if (m.awayTeam?.id) sourceTeamIds.add(m.awayTeam.id);
+        });
+      } else if (phase === "Oitavas") {
+        // No 16 Avos matches yet — list all group-stage teams ranked 1st–3rd
+        const KNOCKOUT_STAGE_PATTERNS = /^(LAST_16|LAST_32|ROUND_OF_16|ROUND_OF_32|QUARTER_FINAL|SEMI_FINAL|FINAL|THIRD_PLACE|PLAY_OFF)/i;
+        const compCode = (competitionCode || "WC").toUpperCase();
+        db.teamStandings.forEach((ts) => {
+          if ((ts.competitionCode || "WC").toUpperCase() !== compCode) return;
+          if (!ts.group) return;
+          const normalizedGroup = ts.group.replace(/^(Group|GROUP)[_\s]+/, "Grupo ").trim();
+          if (KNOCKOUT_STAGE_PATTERNS.test(normalizedGroup.replace(/\s+/g, "_"))) return;
+          if (!normalizedGroup.startsWith("Grupo")) return;
+          if ((ts.position ?? 99) <= 3) {
+            sourceTeamIds.add(ts.teamId);
+          }
+        });
+      }
     }
 
     const eligibleTeams = db.teams.filter((t) => sourceTeamIds.has(t.id));
@@ -155,7 +188,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
         t.name.toLowerCase().includes(query) ||
         t.code.toLowerCase().includes(query)
     );
-  }, [db.teams, sourceMatchesByPhase, searchQuery, activePhase]);
+  }, [db.teams, db.teamStandings, sourceMatchesByPhase, searchQuery, activePhase, competitionCode]);
 
   // Toggle selection for active phase
   const handleToggleTeam = (teamId: string) => {
