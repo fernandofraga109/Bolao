@@ -476,25 +476,28 @@ export const calculateTournamentPointsRegulamento2 = (
 };
 
 /**
- * R1 scoring base: regularTime only (not regularTime + extraTime).
- * Prefers flat columns (regularHome/Away); falls back to score JSONB for older rows.
+ * R1 knockout scoring base: tempo regular + prorrogação (120 min), igual ao Regulamento 2.
+ *
+ * Histórico: até 2026-06 o mata-mata do R1 pontuava apenas o tempo regular (90 min).
+ * Após enquete com os usuários, a regra passou a contabilizar a prorrogação (120 min),
+ * alinhando-se ao Regulamento 2. Os pênaltis continuam fora do placar (resolvem apenas
+ * o bônus "quem se classifica").
+ *
+ * Prefere as colunas planas (regularHome/Away + extraTimeHome/Away); cai para o
+ * resultado final pré-computado (fallback) em linhas antigas sem colunas planas.
  */
 export const getR1MatchScoringResult = (
-  match: { regularHome?: number | null; regularAway?: number | null; extraTimeHome?: number | null; penaltiesHome?: number | null; score?: any },
+  match: { regularHome?: number | null; regularAway?: number | null; extraTimeHome?: number | null; extraTimeAway?: number | null; penaltiesHome?: number | null; score?: any },
   fallbackHome: number,
   fallbackAway: number
 ): { home: number; away: number } => {
   if (match.regularHome != null && match.regularAway != null) {
-    return { home: match.regularHome, away: match.regularAway };
-  }
-  // JSONB backward compat for rows not yet synced with flat cols
-  const duration = match.score?.duration;
-  if (duration === "EXTRA_TIME" || duration === "PENALTY_SHOOTOUT") {
     return {
-      home: match.score?.regularTime?.home ?? fallbackHome,
-      away: match.score?.regularTime?.away ?? fallbackAway,
+      home: match.regularHome + (match.extraTimeHome ?? 0),
+      away: match.regularAway + (match.extraTimeAway ?? 0),
     };
   }
+  // fallback = resultado final (regular + prorrogação) já consolidado em match.result
   return { home: fallbackHome, away: fallbackAway };
 };
 

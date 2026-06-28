@@ -252,7 +252,7 @@ Implementado em `getMatchPhase(stage, group)` — também aceita nomes de grupo 
 | `calculatePoints` | Total de pontos R1 |
 | `getScoreCategoryRegulamento2` | Retorna tipo + aloneBonus para R2 |
 | `calculatePointsRegulamento2` | Total de pontos R2 (context-aware) |
-| `getR1MatchScoringResult` | Extrai regularTime para comparação R1 em mata-mata (usa campos planos, fallback JSONB) |
+| `getR1MatchScoringResult` | Placar de comparação R1 em mata-mata = tempo regular + prorrogação (120 min), igual ao R2 (usa campos planos, fallback `match.result`) |
 | `getMatchDuration` | Infere 'REGULAR' / 'EXTRA_TIME' / 'PENALTY_SHOOTOUT' dos campos planos |
 | `getKnockoutAdvancingTeamId` | Retorna teamId que avançou (ET ou pênaltis), undefined se REGULAR |
 | `getMatchPhase` | Mapeia stage/group → MatchPhase |
@@ -260,14 +260,16 @@ Implementado em `getMatchPhase(stage, group)` — também aceita nomes de grupo 
 
 ### `getR1MatchScoringResult`
 
-Retorna o placar de comparação correto para R1. Para jogos mata-mata usa `regularHome/regularAway` (tempo regular apenas). Fallback para `score.regularTime` JSONB em partidas antigas sem os campos planos.
+Retorna o placar de comparação correto para R1. Para jogos mata-mata soma `regularHome + extraTimeHome` / `regularAway + extraTimeAway` (tempo regular + prorrogação, 120 min — igual ao R2). Fallback para `match.result` (resultado final consolidado) em partidas antigas sem os campos planos.
+
+> Histórico: até 2026-06 esta função retornava apenas o tempo regular (90 min). Após enquete com os usuários, o mata-mata do R1 passou a contabilizar a prorrogação. Os pênaltis seguem fora do placar (resolvem só o bônus "quem se classifica").
 
 ```ts
 getR1MatchScoringResult(match, fallbackHome, fallbackAway)
-// → { home, away } — sempre regularTime para mata-mata R1
+// → { home, away } — tempo regular + prorrogação para mata-mata R1
 ```
 
-**Fonte de dados:** lê `match.regularHome / match.regularAway` (colunas planas, migration 0027). Fallback para `score.regularTime` JSONB para partidas antigas. Nunca passar `match.score` diretamente — passe o objeto `match` inteiro.
+**Fonte de dados:** lê `match.regularHome / match.regularAway` + `match.extraTimeHome / match.extraTimeAway` (colunas planas, migration 0027). Fallback para `fallbackHome/fallbackAway` (passe `match.result.home/away`) para partidas antigas. Nunca passar `match.score` diretamente — passe o objeto `match` inteiro.
 
 ### `getMatchDuration` / `getKnockoutAdvancingTeamId`
 

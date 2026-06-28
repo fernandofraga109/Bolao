@@ -9,9 +9,17 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     version: '1.88.0',
+<<<<<<< HEAD
     date: '2026-06-28',
     changes: [
       'Corrigida exibição prematura do item "Maior Diferença de Gols - 16 Avos de Final" no modal de auditoria: agora só aparece depois que o primeiro jogo da fase começa',
+=======
+    date: '2026-06-27',
+    changes: [
+      'Atendendo ao resultado da enquete: no Regulamento 1, o palpite das fases de mata-mata passa a valer pelo tempo regular + prorrogação (120 min), e não mais apenas pelos 90 minutos',
+      'A regra fica igual à do Regulamento 2: os pênaltis continuam fora do placar e servem apenas para o bônus de quem se classifica',
+      'No card do jogo, abaixo de "Sua Aposta", aparece o aviso "(tempo regulamentar + prorrogação)" nos jogos de mata-mata do Regulamento 1',
+>>>>>>> bc3160ff3b20b08be9559c624ace2ca5f0e759bf
     ],
   },
   {
