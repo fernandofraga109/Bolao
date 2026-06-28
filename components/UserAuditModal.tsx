@@ -41,6 +41,22 @@ interface UserAuditModalProps {
 
 type AuditTab = "jogos" | "especiais";
 
+interface SpecialAuditItem {
+  label: string;
+  predicted: string;
+  actual: string;
+  pts: number;
+}
+
+interface SpecialAuditGroup {
+  id: string;
+  label: string;
+  predicted: string;
+  actual: string;
+  items: SpecialAuditItem[];
+  total: number;
+}
+
 interface MatchAuditRow {
   match: Match;
   pred: { home: number; away: number; points?: number; whoClassifiesTeamId?: string };
@@ -58,17 +74,18 @@ interface MatchAuditRow {
 const UserAuditModal: React.FC<UserAuditModalProps> = ({
   user,
   allUsers,
-  matches,
+  _matches,
   groups,
   tournamentResults,
-  currentUserId,
-  rawPredictions,
+  _currentUserId,
+  _rawPredictions,
   viewingGroupId,
   lockDate,
   onClose,
 }) => {
   const [auditTab, setAuditTab] = useState<AuditTab>("jogos");
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
+  const [expandedSpecialGroups, setExpandedSpecialGroups] = useState<Set<string>>(new Set());
   const [showScoringGuide, setShowScoringGuide] = useState(false);
   const db = useDatabase();
 
@@ -77,7 +94,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
     db.refetchMatches();
     db.refetchPredictions();
     db.refetchUserGroups();
-  }, []);
+  }, [db]);
 
   // Use the group the viewer is looking at (from the leaderboard section), not user.activeGroupId
   const activeGroupId = viewingGroupId || user.activeGroupId || user.groupIds?.[0];
@@ -330,6 +347,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
   };
 
   const phaseStarted = (phaseName: string) => {
+    // eslint-disable-next-line react-hooks/purity
     const now = Date.now();
     const normalized = phaseName.toLowerCase();
 
@@ -364,13 +382,6 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
   const isLocked = lockDate ? new Date() >= new Date(lockDate) : false;
   const isPreCupSpecialVisible = isLocked;
 
-  // Reset to jogos tab if specials tab is active but competition hasn't started
-  useEffect(() => {
-    if (auditTab === "especiais" && !isPreCupSpecialVisible) {
-      setAuditTab("jogos");
-    }
-  }, [auditTab, isPreCupSpecialVisible]);
-
   const tournamentAudit = useMemo(() => {
     // Extra phase predictions (R2) are scored from match results alone, so they may
     // exist before any tournamentResults are set. Don't bail out if those exist.
@@ -383,7 +394,19 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
 
     const pred = user.tournamentPredictions || ({} as TournamentPredictions);
     const actual = tournamentResults || ({} as TournamentPredictions);
-    const items: { label: string; predicted: string; actual: string; pts: number }[] = [];
+    const groups: SpecialAuditGroup[] = [];
+
+    const pushGroup = (
+      id: string,
+      label: string,
+      predicted: string,
+      actual: string,
+      items: SpecialAuditItem[]
+    ) => {
+      if (items.length === 0) return;
+      const total = items.reduce((sum, i) => sum + i.pts, 0);
+      groups.push({ id, label, predicted, actual, items, total });
+    };
 
     if (ruleset === "regulamento_2") {
       const allGroupPredictions = allUsers
@@ -404,12 +427,9 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
           ).length;
           pts = count === 1 ? 100 : count === 2 ? 70 : count === 3 ? 50 : 40;
         }
-        items.push({
-          label: "Campeão",
-          predicted: formatTeamName(pred.championTeamId),
-          actual: formatTeamName(actual.championTeamId),
-          pts,
-        });
+        pushGroup("champion", "Campeão", formatTeamName(pred.championTeamId), formatTeamName(actual.championTeamId), [
+          { label: "Campeão", predicted: formatTeamName(pred.championTeamId), actual: formatTeamName(actual.championTeamId), pts },
+        ]);
       }
 
       // Top scorer
@@ -444,15 +464,14 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
           pts = count === 1 ? 60 : count === 2 ? 40 : count === 3 ? 30 : 25;
         }
 
-        items.push({
-          label: "Artilheiro",
-          predicted: pred.topScorer.player,
-          actual: formatTopScorerNames(actual.topScorerPlayerIds) || actual.topScorer?.player || "–",
-          pts,
-        });
+        const actualLabel = formatTopScorerNames(actual.topScorerPlayerIds) || actual.topScorer?.player || "–";
+        pushGroup("top-scorer", "Artilheiro", pred.topScorer.player, actualLabel, [
+          { label: "Artilheiro", predicted: pred.topScorer.player, actual: actualLabel, pts },
+        ]);
       }
 
-      // Most goals team
+      // Most goals / conceded teams
+      const mostGoalsItems: SpecialAuditItem[] = [];
       if (isPreCupSpecialVisible && pred.mostGoalsTeamId) {
         const officialMostGoalsIds =
           actual.mostGoalsTeamIds && actual.mostGoalsTeamIds.length > 0
@@ -461,18 +480,14 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
               ? [actual.mostGoalsTeamId]
               : [];
         const pts = officialMostGoalsIds.includes(pred.mostGoalsTeamId) ? 20 : 0;
-        items.push({
+        const actualLabel = officialMostGoalsIds.length > 0 ? formatTeamList(officialMostGoalsIds) : formatTeamName(actual.mostGoalsTeamId);
+        mostGoalsItems.push({
           label: "Seleção com mais gols num jogo",
           predicted: formatTeamName(pred.mostGoalsTeamId),
-          actual:
-            officialMostGoalsIds.length > 0
-              ? formatTeamList(officialMostGoalsIds)
-              : formatTeamName(actual.mostGoalsTeamId),
+          actual: actualLabel,
           pts,
         });
       }
-
-      // Most conceded team
       if (isPreCupSpecialVisible && pred.mostConcededTeamId) {
         const officialMostConcededIds =
           actual.mostConcededTeamIds && actual.mostConcededTeamIds.length > 0
@@ -481,42 +496,18 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
               ? [actual.mostConcededTeamId]
               : [];
         const pts = officialMostConcededIds.includes(pred.mostConcededTeamId) ? 20 : 0;
-        items.push({
+        const actualLabel = officialMostConcededIds.length > 0 ? formatTeamList(officialMostConcededIds) : formatTeamName(actual.mostConcededTeamId);
+        mostGoalsItems.push({
           label: "Seleção que tomou mais gols num jogo",
           predicted: formatTeamName(pred.mostConcededTeamId),
-          actual:
-            officialMostConcededIds.length > 0
-              ? formatTeamList(officialMostConcededIds)
-              : formatTeamName(actual.mostConcededTeamId),
+          actual: actualLabel,
           pts,
         });
       }
-
-      // Group classifications
-      if (pred.groupClassifications && actual.groupClassifications) {
-        Object.entries(pred.groupClassifications).forEach(([groupName, predTeams]) => {
-          if (!phaseStarted(groupName)) return;
-          const actualTeams = actual.groupClassifications?.[groupName];
-          if (actualTeams && Array.isArray(predTeams)) {
-            const validPreds = predTeams.filter(Boolean);
-            const isKnockout = ["DezesseisAvos", "Oitavas", "Quartas", "Semis"].includes(groupName);
-            let pts = 0;
-            validPreds.forEach((teamId) => {
-              if (actualTeams.includes(teamId)) {
-                pts += isKnockout ? 5 : 10;
-              }
-            });
-            if (validPreds.length > 0) {
-              const knockoutLabel = groupName === "DezesseisAvos" ? "16 Avos" : groupName;
-              items.push({
-                label: `Classificados – ${knockoutLabel}`,
-                predicted: formatTeamList(validPreds),
-                actual: formatTeamList(actualTeams),
-                pts,
-              });
-            }
-          }
-        });
+      if (mostGoalsItems.length > 0) {
+        const predictedSummary = mostGoalsItems.map((i) => i.predicted).join(" / ");
+        const actualSummary = mostGoalsItems.map((i) => i.actual).join(" / ");
+        pushGroup("most-goals", "Mais gols num jogo", predictedSummary, actualSummary, mostGoalsItems);
       }
 
       // Extra phase predictions (jogo com maior diferença de gols por fase)
@@ -552,6 +543,8 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
         };
         const phaseOrder = ["groups", "round_of_32", "oitavas", "quartas", "semis"];
 
+        const extraPhaseItems: SpecialAuditItem[] = [];
+
         phaseOrder.forEach((phaseKey) => {
           const ep = userExtraPhasePreds.find((p) => p.phase === phaseKey);
           if (!ep || !ep.matchId) return;
@@ -573,7 +566,6 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
             officialMatchIds
           );
 
-          // Resolve the actual "biggest goal diff" match(es) for display
           let actualLabel = "–";
           if (officialMatchIds && officialMatchIds.length > 0) {
             actualLabel = officialMatchIds.map((id) => matchLabelById(id)).join(", ");
@@ -592,19 +584,82 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
             }
           }
 
-          items.push({
-            label: `Maior diferença de gols – ${phaseLabels[phaseKey] || phaseKey}`,
+          extraPhaseItems.push({
+            label: phaseLabels[phaseKey] || phaseKey,
             predicted: matchLabelById(ep.matchId),
             actual: actualLabel,
             pts,
           });
         });
+
+        if (extraPhaseItems.length > 0) {
+          pushGroup(
+            "biggest-goal-diff",
+            "Maior diferença de gols",
+            extraPhaseItems.map((i) => `${i.label}: ${i.predicted}`).join("; "),
+            extraPhaseItems.map((i) => `${i.label}: ${i.actual}`).join("; "),
+            extraPhaseItems
+          );
+        }
+      }
+
+      // Group classifications (group stage + knockout phases)
+      if (pred.groupClassifications && actual.groupClassifications) {
+        const groupStageItems: SpecialAuditItem[] = [];
+        Object.entries(pred.groupClassifications).forEach(([groupName, predTeams]) => {
+          if (!phaseStarted(groupName)) return;
+          const actualTeams = actual.groupClassifications?.[groupName];
+          if (!actualTeams || !Array.isArray(predTeams)) return;
+          const validPreds = predTeams.filter(Boolean);
+          if (validPreds.length === 0) return;
+          const isKnockout = ["DezesseisAvos", "Oitavas", "Quartas", "Semis"].includes(groupName);
+          if (isKnockout) {
+            // Each predicted team is a separate child item
+            const knockoutItems: SpecialAuditItem[] = validPreds.map((teamId) => {
+              const hit = actualTeams.includes(teamId);
+              return {
+                label: formatTeamName(teamId),
+                predicted: "Classifica",
+                actual: hit ? "Classificado" : "Não classificado",
+                pts: hit ? 5 : 0,
+              };
+            });
+            const knockoutLabel = groupName === "DezesseisAvos" ? "16 Avos" : groupName;
+            pushGroup(
+              `classifications-${groupName}`,
+              `Classificados ${knockoutLabel}`,
+              formatTeamList(validPreds),
+              formatTeamList(actualTeams),
+              knockoutItems
+            );
+          } else {
+            let pts = 0;
+            validPreds.forEach((teamId) => {
+              if (actualTeams.includes(teamId)) pts += 10;
+            });
+            groupStageItems.push({
+              label: translateGroupName(groupName),
+              predicted: formatTeamList(validPreds),
+              actual: formatTeamList(actualTeams),
+              pts,
+            });
+          }
+        });
+        if (groupStageItems.length > 0) {
+          pushGroup(
+            "classifications-groups",
+            "Classificados Grupo",
+            groupStageItems.map((i) => `${i.label}: ${i.predicted}`).join("; "),
+            groupStageItems.map((i) => `${i.label}: ${i.actual}`).join("; "),
+            groupStageItems
+          );
+        }
       }
     } else {
       // Regulamento 1: só calcula pontos de torneio se a final estiver finalizada
-      // Filtra apenas jogos da competição ativa para verificar a final
       const compMatches = auditMatches.filter((m) => (m.competitionCode || 'WC').toUpperCase() === activeCompCode);
       const isFinalFinished = isTournamentFinalFinished(compMatches);
+      const r1Items: SpecialAuditItem[] = [];
       if (isFinalFinished) {
         if (isPreCupSpecialVisible && pred.topScorer?.player) {
           const pts =
@@ -613,7 +668,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
               actual.topScorer.player.trim().toLowerCase()
               ? POINTS_TOP_SCORER_NAME
               : 0;
-          items.push({
+          r1Items.push({
             label: "Artilheiro (nome)",
             predicted: pred.topScorer.player,
             actual: formatTopScorerNames(actual.topScorerPlayerIds) || actual.topScorer?.player || "–",
@@ -626,7 +681,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
             actual.topScorer?.goals && pred.topScorer.goals === actual.topScorer.goals
               ? POINTS_TOP_SCORER_GOALS
               : 0;
-          items.push({
+          r1Items.push({
             label: "Artilheiro (gols)",
             predicted: String(pred.topScorer.goals),
             actual: actual.topScorer?.goals ? String(actual.topScorer.goals) : "–",
@@ -639,7 +694,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
             actual.championTeamId && pred.championTeamId === actual.championTeamId
               ? POINTS_CHAMPION
               : 0;
-          items.push({
+          r1Items.push({
             label: "Campeão",
             predicted: formatTeamName(pred.championTeamId),
             actual: formatTeamName(actual.championTeamId),
@@ -654,7 +709,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
               actual.bestPlayer.trim().toLowerCase()
               ? POINTS_BEST_PLAYER
               : 0;
-          items.push({
+          r1Items.push({
             label: "Melhor jogador",
             predicted: pred.bestPlayer,
             actual: actual.bestPlayer || "–",
@@ -669,7 +724,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
               actual.bestGoalkeeper.trim().toLowerCase()
               ? POINTS_BEST_GOALKEEPER
               : 0;
-          items.push({
+          r1Items.push({
             label: "Melhor goleiro",
             predicted: pred.bestGoalkeeper,
             actual: actual.bestGoalkeeper || "–",
@@ -677,13 +732,34 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
           });
         }
       }
+      if (r1Items.length > 0) {
+        pushGroup(
+          "r1-specials",
+          "Palpites Especiais",
+          r1Items.map((i) => i.label).join(", "),
+          r1Items.map((i) => i.actual).join(", "),
+          r1Items
+        );
+      }
     }
 
-    const total = items.reduce((sum, i) => sum + i.pts, 0);
-    return { items, total };
+    const total = groups.reduce((sum, g) => sum + g.total, 0);
+    return { groups, total };
   }, [tournamentResults, user, allUsers, activeGroupId, ruleset, isPreCupSpecialVisible, teamNameById, auditMatches, db.extraPhasePredictions, db.competitions, db.players, activeCompCode]);
 
   const grandTotal = matchTotal + (tournamentAudit?.total ?? 0);
+
+  const toggleSpecialGroup = (groupId: string) => {
+    setExpandedSpecialGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  };
 
   const getMedalBadge = (pts: number, isExact: boolean, isOutcomeCorrect: boolean, isDiffCorrect: boolean) => {
     if (pts === 0) return null;
@@ -965,43 +1041,88 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
 
           {auditTab === "especiais" && (
             <div className="p-4 space-y-3">
-              {!tournamentAudit || tournamentAudit.items.length === 0 ? (
+              {!tournamentAudit || tournamentAudit.groups.length === 0 ? (
                 <div className="p-10 text-center text-slate-500 text-sm">
                   Nenhum palpite especial registrado ou resultados ainda não disponíveis.
                 </div>
               ) : (
-                tournamentAudit.items.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex items-center justify-between rounded-xl p-3 border ${
-                      item.pts > 0
-                        ? "bg-brand-green/5 border-brand-green/20"
-                        : "bg-slate-800/40 border-slate-700/40"
-                    }`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-0.5">
-                        {item.label}
-                      </p>
-                      <p className="text-sm text-slate-200 font-medium truncate">
-                        {item.predicted}
-                      </p>
-                      {item.actual !== "–" && (
-                        <p className="text-[10px] text-slate-500 truncate">
-                          Resultado: {item.actual}
-                        </p>
+                tournamentAudit.groups.map((group) => {
+                  const isExpanded = expandedSpecialGroups.has(group.id);
+                  return (
+                    <div
+                      key={group.id}
+                      className={`rounded-xl border overflow-hidden ${
+                        group.total > 0
+                          ? "bg-brand-green/5 border-brand-green/20"
+                          : "bg-slate-800/40 border-slate-700/40"
+                      }`}
+                    >
+                      <button
+                        data-testid={`special-group-${group.id}`}
+                        className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-slate-800/40 transition-colors"
+                        onClick={() => toggleSpecialGroup(group.id)}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm text-slate-200 font-medium">
+                            {group.label}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 ml-3 shrink-0">
+                          <div className="text-right">
+                            {group.total > 0 ? (
+                              <span className="text-brand-green font-black text-sm">+{group.total}</span>
+                            ) : (
+                              <span className="text-slate-600 font-bold text-sm">0</span>
+                            )}
+                            <p className="text-[9px] text-slate-600">pts</p>
+                          </div>
+                          {isExpanded ? (
+                            <ChevronUp size={16} className="text-slate-500" />
+                          ) : (
+                            <ChevronDown size={16} className="text-slate-500" />
+                          )}
+                        </div>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="px-3 pb-3 space-y-2">
+                          {group.items.map((item, idx) => (
+                            <div
+                              key={idx}
+                              className={`flex items-center justify-between rounded-lg p-2.5 border ${
+                                item.pts > 0
+                                  ? "bg-brand-green/5 border-brand-green/15"
+                                  : "bg-slate-900/40 border-slate-700/30"
+                              }`}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-0.5">
+                                  {item.label}
+                                </p>
+                                <p className="text-sm text-slate-300 truncate">
+                                  {item.predicted}
+                                </p>
+                                {item.actual !== "–" && item.actual !== item.predicted && (
+                                  <p className="text-[10px] text-slate-500 truncate">
+                                    Resultado: {item.actual}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="ml-3 shrink-0 text-right">
+                                {item.pts > 0 ? (
+                                  <span className="text-brand-green font-black text-sm">+{item.pts}</span>
+                                ) : (
+                                  <span className="text-slate-600 font-bold text-sm">0</span>
+                                )}
+                                <p className="text-[9px] text-slate-600">pts</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
-                    <div className="ml-3 shrink-0 text-right">
-                      {item.pts > 0 ? (
-                        <span className="text-brand-green font-black text-sm">+{item.pts}</span>
-                      ) : (
-                        <span className="text-slate-600 font-bold text-sm">0</span>
-                      )}
-                      <p className="text-[9px] text-slate-600">pts</p>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           )}

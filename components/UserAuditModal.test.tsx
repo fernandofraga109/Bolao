@@ -155,3 +155,132 @@ describe("UserAuditModal - Regulamento 2 extra phase predictions", () => {
     expect(screen.getByText(/Maior diferença de gols/)).toBeInTheDocument();
   });
 });
+
+describe("UserAuditModal - Regulamento 2 special predictions accordion", () => {
+  it("renders groups closed by default with totals visible on root", async () => {
+    const user = userEvent.setup();
+
+    fakeDb.matches = [
+      makeMatch({ id: "m_ga", date: "2025-06-10T18:00:00Z", stage: "GROUP_STAGE", group: "Grupo A", resultHome: 2, resultAway: 1, status: MatchStatus.FINISHED }),
+      makeMatch({ id: "m_oitavas", date: "2025-06-22T18:00:00Z", stage: "ROUND_OF_16", group: "Oitavas", resultHome: 1, resultAway: 0, status: MatchStatus.FINISHED }),
+    ];
+
+    const auditUser = makeUser({
+      tournamentPredictions: {
+        championTeamId: "t1",
+        topScorer: { player: "Neymar" },
+        topScorerPlayerId: "p1",
+        groupClassifications: {
+          "Grupo A": ["t1", "t2"],
+          Oitavas: ["t1", "t3"],
+        },
+      },
+    });
+
+    const allUsers = [auditUser];
+
+    const tournamentResults = {
+      championTeamId: "t1",
+      topScorerPlayerIds: ["p1"],
+      groupClassifications: {
+        "Grupo A": ["t1", "t2"],
+        Oitavas: ["t1", "t4"],
+      },
+    };
+
+    renderAuditModal({ user: auditUser, allUsers, tournamentResults });
+
+    const specialsTab = screen.getByText(/Palpites Especiais/);
+    await user.click(specialsTab);
+
+    // Root groups are visible
+    expect(screen.getByText("Campeão")).toBeInTheDocument();
+    expect(screen.getByText("Artilheiro")).toBeInTheDocument();
+    expect(screen.getByText("Classificados Grupo")).toBeInTheDocument();
+    expect(screen.getByText("Classificados Oitavas")).toBeInTheDocument();
+
+    // Totals on root (closed by default)
+    expect(screen.getByText("+100")).toBeInTheDocument(); // Campeão
+    expect(screen.getByText("+60")).toBeInTheDocument(); // Artilheiro
+    expect(screen.getByText("+20")).toBeInTheDocument(); // Classificados Grupo (2 x 10)
+    expect(screen.getByText("+5")).toBeInTheDocument(); // Classificados Oitavas (t1 hit)
+
+    // Child details are hidden while closed
+    expect(screen.queryByText("Classificado")).not.toBeInTheDocument();
+    expect(screen.queryByText("Não classificado")).not.toBeInTheDocument();
+  });
+
+  it("expands a group and shows child items when clicked", async () => {
+    const user = userEvent.setup();
+
+    fakeDb.matches = [
+      makeMatch({ id: "m_oitavas", date: "2025-06-22T18:00:00Z", stage: "ROUND_OF_16", group: "Oitavas", resultHome: 1, resultAway: 0, status: MatchStatus.FINISHED }),
+    ];
+
+    const auditUser = makeUser({
+      tournamentPredictions: {
+        groupClassifications: {
+          Oitavas: ["t1", "t3"],
+        },
+      },
+    });
+
+    const allUsers = [auditUser];
+
+    const tournamentResults = {
+      groupClassifications: {
+        Oitavas: ["t1", "t4"],
+      },
+    };
+
+    renderAuditModal({ user: auditUser, allUsers, tournamentResults });
+
+    const specialsTab = screen.getByText(/Palpites Especiais/);
+    await user.click(specialsTab);
+
+    const groupButton = screen.getByTestId("special-group-classifications-Oitavas");
+    await user.click(groupButton);
+
+    // Child items visible after expand
+    expect(screen.getByText("Brasil")).toBeInTheDocument();
+    expect(screen.getByText(/Resultado: Classificado/)).toBeInTheDocument();
+    expect(screen.getByText("França")).toBeInTheDocument();
+    expect(screen.getByText(/Resultado: Não classificado/)).toBeInTheDocument();
+  });
+
+  it("keeps total in footer consistent with sum of group totals", async () => {
+    const user = userEvent.setup();
+
+    fakeDb.matches = [
+      makeMatch({ id: "m_ga", date: "2025-06-10T18:00:00Z", stage: "GROUP_STAGE", group: "Grupo A", resultHome: 2, resultAway: 1, status: MatchStatus.FINISHED }),
+    ];
+
+    const auditUser = makeUser({
+      tournamentPredictions: {
+        championTeamId: "t1",
+        groupClassifications: {
+          "Grupo A": ["t1", "t2"],
+        },
+      },
+    });
+
+    const allUsers = [auditUser];
+
+    const tournamentResults = {
+      championTeamId: "t1",
+      groupClassifications: {
+        "Grupo A": ["t1", "t2"],
+      },
+    };
+
+    renderAuditModal({ user: auditUser, allUsers, tournamentResults });
+
+    const specialsTab = screen.getByText(/Palpites Especiais/);
+    await user.click(specialsTab);
+
+    // 100 (champion) + 20 (group) = 120
+    // Total appears in both header and footer, verify it's displayed
+    expect(screen.getAllByText("120").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Especiais:/)).toBeInTheDocument();
+  });
+});

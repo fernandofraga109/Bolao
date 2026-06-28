@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.94.0';
+export const CURRENT_VERSION = '1.95.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,14 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.95.0',
+    date: '2026-06-28',
+    changes: [
+      'Auditoria de pontos (Regulamento 2): palpites especiais agora organizados em acordeões com header simplificado (apenas título e pontos)',
+      'Nova ordem dos acordeões: Campeão, Artilheiro, Mais gols num jogo, Maior diferença de gols, Classificados Grupo, Classificados Oitavas',
+    ],
+  },
   {
     version: '1.94.0',
     date: '2026-06-28',

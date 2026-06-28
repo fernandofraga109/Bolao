@@ -1,0 +1,14 @@
+﻿
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.5 [39m[90mC:/projects/Fernando-git/bolao-copa-do-mundo-2026[39m
+
+ [32mÔ£ô[39m components/UserAuditModal.test.tsx[2m > [22mUserAuditModal - Regulamento 2 extra phase predictions[2m > [22mdoes not show '16 Avos de Final' biggest-goal-diff row before the phase starts[32m 181[2mms[22m[39m
+ [32mÔ£ô[39m components/UserAuditModal.test.tsx[2m > [22mUserAuditModal - Regulamento 2 extra phase predictions[2m > [22mshows '16 Avos de Final' biggest-goal-diff row once the phase has started[32m 73[2mms[22m[39m
+ [32mÔ£ô[39m components/UserAuditModal.test.tsx[2m > [22mUserAuditModal - Regulamento 2 special predictions accordion[2m > [22mrenders groups closed by default with totals visible on root[32m 144[2mms[22m[39m
+ [32mÔ£ô[39m components/UserAuditModal.test.tsx[2m > [22mUserAuditModal - Regulamento 2 special predictions accordion[2m > [22mexpands a group and shows child items when clicked[32m 175[2mms[22m[39m
+ [32mÔ£ô[39m components/UserAuditModal.test.tsx[2m > [22mUserAuditModal - Regulamento 2 special predictions accordion[2m > [22mkeeps total in footer consistent with sum of group totals[32m 106[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+[2m   Start at [22m 18:41:09
+[2m   Duration [22m 5.87s[2m (transform 546ms, setup 557ms, import 1.45s, tests 687ms, environment 2.65s)[22m
+
