@@ -786,6 +786,17 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     >
                       {pts > 0 ? `+${pts}pts` : "0pts"}
                     </span>
+                    {isPredictionDisabled && pred.whoClassifiesTeamId && (() => {
+                      const classifiesTeam = pred.whoClassifiesTeamId === match.homeTeam.id ? match.homeTeam : match.awayTeam;
+                      return classifiesTeam.flag ? (
+                        <img
+                          src={classifiesTeam.flag}
+                          alt={`${classifiesTeam.name} se classifica`}
+                          title={`${classifiesTeam.name} se classifica`}
+                          className="w-4 h-4 rounded-sm object-contain shrink-0 ring-1 ring-amber-500/40"
+                        />
+                      ) : null;
+                    })()}
                     <span className="font-mono font-black text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded-lg border border-slate-800 shrink-0 text-[10px]">
                       {isPredictionDisabled ? `${pred.home}-${pred.away}` : <EyeOff size={10} />}
                     </span>

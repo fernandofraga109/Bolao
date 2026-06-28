@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.92.0';
+export const CURRENT_VERSION = '1.93.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,14 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.93.0',
+    date: '2026-06-28',
+    changes: [
+      'Na seção "O que a galera acha", os palpites de empate em jogos de mata-mata agora mostram o emblema da seleção que o amigo acredita que vai se classificar, ao lado do placar',
+      'O emblema de quem avança só aparece depois que os palpites são revelados, mantendo as apostas em sigilo até a hora certa',
+    ],
+  },
   {
     version: '1.92.0',
     date: '2026-06-28',
