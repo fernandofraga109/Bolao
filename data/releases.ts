@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.89.0';
+export const CURRENT_VERSION = '1.90.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.90.0',
+    date: '2026-06-28',
+    changes: [
+      'Banner de palpites pendentes do Regulamento 2 agora sempre exibe cor amber e lista detalhada dos jogos não palpitados da fase atual',
+      'Alertas de especiais (Classificados e Maior Diferença) agora baseados na fase que está prestes a começar, não mais em janela de 5 dias',
+      'Adicionado alerta para "Maior Diferença - 16 Avos" no banner de pendências',
+    ],
+  },
   {
     version: '1.89.0',
     date: '2026-06-28',
