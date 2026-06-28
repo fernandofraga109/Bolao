@@ -337,11 +337,11 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
       const stage = (match.stage || "").toUpperCase();
       const group = (match.group || "").toUpperCase();
 
-      if (normalized === "dezesseisavos") {
+      if (normalized === "dezesseisavos" || normalized === "round_of_32" || normalized === "16avos" || normalized === "16_avos") {
         return stage.includes("ROUND_OF_32") || stage.includes("LAST_32") || group.includes("16_AVOS") || group.includes("16AVOS");
       }
-      if (normalized === "oitavas") {
-        return stage.includes("ROUND_OF_16") || group.includes("OITAVAS");
+      if (normalized === "oitavas" || normalized === "round_of_16" || normalized === "last_16") {
+        return stage.includes("ROUND_OF_16") || stage.includes("LAST_16") || group.includes("OITAVAS");
       }
       if (normalized === "quartas") {
         return stage.includes("QUARTER") || group.includes("QUARTAS");
