@@ -94,16 +94,21 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
     return { Oitavas: oitavas, Quartas: quartas, Semis: semis };
   }, [matches]);
 
-  // Determine lock state per phase
+  // Determine lock state per phase: locks when the SOURCE round (previous phase) starts,
+  // since those matches determine who advances. Falls back to the phase's own matches.
   const isPhaseLocked = (phase: KnockoutPhase) => {
     const now = new Date();
-    // Phase-specific lock: when the first match of that phase starts
+    const hasStarted = (m: Match) =>
+      m.status !== "SCHEDULED" && m.status !== "TIMED" || now >= new Date(m.date);
+    // Primary: lock when any match of the source (feeding) round has started
+    const sourceList = sourceMatchesByPhase[phase];
+    if (sourceList.length > 0 && sourceList.some(hasStarted)) {
+      return true;
+    }
+    // Fallback: also lock if any match of the phase itself has started
     const mList = phaseMatches[phase];
-    if (mList.length > 0) {
-      // Sort by date to get the first match of the phase
-      const sortedMatches = [...mList].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-      const firstMatchDate = new Date(sortedMatches[0].date);
-      return now >= firstMatchDate;
+    if (mList.length > 0 && mList.some(hasStarted)) {
+      return true;
     }
     return false;
   };
