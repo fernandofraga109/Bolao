@@ -99,7 +99,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
         </div>
         <div className="flex items-center gap-3">
           {badge && (
-            <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-300 uppercase tracking-wider">
+            <span className="text-[10px] leading-tight font-black px-2 py-1 rounded-full bg-slate-700 text-slate-300 uppercase tracking-wider text-center max-w-[110px] whitespace-normal">
               {badge}
             </span>
           )}
@@ -275,20 +275,20 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
     });
   };
 
-  const PHASE_LABELS: Record<string, string> = {
+  const PHASE_BADGE_LABELS: Record<string, string> = {
     groups: "Fase de Grupos",
-    round_of_32: "16 Avos de Final",
-    oitavas: "Oitavas de Final",
-    quartas: "Quartas de Final",
-    semis: "Semifinais",
-    third_place: "Disputa de 3º Lugar",
+    round_of_32: "16 Avos",
+    oitavas: "Oitavas",
+    quartas: "Quartas",
+    semis: "Semis",
+    third_place: "3º Lugar",
     final: "Final",
   };
 
   const getPhaseBadge = (matches: Match[]): string | undefined => {
     const phases = new Set(matches.map((m) => getPhaseLockKey(m.stage, m.group)));
     const labels = Array.from(phases)
-      .map((p) => PHASE_LABELS[p])
+      .map((p) => PHASE_BADGE_LABELS[p])
       .filter(Boolean);
     return labels.length > 0 ? labels.join(" · ") : undefined;
   };

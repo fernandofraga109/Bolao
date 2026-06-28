@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.86.0';
+export const CURRENT_VERSION = '1.87.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.87.0',
+    date: '2026-06-27',
+    changes: [
+      'Melhoria no layout do badge de fase nos cabeçalhos de data: textos abreviados (16 Avos, Oitavas, Quartas, Semis) e estilo maior para evitar quebras estranhas',
+    ],
+  },
   {
     version: '1.86.0',
     date: '2026-06-27',
