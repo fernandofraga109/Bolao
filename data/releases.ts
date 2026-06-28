@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.93.0';
+export const CURRENT_VERSION = '1.94.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.94.0',
+    date: '2026-06-28',
+    changes: [
+      'Nos jogos de mata-mata (Regulamento 1), o seletor de empate foi renomeado para "Quem passa nos pênaltis?", deixando claro que o palpite vale pelo tempo normal mais prorrogação',
+      'O rótulo do palpite salvo e o emblema em "O que a galera acha" agora indicam "passa nos pênaltis" em vez de "se classifica"',
+      'Seletor de quem avança ganhou layout em largura total acima do confronto, exibindo os nomes das seleções por inteiro e sem estourar a borda do card em telas estreitas',
+    ],
+  },
   {
     version: '1.93.0',
     date: '2026-06-28',
