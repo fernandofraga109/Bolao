@@ -37,24 +37,6 @@ function formatCountdown(ms: number): string {
   return `${mins}min restantes`;
 }
 
-const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
-
-function getFirstMatchDate(matches: Match[], predicate: (m: Match) => boolean): number | null {
-  const filtered = matches.filter(predicate);
-  if (filtered.length === 0) return null;
-  const sorted = [...filtered].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  return new Date(sorted[0].date).getTime();
-}
-
-function getPhaseStartMs(matches: Match[], phase: string): number | null {
-  return getFirstMatchDate(matches, (m) => getPhaseLockKey(m.stage, m.group) === phase);
-}
-
-function isWithinAlertWindow(phaseStartMs: number | null, now: number): boolean {
-  if (!phaseStartMs) return false;
-  return now >= phaseStartMs - FIVE_DAYS_MS && now < phaseStartMs;
-}
-
 const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
   matches,
   predictions,
@@ -67,15 +49,15 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
   groupId,
   userId,
 }) => {
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(id);
   }, []);
 
-  const { banner, missedSpecials, missedLabels, pendingMatches } = useMemo(() => {
-    if (isAdmin) return { banner: null, missedSpecials: 0, missedLabels: [] as string[], pendingMatches: [] as Match[] };
+  const { banner, missedLabels, pendingMatches } = useMemo(() => {
+    if (isAdmin) return { banner: null, missedLabels: [] as string[], pendingMatches: [] as Match[] };
 
     const schedulable = matches.filter(
       (m) => m.status === MatchStatus.SCHEDULED
@@ -83,12 +65,12 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
 
     let bannerResult: { text: string; sub?: string; urgent: boolean; alert?: boolean } | null = null;
     let pendingMatchesList: Match[] = [];
+    let currentPhase: string | null = null;
 
     if (ruleset === "regulamento_1") {
-      const nowMs = Date.now();
       const next24hMatches = schedulable.filter((m) => {
         const matchTime = new Date(m.date).getTime();
-        return matchTime >= nowMs && matchTime <= nowMs + 24 * 60 * 60 * 1000;
+        return matchTime >= now && matchTime <= now + 24 * 60 * 60 * 1000;
       });
       const pending = next24hMatches.filter((m) => !predictions[m.id]);
       if (pending.length > 0) {
@@ -107,10 +89,11 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
         byPhase[phase].push(m);
       });
 
-      const currentPhase = PHASE_ORDER.find((p) => byPhase[p] && !phaseLockSet.has(p));
+      currentPhase = PHASE_ORDER.find((p) => byPhase[p] && !phaseLockSet.has(p)) || null;
 
       if (currentPhase && byPhase[currentPhase]) {
         const pending = byPhase[currentPhase].filter((m) => !predictions[m.id]);
+        pendingMatchesList = pending;
         if (pending.length > 0) {
           const firstMatch = byPhase[currentPhase].sort(
             (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
@@ -119,7 +102,7 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
           bannerResult = {
             text: `Faltam ${pending.length} palpite${pending.length > 1 ? "s" : ""} na ${PHASE_LABELS[currentPhase]}`,
             sub: `Bloqueio em ${formatCountdown(timeLeft)}`,
-            urgent: pending.length >= byPhase[currentPhase].length * 0.5,
+            urgent: true,
           };
         }
       }
@@ -128,6 +111,7 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
         const lockedPhase = PHASE_ORDER.find((p) => phaseLockSet.has(p) && byPhase[p]);
         if (lockedPhase && byPhase[lockedPhase]) {
           const pending = byPhase[lockedPhase].filter((m) => !predictions[m.id]);
+          pendingMatchesList = pending;
           if (pending.length > 0) {
             bannerResult = {
               text: `${PHASE_LABELS[lockedPhase]} bloqueada — você deixou ${pending.length} palpite${pending.length > 1 ? "s" : ""} em branco`,
@@ -141,19 +125,21 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
 
     // Collect missed special labels
     const labels: string[] = [];
+    const tp = tournamentPredictions || {};
+    const ep = extraPhasePredictions.filter((p) => p.userId === userId && p.groupId === groupId);
     const isSpecialsOpen = lockDate ? new Date(lockDate) > new Date() : true;
-    if (isSpecialsOpen && ruleset) {
-      const tp = tournamentPredictions || {};
-      const ep = extraPhasePredictions.filter((p) => p.userId === userId && p.groupId === groupId);
 
-      if (ruleset === "regulamento_1") {
-        if (!tp.championTeamId) labels.push("Campeão");
-        if (!tp.topScorerPlayerId) labels.push("Artilheiro (nome)");
-        if (!tp.topScorer?.goals) labels.push("Artilheiro (gols)");
-        if (!tp.bestPlayerId) labels.push("Melhor Jogador");
-        if (!tp.bestGoalkeeperId) labels.push("Melhor Goleiro");
-      } else {
-        // R2 — Pré-Copa (artilheiro só tem nome, não gols)
+    if (ruleset === "regulamento_1" && isSpecialsOpen) {
+      if (!tp.championTeamId) labels.push("Campeão");
+      if (!tp.topScorerPlayerId) labels.push("Artilheiro (nome)");
+      if (!tp.topScorer?.goals) labels.push("Artilheiro (gols)");
+      if (!tp.bestPlayerId) labels.push("Melhor Jogador");
+      if (!tp.bestGoalkeeperId) labels.push("Melhor Goleiro");
+    }
+
+    if (ruleset === "regulamento_2") {
+      // R2 — Pré-Copa (artilheiro só tem nome, não gols)
+      if (isSpecialsOpen) {
         if (!tp.championTeamId) labels.push("Campeão");
         if (!tp.topScorerPlayerId) labels.push("Artilheiro");
         if (!tp.mostGoalsTeamId) labels.push("Maior Goleadora");
@@ -170,56 +156,45 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
         if (totalSelections < 24) {
           labels.push(`Classificados por Grupos (${totalSelections}/24)`);
         }
+      }
 
-        // Knockout classifications — só na janela de 5 dias
-        const dezesseisAvosStart = getPhaseStartMs(matches, "round_of_32");
-        const oitavasStart = getPhaseStartMs(matches, "oitavas");
-        const quartasStart = getPhaseStartMs(matches, "quartas");
-        const semisStart = getPhaseStartMs(matches, "semis");
+      // Knockout classifications — só para a fase que está prestes a começar
+      const gc = tp.groupClassifications || {};
+      const knockoutPhases: Record<string, { label: string; key: string; expected: number }> = {
+        round_of_32: { label: "Classificados Oitavas", key: "Oitavas", expected: 16 },
+        oitavas: { label: "Classificados Quartas", key: "Quartas", expected: 8 },
+        quartas: { label: "Classificados Semis", key: "Semis", expected: 4 },
+      };
+      if (currentPhase && knockoutPhases[currentPhase]) {
+        const { label, key, expected } = knockoutPhases[currentPhase];
+        const selected = gc[key] || [];
+        if (selected.length < expected) {
+          labels.push(`${label} (${selected.length}/${expected})`);
+        }
+      }
 
-        if (isWithinAlertWindow(dezesseisAvosStart, now)) {
-          const dezesseisAvos = gc["DezesseisAvos"] || [];
-          if (dezesseisAvos.length < 32) labels.push("Classificados 16 Avos");
-        }
-        if (isWithinAlertWindow(oitavasStart, now)) {
-          const oitavas = gc["Oitavas"] || [];
-          if (oitavas.length < 16) labels.push("Classificados Oitavas");
-        }
-        if (isWithinAlertWindow(quartasStart, now)) {
-          const quartas = gc["Quartas"] || [];
-          if (quartas.length < 8) labels.push("Classificados Quartas");
-        }
-        if (isWithinAlertWindow(semisStart, now)) {
-          const semis = gc["Semis"] || [];
-          if (semis.length < 4) labels.push("Classificados Semis");
-        }
-
-        // Extra phase predictions — só na janela de 5 dias
-        const extraPhaseLabels: Record<string, string> = {
-          groups: "Maior Diferença — Fase de Grupos",
-          oitavas: "Maior Diferença — Oitavas",
-          quartas: "Maior Diferença — Quartas",
-          semis: "Maior Diferença — Semis",
-        };
-        const extraPhases: string[] = ["groups", "oitavas", "quartas", "semis"];
-        extraPhases.forEach((phase) => {
-          const phaseStart = getPhaseStartMs(matches, phase);
-          if (isWithinAlertWindow(phaseStart, now)) {
-            const hasPred = ep.some((p) => p.phase === phase && p.matchId);
-            if (!hasPred) labels.push(extraPhaseLabels[phase]);
-          }
-        });
+      // Extra phase predictions — só para a fase que está prestes a começar
+      const extraPhaseLabels: Record<string, string> = {
+        groups: "Maior Diferença — Fase de Grupos",
+        round_of_32: "Maior Diferença — 16 Avos",
+        oitavas: "Maior Diferença — Oitavas",
+        quartas: "Maior Diferença — Quartas",
+        semis: "Maior Diferença — Semis",
+      };
+      if (currentPhase && extraPhaseLabels[currentPhase]) {
+        const hasPred = ep.some((p) => p.phase === currentPhase && p.matchId);
+        if (!hasPred) labels.push(extraPhaseLabels[currentPhase]);
       }
     }
 
-    return { banner: bannerResult, missedSpecials: labels.length, missedLabels: labels, pendingMatches: pendingMatchesList };
+    return { banner: bannerResult, missedLabels: labels, pendingMatches: pendingMatchesList };
   }, [matches, predictions, ruleset, phaseLockSet, isAdmin, now, tournamentPredictions, extraPhasePredictions, lockDate, groupId, userId]);
 
   if (!banner && missedLabels.length === 0) return null;
 
   const accent = banner?.alert
     ? { border: "border-l-red-500", bg: "bg-red-900/40", text: "text-red-200", iconBg: "bg-red-500/30", iconText: "text-red-300", subBg: "bg-red-500/20", subText: "text-red-300" }
-    : banner?.urgent || ruleset === "regulamento_1"
+    : banner?.urgent || ruleset === "regulamento_1" || ruleset === "regulamento_2"
     ? { border: "border-l-amber-500", bg: "bg-amber-900/40", text: "text-amber-100", iconBg: "bg-amber-500/30", iconText: "text-amber-300", subBg: "bg-amber-500/20", subText: "text-amber-300" }
     : { border: "border-l-indigo-500", bg: "bg-indigo-900/40", text: "text-indigo-100", iconBg: "bg-indigo-500/30", iconText: "text-indigo-300", subBg: "bg-indigo-500/20", subText: "text-indigo-300" };
 
@@ -247,7 +222,7 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
                 {banner.sub}
               </span>
             )}
-            {ruleset === "regulamento_1" && pendingMatches.length > 0 && (
+            {pendingMatches.length > 0 && (
               <div className={`mt-2 pt-2 border-t border-slate-600/30`}>
                 <div className="flex flex-col gap-1.5">
                   {pendingMatches.map((m) => {
