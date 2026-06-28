@@ -298,15 +298,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     return { points, bonus, category: cat.type, aloneBonus: false, classifiesBonus: cat.classifiesBonus };
   };
 
-  // For R1 knockout matches that went to extra time/penalties, show regularTime score.
-  // For R2 (and all group matches), show the full result (regularTime + extraTime).
+  // Placar principal: resultado final (tempo regular + prorrogação) para ambos os
+  // regulamentos. No R1 o mata-mata passou a contabilizar a prorrogação (120 min),
+  // então o placar exibido espelha o que é pontuado. O tempo regular fica como
+  // detalhe secundário abaixo dos times.
   const displayResult = useMemo(() => {
     if (!match.result) return null;
-    if (ruleset === "regulamento_1") {
-      return getR1MatchScoringResult(match, match.result.home, match.result.away);
-    }
     return { home: match.result.home, away: match.result.away };
-  }, [match.result, match.regularHome, match.regularAway, match.extraTimeHome, match.penaltiesHome, match.score, ruleset]);
+  }, [match.result]);
 
   const userScoring = useMemo(() => {
     if ((isFinished || isLive || isDelayed) && match.result && userPrediction) {
@@ -424,9 +423,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   </div>
                   {!isLive && !isDelayed && (
                     <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">
-                      {ruleset === "regulamento_1" && getMatchDuration(match) !== 'REGULAR'
-                        ? "Tempo Regular"
-                        : "Resultado"}
+                      Resultado
                     </span>
                   )}
                 </div>
@@ -540,7 +537,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   </div>
                 </div>
                 {!isPredictionDisabled && (
-                   <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Sua Aposta</span>
+                   <div className="flex flex-col items-center gap-0.5">
+                     <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Sua Aposta</span>
+                     {isKnockoutMatch && (
+                       <span className="text-[8px] font-semibold text-slate-500 normal-case tracking-tight text-center leading-tight">
+                         (tempo regulamentar + prorrogação)
+                       </span>
+                     )}
+                   </div>
                 )}
               </div>
             )}
@@ -577,14 +581,15 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           (match.penaltiesHome != null || match.penaltiesAway != null)
         ) && (
           <div className="flex gap-3 mb-4 animate-fadeIn">
-            {/* Extra Time block */}
-            {getMatchDuration(match) !== 'REGULAR' && match.result && (
+            {/* Tempo Regular block — placar dos 90 min (o principal acima já mostra
+                regular + prorrogação, que é o que pontua no R1). */}
+            {getMatchDuration(match) !== 'REGULAR' && match.regularHome != null && (
               <div className="flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-2xl bg-slate-700/30 border border-slate-600/40">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Após Prorrogação</span>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tempo Regular</span>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-lg font-black text-white">{match.result.home}</span>
+                  <span className="text-lg font-black text-white">{match.regularHome}</span>
                   <span className="text-sm font-bold text-slate-500">×</span>
-                  <span className="text-lg font-black text-white">{match.result.away}</span>
+                  <span className="text-lg font-black text-white">{match.regularAway}</span>
                 </div>
               </div>
             )}

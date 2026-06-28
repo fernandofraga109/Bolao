@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.87.0';
+export const CURRENT_VERSION = '1.88.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.88.0',
+    date: '2026-06-27',
+    changes: [
+      'Atendendo ao resultado da enquete: no Regulamento 1, o palpite das fases de mata-mata passa a valer pelo tempo regular + prorrogação (120 min), e não mais apenas pelos 90 minutos',
+      'A regra fica igual à do Regulamento 2: os pênaltis continuam fora do placar e servem apenas para o bônus de quem se classifica',
+      'No card do jogo, abaixo de "Sua Aposta", aparece o aviso "(tempo regulamentar + prorrogação)" nos jogos de mata-mata do Regulamento 1',
+    ],
+  },
   {
     version: '1.87.0',
     date: '2026-06-27',
