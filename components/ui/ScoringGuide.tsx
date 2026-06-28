@@ -103,7 +103,7 @@ const R1Content: React.FC = () => (
 
     <div>
       <SectionTitle>Mata-Mata</SectionTitle>
-      <Note>Comparado contra o Tempo Regular (90 min). Prorrogação não conta.</Note>
+      <Note>Comparado contra o placar após a prorrogação (tempo regular + prorrogação, 120 min). Pênaltis não contam para o placar.</Note>
       <div className="mt-2">
         <BonusRow
           label="Bônus Classifica"

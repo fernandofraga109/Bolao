@@ -142,6 +142,7 @@ const RulesSection: React.FC<RulesSectionProps> = ({ minRankDiff = 10, ruleset =
                       <span className="bg-amber-500/80 text-black font-bold px-1.5 rounded text-[10px] mt-0.5 min-w-[36px] text-center">+3</span>
                       <span><b>Vencedor nos Pênaltis:</b> Em jogos de mata-mata, se palpar empate e o jogo for para pênaltis, você pode indicar o vencedor. Acertar dá +3 pts extras.</span>
                   </li>
+                  <li className="text-[10px] text-slate-500 italic pl-1">No mata-mata, o placar considerado é o tempo regulamentar + prorrogação (120 min). Os pênaltis não contam para o placar.</li>
 
                   <li className="pt-2 font-bold text-indigo-300">Bônus Especiais (100pts cada):</li>
                   

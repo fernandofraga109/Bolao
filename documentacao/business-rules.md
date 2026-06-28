@@ -57,7 +57,9 @@ Concedido **somente** quando TODAS as condições:
 
 ### Base de comparação em mata-mata (R1)
 
-R1 compara **somente o tempo regular (90 min)** — `getR1MatchScoringResult` lê `regularHome/regularAway` (fallback JSONB `score.regularTime`). A prorrogação **não conta** para a categoria de placar no R1.
+R1 compara o **tempo regular + prorrogação (120 min)**, igual ao R2 — `getR1MatchScoringResult` retorna `regularHome + extraTimeHome` / `regularAway + extraTimeAway` (fallback: resultado final consolidado em `match.result`). Os **pênaltis não contam** para a categoria de placar; resolvem apenas o bônus "quem se classifica".
+
+> Histórico: até 2026-06 o R1 comparava somente o tempo regular (90 min). Após enquete com os usuários, passou a contabilizar a prorrogação, alinhando-se ao R2.
 
 ---
 
