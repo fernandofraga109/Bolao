@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.87.0';
+export const CURRENT_VERSION = '1.88.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.88.0',
+    date: '2026-06-28',
+    changes: [
+      'Corrigida exibição prematura do item "Maior Diferença de Gols - 16 Avos de Final" no modal de auditoria: agora só aparece depois que o primeiro jogo da fase começa',
+    ],
+  },
   {
     version: '1.87.0',
     date: '2026-06-27',
