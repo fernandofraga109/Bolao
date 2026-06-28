@@ -356,6 +356,27 @@ export const usePointsProcessor = (dbRef: any) => {
               topScorerPlayerId: tp.topScorerPlayerId || undefined,
             }));
 
+            // Build per-user match predictions map for knockout coherence check
+            const matchPredsByUser = new Map<string, Record<string, { home: number; away: number }>>();
+            (preds || []).forEach((p) => {
+              if (!matchPredsByUser.has(p.userId)) matchPredsByUser.set(p.userId, {});
+              matchPredsByUser.get(p.userId)![p.matchId] = { home: p.homeScore, away: p.awayScore };
+            });
+
+            // Source matches for coherence: ALL matches in the competition (not just finished),
+            // because the feeder match (e.g. a 16-Avos game) needs to be found by team IDs
+            // regardless of its current status.
+            const allCompMatches = (dbRef.current.matches as any[]).filter(
+              (m: any) => (m.competitionCode || 'WC').toUpperCase() === compCode.toUpperCase()
+            );
+            const phaseSourceMatches = allCompMatches.map((m: any) => ({
+              id: m.id,
+              homeTeamId: m.homeTeamId ?? null,
+              awayTeamId: m.awayTeamId ?? null,
+              stage: m.stage,
+              group: m.group,
+            }));
+
             (tournPreds || []).forEach((tp) => {
               if (!pointsByUser[tp.userId]) pointsByUser[tp.userId] = 0;
               const predTourn: TournamentPredictions = {
@@ -372,7 +393,9 @@ export const usePointsProcessor = (dbRef: any) => {
                 predTourn,
                 tournamentResults,
                 groupTournPreds,
-                tp.userId
+                tp.userId,
+                matchPredsByUser.get(tp.userId) || {},
+                phaseSourceMatches
               );
               if (pts > 0) {
                 console.log(`🏆 Pontos de Torneio (Regulamento 2) para ${tp.userId}: +${pts}`);

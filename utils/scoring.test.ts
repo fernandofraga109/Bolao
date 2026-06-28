@@ -14,6 +14,7 @@ import {
   getMatchDuration,
   getKnockoutAdvancingTeamId,
   getR1MatchScoringResult,
+  isKnockoutPredictionCoherent,
   POINTS_EXACT,
   POINTS_GOAL_DIFF,
   POINTS_OUTCOME,
@@ -427,6 +428,134 @@ describe("calculateTournamentPointsRegulamento2", () => {
     );
     // 16 Avos foi removido do Regulamento 2; palpites antigos não pontuam
     expect(pts).toBe(0);
+  });
+
+  // --- Coherence tests for Oitavas/Quartas/Semis (introduced with match-prediction coherence rule) ---
+
+  const coherenceMatches = [
+    // 16 Avos (feeds Oitavas)
+    { id: "m-sa-ca", homeTeamId: "sa", awayTeamId: "ca", stage: "ROUND_OF_32", group: "" },
+    { id: "m-bra-arg", homeTeamId: "bra", awayTeamId: "arg", stage: "ROUND_OF_32", group: "" },
+    // Oitavas (feeds Quartas)
+    { id: "m-ca-fra", homeTeamId: "ca", awayTeamId: "fra", stage: "ROUND_OF_16", group: "" },
+    // Quartas (feeds Semis)
+    { id: "m-ca-ger", homeTeamId: "ca", awayTeamId: "ger", stage: "QUARTER_FINALS", group: "" },
+  ];
+
+  it("pontua 5pts quando palpite do jogo indica vitória do time escolhido para Oitavas", () => {
+    const userMatchPreds = { "m-sa-ca": { home: 1, away: 2 } }; // Canada vence
+    const prediction = { groupClassifications: { "Oitavas": ["ca"] } };
+    const actual    = { groupClassifications: { "Oitavas": ["ca"] } };
+    const pts = calculateTournamentPointsRegulamento2(
+      prediction as any, actual as any, groupTournMock, "u2",
+      userMatchPreds, coherenceMatches
+    );
+    expect(pts).toBe(5);
+  });
+
+  it("não pontua quando palpite do jogo indica vitória do adversário (incoerente)", () => {
+    const userMatchPreds = { "m-sa-ca": { home: 2, away: 0 } }; // South Africa vence, mas Canada foi escolhido
+    const prediction = { groupClassifications: { "Oitavas": ["ca"] } };
+    const actual    = { groupClassifications: { "Oitavas": ["ca"] } };
+    const pts = calculateTournamentPointsRegulamento2(
+      prediction as any, actual as any, groupTournMock, "u2",
+      userMatchPreds, coherenceMatches
+    );
+    expect(pts).toBe(0);
+  });
+
+  it("pontua 5pts quando palpite do jogo é empate e o time escolhido realmente avançou", () => {
+    const userMatchPreds = { "m-sa-ca": { home: 1, away: 1 } }; // empate
+    const prediction = { groupClassifications: { "Oitavas": ["ca"] } };
+    const actual    = { groupClassifications: { "Oitavas": ["ca"] } };
+    const pts = calculateTournamentPointsRegulamento2(
+      prediction as any, actual as any, groupTournMock, "u2",
+      userMatchPreds, coherenceMatches
+    );
+    expect(pts).toBe(5);
+  });
+
+  it("não pontua quando não há palpite do jogo correspondente (obrigatório palpitar em ambos)", () => {
+    const userMatchPreds = {}; // sem palpite no jogo 16 Avos
+    const prediction = { groupClassifications: { "Oitavas": ["ca"] } };
+    const actual    = { groupClassifications: { "Oitavas": ["ca"] } };
+    const pts = calculateTournamentPointsRegulamento2(
+      prediction as any, actual as any, groupTournMock, "u2",
+      userMatchPreds, coherenceMatches
+    );
+    expect(pts).toBe(0);
+  });
+
+  it("pontua normalmente sem verificação de coerência quando contexto não é fornecido (backward compat)", () => {
+    const prediction = { groupClassifications: { "Oitavas": ["ca"] } };
+    const actual    = { groupClassifications: { "Oitavas": ["ca"] } };
+    const pts = calculateTournamentPointsRegulamento2(
+      prediction as any, actual as any, groupTournMock, "u2"
+      // sem userMatchPredictions nem phaseSourceMatches
+    );
+    expect(pts).toBe(5);
+  });
+
+  it("pontua coerência em Quartas: palpite Canada vence Oitavas e Canada escolhido para Quartas", () => {
+    const userMatchPreds = { "m-ca-fra": { home: 2, away: 1 } }; // Canada vence Oitavas
+    const prediction = { groupClassifications: { "Quartas": ["ca"] } };
+    const actual    = { groupClassifications: { "Quartas": ["ca"] } };
+    const pts = calculateTournamentPointsRegulamento2(
+      prediction as any, actual as any, groupTournMock, "u2",
+      userMatchPreds, coherenceMatches
+    );
+    expect(pts).toBe(5);
+  });
+
+  it("não pontua em Quartas: palpite França vence Oitavas mas Canada escolhido para Quartas", () => {
+    const userMatchPreds = { "m-ca-fra": { home: 0, away: 1 } }; // França vence, Canada escolhido → incoerente
+    const prediction = { groupClassifications: { "Quartas": ["ca"] } };
+    const actual    = { groupClassifications: { "Quartas": ["ca"] } };
+    const pts = calculateTournamentPointsRegulamento2(
+      prediction as any, actual as any, groupTournMock, "u2",
+      userMatchPreds, coherenceMatches
+    );
+    expect(pts).toBe(0);
+  });
+});
+
+describe("isKnockoutPredictionCoherent", () => {
+  const matches = [
+    { id: "m1", homeTeamId: "sa", awayTeamId: "ca", stage: "ROUND_OF_32", group: "" },
+    { id: "m2", homeTeamId: "bra", awayTeamId: "arg", stage: "ROUND_OF_32", group: "" },
+    { id: "m3", homeTeamId: "ca", awayTeamId: "fra", stage: "ROUND_OF_16", group: "" },
+    { id: "m4", homeTeamId: "ca", awayTeamId: "ger", stage: "QUARTER_FINALS", group: "" },
+  ];
+
+  it("retorna true quando palpite indica vitória do próprio time", () => {
+    expect(isKnockoutPredictionCoherent("ca", "Oitavas", { "m1": { home: 0, away: 1 } }, matches)).toBe(true);
+  });
+
+  it("retorna false quando palpite indica vitória do adversário", () => {
+    expect(isKnockoutPredictionCoherent("ca", "Oitavas", { "m1": { home: 2, away: 0 } }, matches)).toBe(false);
+  });
+
+  it("retorna true quando palpite é empate (ambos os times são coerentes)", () => {
+    expect(isKnockoutPredictionCoherent("ca", "Oitavas", { "m1": { home: 1, away: 1 } }, matches)).toBe(true);
+    expect(isKnockoutPredictionCoherent("sa", "Oitavas", { "m1": { home: 1, away: 1 } }, matches)).toBe(true);
+  });
+
+  it("retorna false quando não há palpite do jogo (obrigatório)", () => {
+    expect(isKnockoutPredictionCoherent("ca", "Oitavas", {}, matches)).toBe(false);
+  });
+
+  it("retorna false quando não existe jogo da fase anterior para o time", () => {
+    expect(isKnockoutPredictionCoherent("esp", "Oitavas", { "m1": { home: 0, away: 1 } }, matches)).toBe(false);
+  });
+
+  it("funciona corretamente para Quartas (jogo de Oitavas alimenta)", () => {
+    expect(isKnockoutPredictionCoherent("ca", "Quartas", { "m3": { home: 2, away: 0 } }, matches)).toBe(true);
+    expect(isKnockoutPredictionCoherent("fra", "Quartas", { "m3": { home: 2, away: 0 } }, matches)).toBe(false);
+  });
+
+  it("funciona corretamente para Semis (jogo de Quartas alimenta)", () => {
+    expect(isKnockoutPredictionCoherent("ca", "Semis", { "m4": { home: 1, away: 0 } }, matches)).toBe(true);
+    expect(isKnockoutPredictionCoherent("ger", "Semis", { "m4": { home: 1, away: 0 } }, matches)).toBe(false);
   });
 });
 

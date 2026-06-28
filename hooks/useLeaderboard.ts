@@ -165,11 +165,26 @@ export const useLeaderboard = (
 
         if (tournamentResults) {
           if (activeRuleset === "regulamento_2") {
+            const userMatchPreds: Record<string, { home: number; away: number }> = {};
+            if (user.predictions) {
+              Object.entries(user.predictions).forEach(([matchId, pred]) => {
+                userMatchPreds[matchId] = { home: pred.home, away: pred.away };
+              });
+            }
+            const phaseSourceMatches = groupMatches.map((m) => ({
+              id: m.id,
+              homeTeamId: m.homeTeam?.id ?? null,
+              awayTeamId: m.awayTeam?.id ?? null,
+              stage: m.stage,
+              group: m.group,
+            }));
             const tournPts = calculateTournamentPointsRegulamento2(
               user.tournamentPredictions,
               tournamentResults,
               allGroupPredictions,
-              user.id
+              user.id,
+              userMatchPreds,
+              phaseSourceMatches
             );
             total += tournPts;
             specialPoints += tournPts;

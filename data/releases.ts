@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.90.0';
+export const CURRENT_VERSION = '1.91.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,17 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.91.0',
+    date: '2026-06-28',
+    changes: [
+      'Coerência de palpites no Regulamento 2: os 5pts de "Classificados 2ª Fase" (Oitavas, Quartas, Semis) só são concedidos se o palpite do jogo knockout correspondente (da fase anterior) existe e é coerente com a escolha de quem avança',
+      'Se o usuário não palpitar no jogo, os 5pts não são concedidos (obrigatório palpitar em ambos)',
+      'Se o palpite do jogo indica vitória do adversário, os 5pts não são concedidos (incoerente)',
+      'Se o palpite do jogo é empate, qualquer um dos dois times é coerente (empate libera qualquer escolha)',
+      'Pontos dos jogos permanecem inalterados — a coerência afeta apenas os 5pts do especial',
+    ],
+  },
   {
     version: '1.90.0',
     date: '2026-06-28',

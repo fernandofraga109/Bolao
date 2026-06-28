@@ -371,6 +371,70 @@ export interface TournamentPredictionContext {
   topScorerPlayerId?: string;
 }
 
+export type KnockoutPhaseKey = 'Oitavas' | 'Quartas' | 'Semis';
+
+/**
+ * Maps a knockout phase to the stage identifiers of the PREVIOUS round whose
+ * winner advances into that phase.
+ *   Oitavas ← 16 Avos (ROUND_OF_32 / LAST_32 / 16_AVOS)
+ *   Quartas ← Oitavas (ROUND_OF_16 / LAST_16 / OITAVAS)
+ *   Semis   ← Quartas (QUARTER / QUARTAS)
+ */
+const KNOCKOUT_FEEDER_STAGE: Record<KnockoutPhaseKey, (stage: string, group: string) => boolean> = {
+  Oitavas: (s, g) =>
+    s.includes('ROUND_OF_32') || s.includes('LAST_32') ||
+    g.includes('16_AVOS') || g.includes('16AVOS'),
+  Quartas: (s, g) =>
+    s.includes('ROUND_OF_16') || s.includes('LAST_16') || g.includes('OITAVAS'),
+  Semis: (s, g) =>
+    s.includes('QUARTER') || g.includes('QUARTAS'),
+};
+
+/**
+ * Verifica se o palpite especial de "quem avança" para uma fase knockout é
+ * coerente com o palpite do jogo da fase anterior para aquele time.
+ *
+ * Regras:
+ * - Se o usuário não palpitou no jogo correspondente → false (obrigatório).
+ * - Se o palpite do jogo indica vitória do time adversário → false (incoerente).
+ * - Se o palpite do jogo indica vitória do próprio time → true.
+ * - Se o palpite do jogo indica empate → true (ambos os times são coerentes;
+ *   o usuário não pode prever o vencedor dos pênaltis).
+ *
+ * @param teamId         ID do time escolhido para avançar.
+ * @param phase          Fase knockout cujo palpite especial está sendo validado.
+ * @param userMatchPreds Mapa matchId → {home, away} com os palpites do usuário.
+ * @param sourceMatches  Lista de jogos que alimentam a fase (toda a competição).
+ */
+export const isKnockoutPredictionCoherent = (
+  teamId: string,
+  phase: KnockoutPhaseKey,
+  userMatchPreds: Record<string, { home: number; away: number }>,
+  sourceMatches: Array<{ id: string; homeTeamId?: string | null; awayTeamId?: string | null; stage?: string; group?: string }>
+): boolean => {
+  const isFeeder = KNOCKOUT_FEEDER_STAGE[phase];
+  const feederMatch = sourceMatches.find((m) => {
+    const s = (m.stage || '').toUpperCase();
+    const g = (m.group || '').toUpperCase();
+    return (
+      isFeeder(s, g) &&
+      (m.homeTeamId === teamId || m.awayTeamId === teamId)
+    );
+  });
+
+  if (!feederMatch) return false;
+
+  const pred = userMatchPreds[feederMatch.id];
+  if (!pred) return false;
+
+  const { home, away } = pred;
+  if (home === away) return true; // empate: qualquer time é coerente
+
+  const predictedWinnerId =
+    home > away ? feederMatch.homeTeamId : feederMatch.awayTeamId;
+  return predictedWinnerId === teamId;
+};
+
 /**
  * REGULAMENTO 2: State-aware tournament predictions calculator (Champion/Top Scorer divided scoring)
  */
@@ -378,7 +442,9 @@ export const calculateTournamentPointsRegulamento2 = (
   prediction: TournamentPredictions | undefined,
   actual: TournamentPredictions | undefined,
   allGroupPredictions: TournamentPredictionContext[],
-  currentUserId: string
+  currentUserId: string,
+  userMatchPredictions?: Record<string, { home: number; away: number }>,
+  phaseSourceMatches?: Array<{ id: string; homeTeamId?: string | null; awayTeamId?: string | null; stage?: string; group?: string }>
 ): number => {
   if (!prediction || !actual) return 0;
 
@@ -464,9 +530,19 @@ export const calculateTournamentPointsRegulamento2 = (
       if (actualTeams && Array.isArray(predTeams) && Array.isArray(actualTeams)) {
         const validPreds = predTeams.filter(Boolean);
         validPreds.forEach((teamId) => {
-          if (actualTeams!.includes(teamId)) {
-            points += isKnockout ? 5 : 10;
+          if (!actualTeams!.includes(teamId)) return;
+          // For knockout phases (Oitavas/Quartas/Semis), enforce coherence between
+          // the special pick and the user's match prediction for the feeder round.
+          // Only applied when the caller provides match context (backward compat).
+          if (isKnockout && userMatchPredictions && phaseSourceMatches) {
+            if (!isKnockoutPredictionCoherent(
+              teamId,
+              groupName as KnockoutPhaseKey,
+              userMatchPredictions,
+              phaseSourceMatches
+            )) return;
           }
+          points += isKnockout ? 5 : 10;
         });
       }
     });
