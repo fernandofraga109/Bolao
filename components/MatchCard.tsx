@@ -382,6 +382,39 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             </span>
           </div>
         )}
+        {/* Who passes on penalties selector — full-width, only for Reg.1 knockout draws */}
+        {isPredictingDraw && (
+          <div className="flex flex-col items-center gap-1.5 w-full px-3 py-2.5 mb-4 rounded-xl bg-amber-500/8 border border-amber-500/25 animate-fadeIn">
+            <span className="text-[9px] font-black text-amber-400 uppercase tracking-wide whitespace-nowrap">Quem passa nos pênaltis?</span>
+            <div className="flex gap-2 w-full">
+              <button
+                onClick={() => setWhoClassifiesTeamId(prev => prev === match.homeTeam.id ? null : match.homeTeam.id)}
+                title={match.homeTeam.name}
+                className={`flex flex-1 min-w-0 items-center justify-center gap-1.5 px-2 py-1.5 rounded-xl border text-[10px] font-black transition-all ${
+                  whoClassifiesTeamId === match.homeTeam.id
+                    ? "bg-amber-500/20 border-amber-500/60 text-amber-300"
+                    : "bg-slate-800 border-slate-700 text-slate-400 hover:border-amber-500/40"
+                }`}
+              >
+                {match.homeTeam.flag && <img src={match.homeTeam.flag} alt={match.homeTeam.name} className="w-4 h-4 rounded-sm object-contain shrink-0" />}
+                <span className="truncate">{match.homeTeam.name}</span>
+              </button>
+              <button
+                onClick={() => setWhoClassifiesTeamId(prev => prev === match.awayTeam.id ? null : match.awayTeam.id)}
+                title={match.awayTeam.name}
+                className={`flex flex-1 min-w-0 items-center justify-center gap-1.5 px-2 py-1.5 rounded-xl border text-[10px] font-black transition-all ${
+                  whoClassifiesTeamId === match.awayTeam.id
+                    ? "bg-amber-500/20 border-amber-500/60 text-amber-300"
+                    : "bg-slate-800 border-slate-700 text-slate-400 hover:border-amber-500/40"
+                }`}
+              >
+                {match.awayTeam.flag && <img src={match.awayTeam.flag} alt={match.awayTeam.name} className="w-4 h-4 rounded-sm object-contain shrink-0" />}
+                <span className="truncate">{match.awayTeam.name}</span>
+              </button>
+            </div>
+            <span className="text-[8px] text-amber-400/60">Opcional · +{POINTS_CLASSIFIES_BONUS} pts se acertar</span>
+          </div>
+        )}
         <div className="flex items-center justify-between gap-2 sm:gap-4 mb-4">
           {/* Home Team */}
           <div className="flex-1 flex flex-col items-center gap-3">
@@ -446,7 +479,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                       <div className="flex items-center gap-1.5 mt-1 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
                         {classifiesTeam.flag && <img src={classifiesTeam.flag} alt={classifiesTeam.name} className="w-4 h-4 rounded-sm object-contain" />}
                         <span className="text-[9px] font-bold text-amber-300">{classifiesTeam.name}</span>
-                        <span className="text-[8px] text-amber-400/70">se classifica</span>
+                        <span className="text-[8px] text-amber-400/70">passa nos pênaltis</span>
                       </div>
                     );
                   })()}
@@ -454,37 +487,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               </div>
             ) : (
               <div className="flex flex-col items-center gap-2">
-                {/* Who classifies selector — only for Reg.1 knockout draws */}
-                {isPredictingDraw && (
-                  <div className="flex flex-col items-center gap-1.5 w-full px-2 py-2 rounded-xl bg-amber-500/8 border border-amber-500/25 animate-fadeIn">
-                    <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest">Quem se classifica?</span>
-                    <div className="flex gap-2 w-full justify-center">
-                      <button
-                        onClick={() => setWhoClassifiesTeamId(prev => prev === match.homeTeam.id ? null : match.homeTeam.id)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-black transition-all ${
-                          whoClassifiesTeamId === match.homeTeam.id
-                            ? "bg-amber-500/20 border-amber-500/60 text-amber-300"
-                            : "bg-slate-800 border-slate-700 text-slate-400 hover:border-amber-500/40"
-                        }`}
-                      >
-                        {match.homeTeam.flag && <img src={match.homeTeam.flag} alt={match.homeTeam.name} className="w-4 h-4 rounded-sm object-contain" />}
-                        {match.homeTeam.name}
-                      </button>
-                      <button
-                        onClick={() => setWhoClassifiesTeamId(prev => prev === match.awayTeam.id ? null : match.awayTeam.id)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-black transition-all ${
-                          whoClassifiesTeamId === match.awayTeam.id
-                            ? "bg-amber-500/20 border-amber-500/60 text-amber-300"
-                            : "bg-slate-800 border-slate-700 text-slate-400 hover:border-amber-500/40"
-                        }`}
-                      >
-                        {match.awayTeam.flag && <img src={match.awayTeam.flag} alt={match.awayTeam.name} className="w-4 h-4 rounded-sm object-contain" />}
-                        {match.awayTeam.name}
-                      </button>
-                    </div>
-                    <span className="text-[8px] text-amber-400/60">Opcional · +{POINTS_CLASSIFIES_BONUS} pts se acertar</span>
-                  </div>
-                )}
                 <div className="flex items-center gap-2 sm:gap-3">
                   {/* Home score stepper */}
                   <div className="flex flex-col items-center gap-1">
@@ -791,8 +793,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                       return classifiesTeam.flag ? (
                         <img
                           src={classifiesTeam.flag}
-                          alt={`${classifiesTeam.name} se classifica`}
-                          title={`${classifiesTeam.name} se classifica`}
+                          alt={`${classifiesTeam.name} passa nos pênaltis`}
+                          title={`${classifiesTeam.name} passa nos pênaltis`}
                           className="w-4 h-4 rounded-sm object-contain shrink-0 ring-1 ring-amber-500/40"
                         />
                       ) : null;
