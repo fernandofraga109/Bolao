@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.95.0';
+export const CURRENT_VERSION = '1.96.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.96.0',
+    date: '2026-06-28',
+    changes: [
+      'Sincronização de dados agora é bem mais rápida — placares e ranking atualizam em segundos em vez de minutos',
+    ],
+  },
   {
     version: '1.95.0',
     date: '2026-06-28',

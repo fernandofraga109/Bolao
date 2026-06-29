@@ -71,9 +71,38 @@ export const usePointsProcessor = (dbRef: any) => {
         }
       });
 
-      // Cache de competição entre grupos: antes era 1 fetch POR grupo, mesmo
-      // quando todos compartilham a mesma competição. Cacheia a Promise para
-      // que grupos concorrentes da mesma competição dividam 1 requisição.
+      // Busca todos os dados necessários em 4 queries únicas (IN groupIds)
+      // em vez de 4 queries POR grupo — reduz de 4×N para 4 round-trips totais.
+      const hasR2Groups = uniqueGroupIds.some((gid) => {
+        const g = (dbRef.current.groups as any[]).find((g: any) => g.id === gid);
+        return g?.ruleset === 'regulamento_2';
+      });
+
+      const [
+        { data: allPreds, error: predsError },
+        { data: allTournPreds, error: tournGlobalError },
+        epGlobalResult,
+        { data: allMembers, error: ugGlobalError },
+      ] = await Promise.all([
+        supabase
+          .from('predictions')
+          .select('userId, matchId, groupId, homeScore, awayScore, points, timestamp, tieWinnerTeamId')
+          .in('groupId', uniqueGroupIds),
+        supabase.from('tournament_predictions').select('*').in('groupId', uniqueGroupIds),
+        hasR2Groups
+          ? supabase.from('extra_phase_predictions').select('*').in('groupId', uniqueGroupIds)
+          : Promise.resolve({ data: [] as any[], error: null }),
+        supabase
+          .from('user_groups')
+          .select('userId, groupId, role, joinedAt')
+          .in('groupId', uniqueGroupIds),
+      ]);
+
+      if (predsError) console.error('❌ Erro ao buscar predições em lote:', predsError);
+      if (tournGlobalError) console.error('❌ Erro ao buscar predições de torneio em lote:', tournGlobalError);
+      if (ugGlobalError) console.error('❌ Erro ao buscar membros em lote:', ugGlobalError);
+
+      // Cache de competição entre grupos: 1 fetch por competitionCode único.
       const competitionPromises = new Map<string, Promise<any>>();
       const getCompetition = (code: string): Promise<any> => {
         if (!competitionPromises.has(code)) {
@@ -92,6 +121,19 @@ export const usePointsProcessor = (dbRef: any) => {
         return competitionPromises.get(code)!;
       };
 
+      // Pré-busca competitions para todos os códigos únicos em paralelo
+      const uniqueCompCodes = Array.from(new Set(
+        uniqueGroupIds.map((gid) => {
+          const g = (dbRef.current.groups as any[]).find((g: any) => g.id === gid);
+          return g?.competitionCode || 'WC';
+        })
+      ));
+      await Promise.all(uniqueCompCodes.map((code) => getCompetition(code)));
+
+      // Coletores globais — preenchidos pelo processGroup e persistidos em batch no final
+      const allUserGroupUpdates: any[] = [];
+      const allPredPointsUpdates: any[] = [];
+
       const processGroup = async (groupId: string): Promise<void> => {
         // Resolve effective underdog threshold for this group
         const allGroups = dbRef.current.groups as any[];
@@ -102,54 +144,32 @@ export const usePointsProcessor = (dbRef: any) => {
         const effectiveMinRankDiff: number = group?.underdog_min_rank_diff ?? globalMinRankDiff;
         const compCode = group?.competitionCode || 'WC';
 
-        // Reads independentes EM PARALELO (antes: 5 round-trips sequenciais por
-        // grupo, com os grupos rodando em série — o gargalo de ~16s do sync).
-        const [
-          { data: preds, error },
-          { data: tournPreds, error: tournError },
-          epResult,
-          { data: members, error: ugError },
-          compData,
-        ] = await Promise.all([
-          supabase
-            .from('predictions')
-            .select('userId, matchId, groupId, homeScore, awayScore, points, timestamp, tieWinnerTeamId')
-            .eq('groupId', groupId),
-          supabase.from('tournament_predictions').select('*').eq('groupId', groupId),
-          isRegulamento2
-            ? supabase.from('extra_phase_predictions').select('*').eq('groupId', groupId)
-            : Promise.resolve({ data: [] as any[], error: null }),
-          supabase
-            .from('user_groups')
-            .select('userId, groupId, role, joinedAt')
-            .eq('groupId', groupId),
-          getCompetition(compCode),
-        ]);
+        // Filtra dados pré-carregados em memória (sem queries adicionais)
+        const preds = predsError ? [] : (allPreds || []).filter((p: any) => p.groupId === groupId);
+        const tournPreds = tournGlobalError ? [] : (allTournPreds || []).filter((p: any) => p.groupId === groupId);
+        const members = ugGlobalError ? null : (allMembers || []).filter((m: any) => m.groupId === groupId);
+        const compData = await getCompetition(compCode);
 
-        if (error) {
-          console.error(`❌ Erro ao buscar predições do grupo ${groupId}:`, error);
+        if (predsError) {
+          console.error(`❌ Erro ao buscar predições do grupo ${groupId} (lote falhou)`);
           return;
         }
 
-        if (tournError) {
-          console.error(`❌ Erro ao buscar predições do torneio do grupo ${groupId}:`, tournError);
-        }
-
-        if (ugError) {
-          console.error(`❌ Erro ao buscar membros do grupo ${groupId}:`, ugError);
+        if (ugGlobalError) {
+          console.error(`❌ Erro ao buscar membros do grupo ${groupId} (lote falhou)`);
           return;
         }
 
-        // 3. Extra phase predictions (only for Regulamento 2)
+        // Extra phase predictions (only for Regulamento 2) — filtrados do lote
         let extraPhasePreds: any[] = [];
         if (isRegulamento2) {
-          if (epResult.error) {
+          if (epGlobalResult.error) {
             console.error(
               `❌ Erro ao buscar palpites extras de fase do grupo ${groupId}:`,
-              epResult.error
+              epGlobalResult.error
             );
-          } else if (epResult.data) {
-            extraPhasePreds = epResult.data;
+          } else if (epGlobalResult.data) {
+            extraPhasePreds = epGlobalResult.data.filter((ep: any) => ep.groupId === groupId);
           }
         }
 
@@ -492,46 +512,49 @@ export const usePointsProcessor = (dbRef: any) => {
           }
         }
 
+        // Coleta user_groups updates no array global (batch upsert no final)
         if (members && members.length > 0) {
           const finalUpdates = members.map((u) => ({
             ...u,
             points: pointsByUser[u.userId] || 0,
           }));
-
-          console.log(
-            `📤 Enviando classificação atualizada para o grupo ${groupId} (${finalUpdates.length} usuários)`
-          );
-
-          const { error: upsertError } = await supabase
-            .from('user_groups')
-            .upsert(finalUpdates, { onConflict: 'userId,groupId' });
-
-          if (upsertError) {
-            console.error(`❌ Erro ao atualizar pontos do grupo ${groupId}:`, upsertError);
-          } else {
-            dbRef.current.updateLocalUserGroups(finalUpdates);
-            console.log(`✨ Classificação sincronizada com sucesso para o grupo ${groupId}`);
-          }
+          console.log(`📤 [${groupId}] ${finalUpdates.length} usuários para atualizar`);
+          allUserGroupUpdates.push(...finalUpdates);
         }
 
-        // 9. Persist calculated points back to predictions.points in the DB.
+        // Coleta predictions.points updates no array global (batch upsert no final)
         if (predPointsUpdates.length > 0) {
-          const { error: predError } = await supabase
-            .from('predictions')
-            .upsert(predPointsUpdates, { onConflict: '"userId", "matchId", "groupId"', defaultToNull: false });
-          if (predError) {
-            console.error(`❌ Error updating prediction points for group ${groupId}:`, predError);
-          } else {
-            console.log(
-              `✓ Updated points column for ${predPointsUpdates.length} predictions in group ${groupId}`
-            );
-          }
+          allPredPointsUpdates.push(...predPointsUpdates);
         }
       };
 
       // Recalcula os grupos EM PARALELO (concorrência limitada) em vez de em
       // série — principal ganho de performance do recálculo (Fase 5 do sync).
       await mapWithConcurrency(uniqueGroupIds, 6, processGroup);
+
+      // 2 upserts batch únicos para todos os grupos (em vez de 2×N por grupo)
+      if (allUserGroupUpdates.length > 0) {
+        console.log(`📤 Batch upsert de ${allUserGroupUpdates.length} entradas de user_groups...`);
+        const { error: ugBatchError } = await supabase
+          .from('user_groups')
+          .upsert(allUserGroupUpdates, { onConflict: 'userId,groupId' });
+        if (ugBatchError) {
+          console.error('❌ Erro ao atualizar user_groups em batch:', ugBatchError);
+        } else {
+          dbRef.current.updateLocalUserGroups(allUserGroupUpdates);
+          console.log(`✨ ${uniqueGroupIds.length} grupos sincronizados com sucesso`);
+        }
+      }
+
+      if (allPredPointsUpdates.length > 0) {
+        console.log(`📦 Batch upsert de ${allPredPointsUpdates.length} predictions.points...`);
+        const { error: predBatchError } = await supabase
+          .from('predictions')
+          .upsert(allPredPointsUpdates, { onConflict: '"userId", "matchId", "groupId"', defaultToNull: false });
+        if (predBatchError) {
+          console.error('❌ Erro ao atualizar predictions.points em batch:', predBatchError);
+        }
+      }
 
       // Refresh predictions in local state so the UI reflects any
       // predictions that were inserted directly in the DB (bypassing Realtime).
@@ -617,16 +640,16 @@ export const usePointsProcessor = (dbRef: any) => {
       }
 
       if (updatesToUpsert.length > 0) {
-        console.log(`📦 Processando pontos para ${updatesToUpsert.length} palpites...`);
-        const groupIdsToRecalculate = Array.from(
-          new Set(updatesToUpsert.map((u) => u.groupId).filter(Boolean))
-        );
-        if (groupIdsToRecalculate.length > 0) {
-          await recalculateUserGroupPoints(groupIdsToRecalculate);
+        console.log(`📦 Persistindo pontos para ${updatesToUpsert.length} palpites (predictions.points)...`);
+        const { error: batchPredError } = await supabase
+          .from('predictions')
+          .upsert(updatesToUpsert, { onConflict: '"userId", "matchId", "groupId"', defaultToNull: false });
+        if (batchPredError) {
+          console.error('❌ Erro ao persistir predictions.points em batch:', batchPredError);
         }
       }
     },
-    [dbRef, recalculateUserGroupPoints]
+    [dbRef]
   );
 
   const updateLocalPointsWithLive = useCallback(

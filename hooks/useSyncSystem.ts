@@ -723,6 +723,7 @@ export const useSyncSystem = (
 
         const matchUpserts: any[] = [];
         const finishedMatchesForPoints: Match[] = [];
+        let scoreOrStatusChanges = 0; // conta apenas mudanças reais de placar/status
         profiler.mark("hydrate_matches", "cpu");
 
         // Fetch live minutes if there are any IN_PLAY matches in this batch
@@ -812,6 +813,15 @@ export const useSyncSystem = (
             }
 
             if (hasChanged) {
+              // Conta mudanças reais de placar ou status (exclui simples updates de timestamp)
+              const isScoreOrStatusChange =
+                existing.status !== status ||
+                (homeScore != null && existing.result?.home !== homeScore) ||
+                (awayScore != null && existing.result?.away !== awayScore) ||
+                (penaltiesHome != null && existing.penaltiesHome !== penaltiesHome) ||
+                (penaltiesAway != null && existing.penaltiesAway !== penaltiesAway);
+              if (isScoreOrStatusChange) scoreOrStatusChanges++;
+
               // Proteção: se o admin editou este jogo há menos de 2 min, não sobrescrever
               const overrideTs = adminOverridesRef.current.get(existing.id);
               if (overrideTs && Date.now() - overrideTs < 2 * 60 * 1000) {
@@ -1229,8 +1239,6 @@ export const useSyncSystem = (
             standingsSuccess = true;
           }
         }
-        profiler.mark("standings_upsert", "db_write");
-
         // ── FASE 5: Recalcular Pontos + Atualizar competição ─────────────────
         const combinedSuccess = matchesUpdated >= 0 && standingsSuccess;
 
@@ -1253,10 +1261,17 @@ export const useSyncSystem = (
           )
           .map((g: any) => g.id);
 
-        if (affectedGroupIds.length > 0) {
+        // Passo 3: Só recalcular se houve mudança REAL de placar/status ou novo jogo finalizado.
+        // matchesUpdated inclui updates de timestamp (lastSyncAt) sem mudança de pontuação —
+        // usar scoreOrStatusChanges garante que o recalc só roda quando os pontos podem ter mudado.
+        const hasChanges = scoreOrStatusChanges > 0 || finishedMatchesForPoints.length > 0;
+
+        if (affectedGroupIds.length > 0 && hasChanges) {
           await recalculateUserGroupPoints(affectedGroupIds);
+        } else if (!hasChanges) {
+          console.log("[SYNC] Nenhuma mudança detectada — recalc de pontos ignorado.");
         }
-        profiler.mark("user_groups_recalc", "db_write");
+        profiler.mark("standings_and_recalc", "db_write");
 
         const combinedMessage = `${matchesMessage} ${standingsMessage}`;
 
