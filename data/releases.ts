@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.96.0';
+export const CURRENT_VERSION = '1.97.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.97.0',
+    date: '2026-06-28',
+    changes: [
+      'Indicativo visual de pontuação nos palpites de Classificados 2º Fase: bandeira do país e destaque verde para acertos',
+      'Layout compacto com 6 seleções por linha e scroll lateral nos palpites do grupo',
+      'Palpites de cada participante ordenados alfabeticamente por nome do país',
+    ],
+  },
   {
     version: '1.96.0',
     date: '2026-06-28',

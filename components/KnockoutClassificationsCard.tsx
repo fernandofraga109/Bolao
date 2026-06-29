@@ -501,6 +501,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
                       db={db}
                       config={config}
                       isLocked={isLocked}
+                      tournamentResults={tournamentResults}
                     />
                   );
                 })()}
@@ -525,6 +526,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
                 db={db}
                 phaseConfig={visiblePhaseConfig}
                 phaseLockMap={phaseLockMap}
+                tournamentResults={tournamentResults}
               />
             );
           })()}
@@ -540,7 +542,8 @@ const AllKnockoutPredictionsCard: React.FC<{
   db: ReturnType<typeof useDatabase>;
   phaseConfig: Record<string, { max: number; label: string }>;
   phaseLockMap: Record<string, boolean>;
-}> = ({ otherPreds, db, phaseConfig, phaseLockMap }) => {
+  tournamentResults?: TournamentPredictions | null;
+}> = ({ otherPreds, db, phaseConfig, phaseLockMap, tournamentResults }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const getUserName = (uid: string) => {
@@ -552,6 +555,8 @@ const AllKnockoutPredictionsCard: React.FC<{
     const team = db.teams.find((t) => t.id === teamId);
     return team?.code || "?";
   };
+
+  const getTeam = (teamId: string) => db.teams.find((t) => t.id === teamId);
 
   const phases = Object.keys(phaseConfig);
 
@@ -595,18 +600,45 @@ const AllKnockoutPredictionsCard: React.FC<{
                     {getUserName(tp.userId)}
                   </td>
                   {phases.map((p) => {
-                    const picks = tp.groupClassifications?.[p] || [];
+                    const picks = [...(tp.groupClassifications?.[p] || [])].sort((a, b) => {
+                      const nameA = getTeam(a)?.name || "";
+                      const nameB = getTeam(b)?.name || "";
+                      return nameA.localeCompare(nameB, "pt-BR");
+                    });
                     const phaseIsLocked = phaseLockMap[p] ?? false;
                     return (
-                      <td key={p} className="px-2 py-2 text-center text-slate-300">
-                        <div className="flex flex-wrap gap-0.5 justify-center">
+                      <td key={p} className="px-2 py-2 text-center text-slate-300 min-w-[18rem]">
+                        <div className="grid grid-cols-6 gap-0.5">
                           {picks.length > 0
                             ? phaseIsLocked
-                              ? picks.map((id: string) => (
-                                  <span key={id} className="text-[9px] bg-slate-800 text-slate-300 px-1 py-0.5 rounded border border-slate-700">
-                                    {getTeamCode(id)}
-                                  </span>
-                                ))
+                              ? picks.map((id: string) => {
+                                  const team = getTeam(id);
+                                  const isCorrect = tournamentResults?.groupClassifications?.[p]?.includes(id) ?? false;
+                                  return (
+                                    <div
+                                      key={id}
+                                      className={`flex items-center gap-1 px-1 py-0.5 rounded border ${
+                                        isCorrect
+                                          ? "bg-brand-green/10 border-brand-green/40 ring-1 ring-brand-green/20"
+                                          : "bg-slate-800 border-slate-700"
+                                      }`}
+                                      title={team?.name}
+                                    >
+                                      {team?.flag && (
+                                        <img
+                                          src={team.flag}
+                                          alt=""
+                                          className={`w-3.5 h-2.5 object-cover rounded-sm ${
+                                            isCorrect ? "ring-1 ring-brand-green/60" : ""
+                                          }`}
+                                        />
+                                      )}
+                                      <span className={`text-[8px] font-bold ${isCorrect ? "text-brand-green" : "text-slate-300"}`}>
+                                        {getTeamCode(id)}
+                                      </span>
+                                    </div>
+                                  );
+                                })
                               : <span className="text-[9px] text-slate-500 italic">Oculto</span>
                             : "—"}
                         </div>
@@ -631,7 +663,8 @@ const OtherKnockoutPredictions: React.FC<{
   db: ReturnType<typeof useDatabase>;
   config: { max: number; label: string };
   isLocked: boolean;
-}> = ({ otherPreds, phase, db, config, isLocked }) => {
+  tournamentResults?: TournamentPredictions | null;
+}> = ({ otherPreds, phase, db, config, isLocked, tournamentResults }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const getUserName = (userId: string) => {
@@ -643,6 +676,8 @@ const OtherKnockoutPredictions: React.FC<{
     const team = db.teams.find((t) => t.id === teamId);
     return team?.code || "?";
   };
+
+  const getTeam = (teamId: string) => db.teams.find((t) => t.id === teamId);
 
   return (
     <div className="mt-4 border border-slate-700 rounded-xl overflow-hidden">
@@ -668,20 +703,47 @@ const OtherKnockoutPredictions: React.FC<{
         <div className="overflow-x-auto animate-fadeIn p-3">
           <div className="space-y-2">
             {otherPreds.map((tp) => {
-              const picks = tp.groupClassifications?.[phase] || [];
+              const picks = [...(tp.groupClassifications?.[phase] || [])].sort((a, b) => {
+                const nameA = getTeam(a)?.name || "";
+                const nameB = getTeam(b)?.name || "";
+                return nameA.localeCompare(nameB, "pt-BR");
+              });
               return (
                 <div key={tp.userId} className="bg-slate-900/40 rounded-lg p-2.5 border border-slate-800">
                   <div className="text-[11px] font-bold text-slate-300 mb-1.5">
                     {getUserName(tp.userId)}
                   </div>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="grid grid-cols-6 gap-1">
                     {picks.length > 0
                       ? isLocked
-                        ? picks.map((id: string) => (
-                            <span key={id} className="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded border border-slate-700">
-                              {getTeamCode(id)}
-                            </span>
-                          ))
+                        ? picks.map((id: string) => {
+                            const team = getTeam(id);
+                            const isCorrect = tournamentResults?.groupClassifications?.[phase]?.includes(id) ?? false;
+                            return (
+                              <div
+                                key={id}
+                                className={`flex items-center gap-1 px-1.5 py-0.5 rounded border shrink-0 ${
+                                  isCorrect
+                                    ? "bg-brand-green/10 border-brand-green/40 ring-1 ring-brand-green/20"
+                                    : "bg-slate-800 border-slate-700"
+                                }`}
+                                title={team?.name}
+                              >
+                                {team?.flag && (
+                                  <img
+                                    src={team.flag}
+                                    alt=""
+                                    className={`w-3.5 h-2.5 object-cover rounded-sm ${
+                                      isCorrect ? "ring-1 ring-brand-green/60" : ""
+                                    }`}
+                                  />
+                                )}
+                                <span className={`text-[8px] font-bold whitespace-nowrap ${isCorrect ? "text-brand-green" : "text-slate-300"}`}>
+                                  {getTeamCode(id)}
+                                </span>
+                              </div>
+                            );
+                          })
                         : <span className="text-[10px] text-slate-500 italic">Oculto</span>
                       : <span className="text-[10px] text-slate-500">Nenhum palpite</span>}
                   </div>
