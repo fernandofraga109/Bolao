@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.97.0';
+export const CURRENT_VERSION = '1.98.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,14 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.98.0',
+    date: '2026-06-29',
+    changes: [
+      'Agora a disputa de pênaltis aparece no Regulamento 2 também, apenas como informação visual',
+      'O vencedor da disputa de pênaltis só é mostrado depois que a partida termina',
+    ],
+  },
   {
     version: '1.97.0',
     date: '2026-06-28',

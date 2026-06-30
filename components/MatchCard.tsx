@@ -577,15 +577,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           </div>
         </div>
 
-        {/* Extra Time + Penalties row — shown below teams for finished R1 knockout matches */}
-        {(isFinished || isLive || isDelayed) && ruleset === "regulamento_1" && (
-          getMatchDuration(match) !== 'REGULAR' ||
+        {/* Extra Time + Penalties row — shown below teams for finished knockout matches */}
+        {(isFinished || isLive || isDelayed) && (
+          (ruleset === "regulamento_1" && getMatchDuration(match) !== 'REGULAR') ||
           (match.penaltiesHome != null || match.penaltiesAway != null)
         ) && (
           <div className="flex gap-3 mb-4 animate-fadeIn">
-            {/* Tempo Regular block — placar dos 90 min (o principal acima já mostra
-                regular + prorrogação, que é o que pontua no R1). */}
-            {getMatchDuration(match) !== 'REGULAR' && match.regularHome != null && (
+            {/* Tempo Regular block — only for R1 (in R2 the main score already shows regular + extra time). */}
+            {ruleset === "regulamento_1" && getMatchDuration(match) !== 'REGULAR' && match.regularHome != null && (
               <div className="flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-2xl bg-slate-700/30 border border-slate-600/40">
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tempo Regular</span>
                 <div className="flex items-center gap-2 mt-0.5">
@@ -605,7 +604,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                   <span className="text-sm font-bold text-slate-500">×</span>
                   <span className="text-lg font-black text-white">{match.penaltiesAway ?? 0}</span>
                 </div>
-                {(() => {
+                {isFinished && (() => {
                   const winnerId = getKnockoutAdvancingTeamId(match);
                   if (!winnerId) return null;
                   const winnerName = winnerId === match.homeTeam?.id ? match.homeTeam.name : match.awayTeam.name;
