@@ -200,7 +200,15 @@ const Header: React.FC<HeaderProps> = ({
       {isAvatarModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/90 backdrop-blur-sm px-4 py-6 overflow-y-auto animate-fadeIn">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 w-full max-w-sm shadow-2xl my-auto">
-            <h2 className="text-2xl font-black mb-6 text-white tracking-tight">CONFIGURAÇÕES</h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-black text-white tracking-tight">CONFIGURAÇÕES</h2>
+              <button
+                onClick={onLogout}
+                className="px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest bg-red-950/50 border border-red-900/50 text-red-400 hover:bg-red-950 transition-all"
+              >
+                Sair
+              </button>
+            </div>
 
             {currentUser.role !== "ADMIN" && (
               <div className="flex items-center justify-center gap-8 mb-6 pb-6 border-b border-slate-800">
@@ -305,13 +313,6 @@ const Header: React.FC<HeaderProps> = ({
                 {isUpdatingProfile ? "Salvando..." : "Confirmar"}
               </button>
             </div>
-
-            <button
-              onClick={onLogout}
-              className="w-full mt-4 py-3 rounded-2xl font-black text-xs uppercase tracking-widest bg-red-950/50 border border-red-900/50 text-red-400 hover:bg-red-950 transition-all"
-            >
-              Sair da Conta
-            </button>
 
             {/* Sync Status Panel */}
             {(syncInfo || competitionLastSync) && (
