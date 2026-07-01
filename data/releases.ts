@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.98.0';
+export const CURRENT_VERSION = '1.99.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '1.99.0',
+    date: '2026-06-30',
+    changes: [
+      'Botão "Sair da Conta" mantido na parte inferior do modal de Configurações, conforme feedback dos usuários',
+    ],
+  },
   {
     version: '1.98.0',
     date: '2026-06-29',
