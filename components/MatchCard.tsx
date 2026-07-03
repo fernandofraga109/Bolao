@@ -15,6 +15,7 @@ import {
   getScoreCategoryRegulamento2,
   getMatchPhase,
   getPhaseLockKey,
+  getKnockoutClassifiesPhase,
   getR1MatchScoringResult,
   getMatchDuration,
   getKnockoutAdvancingTeamId,
@@ -64,6 +65,12 @@ interface MatchCardProps {
     targetGroupIds?: string[],
     whoClassifiesTeamId?: string | null,
   ) => Promise<void> | void;
+  onAutoFillKnockout?: (
+    classifiesPhase: import("../utils/scoring").KnockoutPhaseKey,
+    homeTeamId: string,
+    awayTeamId: string,
+    winnerTeamId: string | null
+  ) => void;
   minRankDiff?: number;
   ruleset?: "regulamento_1" | "regulamento_2";
   eligibleGroups?: GroupDB[];
@@ -78,6 +85,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   friends,
   currentUserId,
   onPredict,
+  onAutoFillKnockout,
   minRankDiff,
   ruleset = "regulamento_1",
   eligibleGroups = [],
@@ -185,6 +193,12 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         setIsSavingPrediction(true);
         const effectiveTieWinner = isKnockoutMatch && h === a ? whoClassifiesTeamId : null;
         await onPredict(match.id, h, a, undefined, effectiveTieWinner);
+        if (ruleset === "regulamento_2" && classifiesPhase && onAutoFillKnockout && match.homeTeam?.id && match.awayTeam?.id) {
+          const winner = h !== a
+            ? (h > a ? match.homeTeam.id : match.awayTeam.id)
+            : (whoClassifiesTeamId ?? null);
+          onAutoFillKnockout(classifiesPhase, match.homeTeam.id, match.awayTeam.id, winner);
+        }
         setHasSavedPrediction(true);
         setJustSaved(true);
       } catch (error: any) {
@@ -202,7 +216,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const isFinished = match.status === MatchStatus.FINISHED;
   const isPhaseLocked = ruleset === "regulamento_2" && phaseLockSet?.has(getPhaseLockKey(match.stage, match.group));
   const isPredictionDisabled = isFinished || isLive || isDelayed || isLocked || !!isPhaseLocked;
-  const isKnockoutMatch = ruleset === "regulamento_1" && getMatchPhase(match.stage, match.group) !== "groups";
+  const classifiesPhase = getKnockoutClassifiesPhase(match.stage, match.group);
+  const isKnockoutMatch =
+    ruleset === "regulamento_1"
+      ? getMatchPhase(match.stage, match.group) !== "groups"
+      : classifiesPhase !== null;
   const homeInputNum = parseInt(homeInput);
   const awayInputNum = parseInt(awayInput);
   const isPredictingDraw = !isPredictionDisabled && isKnockoutMatch && !isNaN(homeInputNum) && !isNaN(awayInputNum) && homeInputNum === awayInputNum;
@@ -830,6 +848,12 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             const a = parseInt(awayInput);
             const effectiveTieWinner = isKnockoutMatch && h === a ? whoClassifiesTeamId : null;
             await onPredict(match.id, h, a, targetGroupIds, effectiveTieWinner);
+            if (ruleset === "regulamento_2" && classifiesPhase && onAutoFillKnockout && match.homeTeam?.id && match.awayTeam?.id) {
+              const winner = h !== a
+                ? (h > a ? match.homeTeam.id : match.awayTeam.id)
+                : (whoClassifiesTeamId ?? null);
+              onAutoFillKnockout(classifiesPhase, match.homeTeam.id, match.awayTeam.id, winner);
+            }
             setHasSavedPrediction(true);
             setJustSaved(true);
           }}

@@ -1,11 +1,11 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { Match, MatchStatus, TournamentPredictions, ExtraPhasePredictionDB } from "../types";
-import { getPhaseLockKey } from "../utils/scoring";
+import { getPhaseLockKey, getKnockoutClassifiesPhase } from "../utils/scoring";
 import { AlertTriangle, Clock, Hourglass, Sparkles } from "lucide-react";
 
 interface PendingPredictionsBannerProps {
   matches: Match[];
-  predictions: Record<string, { home: number; away: number }>;
+  predictions: Record<string, { home: number; away: number; whoClassifiesTeamId?: string | null }>;
   ruleset?: "regulamento_1" | "regulamento_2";
   phaseLockSet?: Set<string>;
   isAdmin?: boolean;
@@ -173,6 +173,27 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
         }
       }
 
+      // Knockout draws without tiebreaker — palpites de empate em Oitavas/Quartas sem whoClassifiesTeamId
+      const knockoutDrawPhaseLabels: Record<string, string> = {
+        oitavas: "Oitavas de Final",
+        quartas: "Quartas de Final",
+      };
+      matches.forEach((m) => {
+        const phaseKey = getPhaseLockKey(m.stage, m.group);
+        if (!knockoutDrawPhaseLabels[phaseKey]) return;
+        if (phaseLockSet.has(phaseKey)) return;
+        if (m.status !== MatchStatus.SCHEDULED) return;
+        const classifiesPhase = getKnockoutClassifiesPhase(m.stage, m.group);
+        if (!classifiesPhase) return;
+        const pred = predictions[m.id];
+        if (!pred) return;
+        if (pred.home === pred.away && !pred.whoClassifiesTeamId) {
+          const homeName = m.homeTeam?.name ?? "Time A";
+          const awayName = m.awayTeam?.name ?? "Time B";
+          labels.push(`Desempate pendente — ${homeName} vs ${awayName} (${knockoutDrawPhaseLabels[phaseKey]})`);
+        }
+      });
+
       // Extra phase predictions — só para a fase que está prestes a começar
       const extraPhaseLabels: Record<string, string> = {
         groups: "Maior Diferença — Fase de Grupos",
@@ -188,7 +209,7 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
     }
 
     return { banner: bannerResult, missedLabels: labels, pendingMatches: pendingMatchesList };
-  }, [matches, predictions, ruleset, phaseLockSet, isAdmin, now, tournamentPredictions, extraPhasePredictions, lockDate, groupId, userId]);
+  }, [matches, predictions, ruleset, phaseLockSet, isAdmin, now, tournamentPredictions, extraPhasePredictions, lockDate, groupId, userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!banner && missedLabels.length === 0) return null;
 

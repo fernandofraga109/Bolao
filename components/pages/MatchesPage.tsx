@@ -19,6 +19,7 @@ interface MatchGroupProps {
   leaderboardData: any[];
   currentUserId: string;
   onPredict: (id: string, h: number, a: number, targetGroupIds?: string[], whoClassifiesTeamId?: string | null) => Promise<void>;
+  onAutoFillKnockout?: (classifiesPhase: import("../../utils/scoring").KnockoutPhaseKey, homeTeamId: string, awayTeamId: string, winnerTeamId: string | null) => void;
   isAdmin: boolean;
   onAdminSaveMatch: (id: string, status: "started" | "live" | "ended", h: number, a: number) => void;
   onAdminToggleSyncLock?: (matchId: string, locked: boolean) => void;
@@ -42,6 +43,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
   leaderboardData,
   currentUserId,
   onPredict,
+  onAutoFillKnockout,
   isAdmin,
   onAdminSaveMatch,
   onAdminToggleSyncLock,
@@ -146,6 +148,7 @@ const MatchGroup: React.FC<MatchGroupProps> = ({
                 friends={leaderboardData}
                 currentUserId={currentUserId}
                 onPredict={onPredict}
+                onAutoFillKnockout={onAutoFillKnockout}
                 minRankDiff={minRankDiff}
                 ruleset={ruleset}
                 eligibleGroups={eligibleGroups}
@@ -171,6 +174,7 @@ interface MatchesPageProps {
   canWriteCompetitionData: boolean;
   onManualSync: () => void;
   onPredict: (id: string, h: number, a: number, targetGroupIds?: string[], whoClassifiesTeamId?: string | null) => Promise<void>;
+  onAutoFillKnockout?: (classifiesPhase: import("../../utils/scoring").KnockoutPhaseKey, homeTeamId: string, awayTeamId: string, winnerTeamId: string | null) => void;
   onAdminSaveMatch: (id: string, status: "started" | "live" | "delayed" | "ended", h: number, a: number) => void;
   onAdminToggleSyncLock?: (matchId: string, locked: boolean) => void;
   onOpenGroupSwitcher?: () => void;
@@ -189,6 +193,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
   canWriteCompetitionData,
   onManualSync,
   onPredict,
+  onAutoFillKnockout,
   onAdminSaveMatch,
   onAdminToggleSyncLock,
   onOpenGroupSwitcher,
@@ -363,6 +368,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
         leaderboardData={leaderboardData}
         currentUserId={currentUser.id}
         onPredict={onPredict}
+        onAutoFillKnockout={onAutoFillKnockout}
         isAdmin={isAdmin}
         onAdminSaveMatch={onAdminSaveMatch}
         onAdminToggleSyncLock={onAdminToggleSyncLock}
@@ -456,6 +462,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
                         leaderboardData={leaderboardData}
                         currentUserId={currentUser.id}
                         onPredict={onPredict}
+                        onAutoFillKnockout={onAutoFillKnockout}
                         isAdmin={isAdmin}
                         onAdminSaveMatch={onAdminSaveMatch}
                         onAdminToggleSyncLock={onAdminToggleSyncLock}
@@ -481,6 +488,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
                         leaderboardData={leaderboardData}
                         currentUserId={currentUser.id}
                         onPredict={onPredict}
+                        onAutoFillKnockout={onAutoFillKnockout}
                         isAdmin={isAdmin}
                         onAdminSaveMatch={onAdminSaveMatch}
                         onAdminToggleSyncLock={onAdminToggleSyncLock}
@@ -509,6 +517,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
         leaderboardData={leaderboardData}
         currentUserId={currentUser.id}
         onPredict={onPredict}
+        onAutoFillKnockout={onAutoFillKnockout}
         isAdmin={isAdmin}
         onAdminSaveMatch={onAdminSaveMatch}
         onAdminToggleSyncLock={onAdminToggleSyncLock}
@@ -534,6 +543,7 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
             leaderboardData={leaderboardData}
             currentUserId={currentUser.id}
             onPredict={onPredict}
+            onAutoFillKnockout={onAutoFillKnockout}
             isAdmin={isAdmin}
             onAdminSaveMatch={onAdminSaveMatch}
             onAdminToggleSyncLock={onAdminToggleSyncLock}

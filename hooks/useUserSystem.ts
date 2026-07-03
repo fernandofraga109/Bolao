@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { User, UserRole, TournamentPredictions, Group } from "../types";
+import { KnockoutPhaseKey, getKnockoutClassifiesPhase } from "../utils/scoring";
 import { useDatabase } from "../contexts/DatabaseContext";
 import { supabase, isSupabaseEnabled } from "../services/supabase";
 
@@ -662,6 +663,94 @@ export const useUserSystem = () => {
     await db.upsertPrediction(predictionsToSave);
   };
 
+  const autoFillKnockoutClassification = (
+    classifiesPhase: KnockoutPhaseKey,
+    homeTeamId: string,
+    awayTeamId: string,
+    winnerTeamId: string | null
+  ) => {
+    if (!currentUser || !winnerTeamId) return;
+    const activeGroupId = currentUser.activeGroupId ?? currentUser.groupIds?.[0];
+    if (!activeGroupId) return;
+
+    const existingPred = db.tournamentPredictions.find(
+      (tp) => tp.userId === currentUser.id && tp.groupId === activeGroupId
+    );
+    const currentClassifications = existingPred?.groupClassifications ?? {};
+    const currentPhaseList: string[] = currentClassifications[classifiesPhase] ?? [];
+
+    // Remove both teams from this match (overwrite previous auto-fill), then add winner
+    const updated = [
+      ...currentPhaseList.filter((id) => id !== homeTeamId && id !== awayTeamId),
+      winnerTeamId,
+    ];
+
+    db.upsertTournamentPrediction({
+      ...(existingPred ?? { userId: currentUser.id, groupId: activeGroupId }),
+      groupClassifications: {
+        ...currentClassifications,
+        [classifiesPhase]: updated,
+      },
+    });
+  };
+
+  const backfillKnockoutClassifications = () => {
+    if (!currentUser) return;
+    const activeGroupId = currentUser.activeGroupId ?? currentUser.groupIds?.[0];
+    if (!activeGroupId) return;
+
+    const activeGroup = db.groups.find((g) => g.id === activeGroupId);
+    if (activeGroup?.ruleset !== "regulamento_2") return;
+
+    const userPreds = db.predictions.filter(
+      (p) => p.userId === currentUser.id && p.groupId === activeGroupId
+    );
+    if (userPreds.length === 0) return;
+
+    const matchMap = new Map(db.matches.map((m) => [m.id, m]));
+
+    const existingTp = db.tournamentPredictions.find(
+      (tp) => tp.userId === currentUser.id && tp.groupId === activeGroupId
+    );
+    const classifications: Record<string, string[]> = {
+      ...(existingTp?.groupClassifications ?? {}),
+    };
+
+    for (const pred of userPreds) {
+      const match = matchMap.get(pred.matchId);
+      if (!match) continue;
+
+      const classifiesPhase = getKnockoutClassifiesPhase(match.stage, match.group);
+      if (!classifiesPhase) continue;
+
+      const homeId = match.homeTeamId;
+      const awayId = match.awayTeamId;
+      if (!homeId || !awayId) continue;
+
+      let winnerId: string | null = null;
+      if (pred.homeScore > pred.awayScore) {
+        winnerId = homeId;
+      } else if (pred.awayScore > pred.homeScore) {
+        winnerId = awayId;
+      } else if (pred.tieWinnerTeamId) {
+        winnerId = pred.tieWinnerTeamId;
+      }
+
+      if (!winnerId) continue;
+
+      const current = classifications[classifiesPhase] ?? [];
+      classifications[classifiesPhase] = [
+        ...current.filter((id) => id !== homeId && id !== awayId),
+        winnerId,
+      ];
+    }
+
+    db.upsertTournamentPrediction({
+      ...(existingTp ?? { userId: currentUser.id, groupId: activeGroupId }),
+      groupClassifications: classifications,
+    });
+  };
+
   const predictTournament = (data: TournamentPredictions) => {
     if (!currentUser) return;
     const activeGroupId =
@@ -833,6 +922,8 @@ export const useUserSystem = () => {
     joinGroup,
     switchGroup,
     predictMatch,
+    autoFillKnockoutClassification,
+    backfillKnockoutClassifications,
     predictTournament,
     requestPasswordReset,
     updatePassword,

@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '1.99.0';
+export const CURRENT_VERSION = '2.0.0';
 
 export interface Release {
   version: string;
@@ -7,6 +7,16 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.0',
+    date: '2026-07-02',
+    changes: [
+      'Reg. 2: ao palpitar vitória em jogo de Oitavas/Quartas, o time vencedor é automaticamente preenchido nos Classificados 2ª Fase',
+      'Reg. 2: palpite de empate exibe seletor "Quem passa nos pênaltis?" — a escolha também preenche os Classificados',
+      'Backfill automático: palpites já salvos populam os Classificados ao abrir o app ou sincronizar dados',
+      'Banner de avisos exibe alerta para empates em mata-mata sem vencedor nos pênaltis escolhido',
+    ],
+  },
   {
     version: '1.99.0',
     date: '2026-06-30',

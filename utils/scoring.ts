@@ -90,6 +90,20 @@ export const getPhaseLockKey = (stage?: string, group?: string): PhaseLockKey =>
 export type ExtraPhaseKey = 'groups' | 'round_of_32' | 'oitavas' | 'quartas' | 'semis';
 
 /**
+ * Maps the current match's phase to the KnockoutPhaseKey it feeds into (Regulamento 2).
+ * Used to auto-fill groupClassifications when the user saves a match prediction.
+ *   Oitavas match → classifies into Quartas
+ *   Quartas match → classifies into Semis
+ *   Semis match   → no downstream phase tracked (returns null)
+ */
+export const getKnockoutClassifiesPhase = (stage?: string, group?: string): KnockoutPhaseKey | null => {
+  const key = getPhaseLockKey(stage, group);
+  if (key === 'oitavas') return 'Quartas';
+  if (key === 'quartas') return 'Semis';
+  return null;
+};
+
+/**
  * Maps a match to the "maior diferença de gols por fase" phase key (Regulamento 2).
  * Mirrors the bucketing used in ExtraPhasePredictionsCard so scoring stays consistent.
  * Unlike getMatchPhase, this distinguishes oitavas/quartas/semis (getMatchPhase

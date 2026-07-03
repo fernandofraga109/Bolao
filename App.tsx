@@ -66,6 +66,8 @@ const App: React.FC = () => {
     joinGroup,
     switchGroup,
     predictMatch,
+    autoFillKnockoutClassification,
+    backfillKnockoutClassifications,
     predictTournament,
     requestPasswordReset,
     updatePassword,
@@ -277,6 +279,9 @@ const App: React.FC = () => {
       db.refetchTeamStandings(),
       db.refetchUserGroups()
     ]);
+    if (currentGroup?.ruleset === "regulamento_2") {
+      backfillKnockoutClassifications();
+    }
   };
 
   const handleManualMatchesSync = async () => {
@@ -406,6 +411,15 @@ const App: React.FC = () => {
       );
     }
   }, [currentUserPoints, currentUser, currentGroup, activeCompetitionCode, showInfo]);
+
+  // Backfill Classificados 2ª Fase a partir de palpites existentes (Reg. 2)
+  // Roda uma vez após o fetch inicial do banco ficar pronto
+  useEffect(() => {
+    if (db.isInitialFetchComplete && currentUser && currentGroup?.ruleset === "regulamento_2") {
+      backfillKnockoutClassifications();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [db.isInitialFetchComplete]);
 
   const { containerRef: mainRef, pullDistance, isRefreshing, handlers: pullHandlers } = usePullToRefresh({
     onRefresh: handleRefreshData,
@@ -678,6 +692,7 @@ const App: React.FC = () => {
             canWriteCompetitionData={canWriteCompetitionData}
             onManualSync={() => void handleManualMatchesSync()}
             onPredict={predictMatch}
+            onAutoFillKnockout={autoFillKnockoutClassification}
             onAdminSaveMatch={handleAdminSaveMatch}
             onAdminToggleSyncLock={handleAdminToggleSyncLock}
             onOpenGroupSwitcher={() => setIsGroupSwitcherOpen(true)}
