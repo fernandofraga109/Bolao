@@ -430,7 +430,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 <span className="truncate">{match.awayTeam.name}</span>
               </button>
             </div>
-            <span className="text-[8px] text-amber-400/60">Opcional · +{POINTS_CLASSIFIES_BONUS} pts se acertar</span>
+            {ruleset !== "regulamento_2" && (
+              <span className="text-[8px] text-amber-400/60">Opcional · +{POINTS_CLASSIFIES_BONUS} pts se acertar</span>
+            )}
           </div>
         )}
         <div className="flex items-center justify-between gap-2 sm:gap-4 mb-4">

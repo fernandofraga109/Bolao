@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.0';
+export const CURRENT_VERSION = '2.0.1';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.1',
+    date: '2026-07-02',
+    changes: [
+      'Corrigido: label "+3 pts se acertar" no seletor de pênaltis não aparece mais no Reg. 2 (bônus não se aplica)',
+    ],
+  },
   {
     version: '2.0.0',
     date: '2026-07-02',
