@@ -86,6 +86,12 @@ const getFlagUrl = (teamCode: string): string => {
 const normalizeCompetitionCode = (value?: string) =>
   (value || "WC").toUpperCase();
 
+// UUIDs sentinela para times ainda não definidos (TBD) em fases eliminatórias.
+// Devem existir na tabela teams (migration 0040). São substituídos pelo sync
+// assim que a API revelar os times reais.
+export const TBD_HOME_TEAM_ID = '00000000-0000-0000-0000-000000000001';
+export const TBD_AWAY_TEAM_ID = '00000000-0000-0000-0000-000000000002';
+
 /**
  * Extrai o resultado efetivo de um jogo do payload da football-data API.
  * O campo `fullTime` inclui penalties em jogos de mata-mata, então
@@ -832,6 +838,21 @@ export const useSyncSystem = (
               // Removemos campos virtuais (objetos hidratados) antes de enviar para o banco
               const { homeTeam, awayTeam, result, ...pureMatch } = existing;
 
+              // Se o jogo estava TBD e a API agora tem os times definidos, resolver e incluir
+              const resolveTeam = (et: any) =>
+                (et?.id && teamByExtId.get(et.id)) ||
+                (et?.tla && teamByCode.get(et.tla.toUpperCase())) ||
+                null;
+              const existingHomeId = (existing as any).homeTeamId;
+              const existingAwayId = (existing as any).awayTeamId;
+              const isTbdHome = !existingHomeId || existingHomeId === TBD_HOME_TEAM_ID;
+              const isTbdAway = !existingAwayId || existingAwayId === TBD_AWAY_TEAM_ID;
+              const resolvedHome = (isTbdHome && em.homeTeam?.id) ? resolveTeam(em.homeTeam) : null;
+              const resolvedAway = (isTbdAway && em.awayTeam?.id) ? resolveTeam(em.awayTeam) : null;
+              if (resolvedHome || resolvedAway) {
+                console.log(`[SYNC] Jogo ${em.id} (${em.stage}): times TBD agora definidos — home=${resolvedHome?.name ?? '?'} away=${resolvedAway?.name ?? '?'}`);
+              }
+
               matchUpserts.push({
                 ...pureMatch,
                 externalMatchId: String(em.id),
@@ -848,6 +869,8 @@ export const useSyncSystem = (
                 regularAway: regularAway ?? null,
                 extraTimeHome: extraTimeHome ?? null,
                 extraTimeAway: extraTimeAway ?? null,
+                ...(resolvedHome ? { homeTeamId: resolvedHome.id } : {}),
+                ...(resolvedAway ? { awayTeamId: resolvedAway.id } : {}),
               });
 
 
@@ -872,6 +895,15 @@ export const useSyncSystem = (
             const homeTeam = resolveTeam(em.homeTeam);
             const awayTeam = resolveTeam(em.awayTeam);
 
+            // Fases eliminatórias a partir das oitavas: salvar mesmo sem times definidos (TBD)
+            const KNOCKOUT_STAGES_FROM_R16 = [
+              'ROUND_OF_16', 'LAST_16', 'QUARTER_FINALS',
+              'SEMI_FINALS', 'THIRD_PLACE', 'FINAL',
+            ];
+            const isKnockoutFromR16 = em.stage
+              ? KNOCKOUT_STAGES_FROM_R16.some(s => (em.stage as string).toUpperCase().includes(s))
+              : false;
+
             if (homeTeam && awayTeam) {
               matchUpserts.push({
                 externalMatchId: String(em.id),
@@ -895,6 +927,34 @@ export const useSyncSystem = (
                 extraTimeHome: extraTimeHome ?? null,
                 extraTimeAway: extraTimeAway ?? null,
                 liveDetails: undefined, // Novo jogo: sem liveDetails ainda
+              });
+            } else if (isKnockoutFromR16 && em.id) {
+              // Times TBD em fase knockout a partir das oitavas — salvar o jogo com
+              // UUIDs sentinela para que apareça no calendário sem violar NOT NULL.
+              // Palpites serão bloqueados no MatchCard (isTeamTBD).
+              console.log(`[SYNC] Jogo ${em.id} (${em.stage}) salvo com times TBD (sentinela).`);
+              matchUpserts.push({
+                externalMatchId: String(em.id),
+                homeTeamId: homeTeam?.id ?? TBD_HOME_TEAM_ID,
+                awayTeamId: awayTeam?.id ?? TBD_AWAY_TEAM_ID,
+                date: em.utcDate,
+                group: em.group || em.stage || "Campeonato",
+                competitionCode: normalizedCode,
+                status,
+                resultHome: null,
+                resultAway: null,
+                stage: em.stage,
+                matchday: em.matchday,
+                minute: null,
+                lastSyncAt: new Date().toISOString(),
+                score: em.score,
+                penaltiesHome: null,
+                penaltiesAway: null,
+                regularHome: null,
+                regularAway: null,
+                extraTimeHome: null,
+                extraTimeAway: null,
+                liveDetails: undefined,
               });
             } else {
               // Times com id/tla nulos = jogos de fase eliminatória ainda não definidos (TBD).

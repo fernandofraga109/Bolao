@@ -215,7 +215,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const isDelayed = match.status === MatchStatus.DELAYED;
   const isFinished = match.status === MatchStatus.FINISHED;
   const isPhaseLocked = ruleset === "regulamento_2" && phaseLockSet?.has(getPhaseLockKey(match.stage, match.group));
-  const isPredictionDisabled = isFinished || isLive || isDelayed || isLocked || !!isPhaseLocked;
+  const isTeamTBD = !match.homeTeam?.id || !match.awayTeam?.id;
+  const isPredictionDisabled = isFinished || isLive || isDelayed || isLocked || !!isPhaseLocked || isTeamTBD;
   const classifiesPhase = getKnockoutClassifiesPhase(match.stage, match.group);
   const isKnockoutMatch =
     ruleset === "regulamento_1"
@@ -441,7 +442,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             <div className="relative group/flag w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center bg-slate-900/50 rounded-2xl border border-slate-700 overflow-hidden transition-all group-hover/flag:border-slate-500 group-hover/flag:shadow-lg group-hover/flag:shadow-brand-green/10">
               <div className="absolute inset-0 bg-gradient-to-br from-white/3 to-transparent"></div>
               <img
-                src={match.homeTeam.flag}
+                src={match.homeTeam.flag || undefined}
                 alt={match.homeTeam.name}
                 className="w-9 h-9 sm:w-12 sm:h-12 object-contain transition-transform group-hover/flag:scale-110 relative z-10"
               />
@@ -578,7 +579,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             <div className="relative group/flag w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center bg-slate-900/50 rounded-2xl border border-slate-700 overflow-hidden transition-all group-hover/flag:border-slate-500 group-hover/flag:shadow-lg group-hover/flag:shadow-brand-green/10">
               <div className="absolute inset-0 bg-gradient-to-br from-white/3 to-transparent"></div>
               <img
-                src={match.awayTeam.flag}
+                src={match.awayTeam.flag || undefined}
                 alt={match.awayTeam.name}
                 className="w-9 h-9 sm:w-12 sm:h-12 object-contain transition-transform group-hover/flag:scale-110 relative z-10"
               />
@@ -731,7 +732,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 ) : isPredictionDisabled ? (
                   <div className="flex items-center gap-2 px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500">
                      <Lock size={14} />
-                     {isPhaseLocked && !isLocked ? "Fase Iniciada" : "Fechado"}
+                     {isTeamTBD ? "A Definir" : isPhaseLocked && !isLocked ? "Fase Iniciada" : "Fechado"}
                   </div>
                 ) : (
                   <button

@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { Match, MatchStatus, Team, TeamDB, TournamentPredictions } from "../types";
 import { useDatabase } from "../contexts/DatabaseContext";
 import { usePointsProcessor } from "./usePointsProcessor";
-import { useSyncSystem, CompetitionSyncStatus } from "./useSyncSystem";
+import { useSyncSystem, CompetitionSyncStatus, TBD_HOME_TEAM_ID, TBD_AWAY_TEAM_ID } from "./useSyncSystem";
 import { useBackgroundSync } from "./useBackgroundSync";
 import { CURRENT_VERSION } from "../data/releases";
 export type { CompetitionSyncStatus };
@@ -95,13 +95,20 @@ export const useMatchSystem = (
         const awayTeam = db.teams.find((t) => t.id === m.awayTeamId);
 
         // Times ainda não carregados no estado local (ex: sync em andamento via Realtime).
-        // Retornar null e filtrar depois para evitar crash no render.
-        if (!homeTeam || !awayTeam) return null;
+        // Para jogos TBD (sentinela UUID), usar placeholder visual; palpites serão bloqueados.
+        const isHomeTbd = !m.homeTeamId || m.homeTeamId === TBD_HOME_TEAM_ID;
+        const isAwayTbd = !m.awayTeamId || m.awayTeamId === TBD_AWAY_TEAM_ID;
+        if (!homeTeam && !isHomeTbd) return null;
+        if (!awayTeam && !isAwayTbd) return null;
+
+        const TBD_TEAM = { id: "", name: "A Definir", code: "TBD", flag: "", ranking: undefined };
+        const resolvedHome = homeTeam ?? TBD_TEAM;
+        const resolvedAway = awayTeam ?? TBD_TEAM;
 
         return {
           ...m,
-          homeTeam,
-          awayTeam,
+          homeTeam: resolvedHome,
+          awayTeam: resolvedAway,
           status: m.status as MatchStatus,
           result: m.resultHome != null ? { home: m.resultHome, away: m.resultAway! } : undefined,
           score: m.score,

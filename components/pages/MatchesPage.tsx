@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from "react";
 import { Match, MatchStatus, User, GroupDB } from "../../types";
+import { TBD_HOME_TEAM_ID, TBD_AWAY_TEAM_ID } from "../../hooks/useSyncSystem";
 import { MatchCard } from "../MatchCard.tsx";
 import AdminMatchCard from "../AdminMatchCard";
 import { getPhaseLockKey } from "../../utils/scoring";
+
 import { translateGroupName } from "../../utils/translations";
 import RulesSection from "../RulesSection";
 import { CalendarDays, History, ChevronDown, ChevronUp, Users, Radio, Layers } from "lucide-react";
@@ -221,7 +223,12 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
     const today: Match[] = [];
     const future: Record<string, Match[]> = {};
 
-    matches.forEach((match) => {
+    const TBD_IDS = new Set(["", TBD_HOME_TEAM_ID, TBD_AWAY_TEAM_ID]);
+    const visibleMatches = matches.filter(
+      (m) => !TBD_IDS.has(m.homeTeam?.id ?? "") && !TBD_IDS.has(m.awayTeam?.id ?? "")
+    );
+
+    visibleMatches.forEach((match) => {
       // Jogos ao vivo aparecem só na seção "Ao Vivo", independente da data.
       // Resolve o caso do jogo que cruza a meia-noite e sumiria dos "Jogos do Dia".
       if (match.status === MatchStatus.LIVE || match.status === MatchStatus.DELAYED) {

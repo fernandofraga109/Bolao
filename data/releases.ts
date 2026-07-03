@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.1';
+export const CURRENT_VERSION = '2.0.2';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.2',
+    date: '2026-07-03',
+    changes: [
+      'Fases eliminatórias (oitavas em diante): jogos com times TBD agora são salvos no banco e aparecem no calendário quando os times são definidos',
+    ],
+  },
   {
     version: '2.0.1',
     date: '2026-07-02',
