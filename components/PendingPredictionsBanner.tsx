@@ -97,10 +97,10 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
           .filter((m) => !isR2ExtendedDeadlineMatch(m, ruleset, new Date(now)));
         pendingMatchesList = pending;
         if (pending.length > 0) {
-          const firstMatch = pending.sort(
+          const firstMatchOfPhase = byPhase[currentPhase].sort(
             (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
           )[0];
-          const timeLeft = new Date(firstMatch.date).getTime() - now;
+          const timeLeft = new Date(firstMatchOfPhase.date).getTime() - now;
           bannerResult = {
             text: `Faltam ${pending.length} palpite${pending.length > 1 ? "s" : ""} na ${PHASE_LABELS[currentPhase]}`,
             sub: `Bloqueio em ${formatCountdown(timeLeft)}`,
