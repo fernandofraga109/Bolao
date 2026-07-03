@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { Match, MatchStatus, TournamentPredictions, ExtraPhasePredictionDB } from "../types";
-import { getPhaseLockKey, getKnockoutClassifiesPhase } from "../utils/scoring";
+import { getPhaseLockKey, getKnockoutClassifiesPhase, isR2ExtendedDeadlineMatch, R2_EXTENDED_DEADLINE } from "../utils/scoring";
 import { AlertTriangle, Clock, Hourglass, Sparkles } from "lucide-react";
 
 interface PendingPredictionsBannerProps {
@@ -56,8 +56,8 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
     return () => clearInterval(id);
   }, []);
 
-  const { banner, missedLabels, pendingMatches } = useMemo(() => {
-    if (isAdmin) return { banner: null, missedLabels: [] as string[], pendingMatches: [] as Match[] };
+  const { banner, missedLabels, pendingMatches, extendedDeadlineMatches } = useMemo(() => {
+    if (isAdmin) return { banner: null, missedLabels: [] as string[], pendingMatches: [] as Match[], extendedDeadlineMatches: [] as Match[] };
 
     const schedulable = matches.filter(
       (m) => m.status === MatchStatus.SCHEDULED
@@ -92,10 +92,12 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
       currentPhase = PHASE_ORDER.find((p) => byPhase[p] && !phaseLockSet.has(p)) || null;
 
       if (currentPhase && byPhase[currentPhase]) {
-        const pending = byPhase[currentPhase].filter((m) => !predictions[m.id]);
+        const pending = byPhase[currentPhase]
+          .filter((m) => !predictions[m.id])
+          .filter((m) => !isR2ExtendedDeadlineMatch(m, ruleset, new Date(now)));
         pendingMatchesList = pending;
         if (pending.length > 0) {
-          const firstMatch = byPhase[currentPhase].sort(
+          const firstMatch = pending.sort(
             (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
           )[0];
           const timeLeft = new Date(firstMatch.date).getTime() - now;
@@ -110,7 +112,9 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
       if (!bannerResult) {
         const lockedPhase = PHASE_ORDER.find((p) => phaseLockSet.has(p) && byPhase[p]);
         if (lockedPhase && byPhase[lockedPhase]) {
-          const pending = byPhase[lockedPhase].filter((m) => !predictions[m.id]);
+          const pending = byPhase[lockedPhase]
+            .filter((m) => !predictions[m.id])
+            .filter((m) => !isR2ExtendedDeadlineMatch(m, ruleset, new Date(now)));
           pendingMatchesList = pending;
           if (pending.length > 0) {
             bannerResult = {
@@ -181,7 +185,7 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
       matches.forEach((m) => {
         const phaseKey = getPhaseLockKey(m.stage, m.group);
         if (!knockoutDrawPhaseLabels[phaseKey]) return;
-        if (phaseLockSet.has(phaseKey)) return;
+        if (phaseLockSet.has(phaseKey) && !isR2ExtendedDeadlineMatch(m, ruleset, new Date(now))) return;
         if (m.status !== MatchStatus.SCHEDULED) return;
         const classifiesPhase = getKnockoutClassifiesPhase(m.stage, m.group);
         if (!classifiesPhase) return;
@@ -208,10 +212,15 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
       }
     }
 
-    return { banner: bannerResult, missedLabels: labels, pendingMatches: pendingMatchesList };
-  }, [matches, predictions, ruleset, phaseLockSet, isAdmin, now, tournamentPredictions, extraPhasePredictions, lockDate, groupId, userId]); // eslint-disable-line react-hooks/exhaustive-deps
+    const extendedDeadlineMatches =
+      ruleset === "regulamento_2"
+        ? matches.filter((m) => isR2ExtendedDeadlineMatch(m, ruleset, new Date(now)) && !predictions[m.id])
+        : [];
 
-  if (!banner && missedLabels.length === 0) return null;
+    return { banner: bannerResult, missedLabels: labels, pendingMatches: pendingMatchesList, extendedDeadlineMatches };
+  }, [matches, predictions, ruleset, phaseLockSet, isAdmin, now, tournamentPredictions, extraPhasePredictions, lockDate, groupId, userId]);
+
+  if (!banner && missedLabels.length === 0 && extendedDeadlineMatches.length === 0) return null;
 
   const accent = banner?.alert
     ? { border: "border-l-red-500", bg: "bg-red-900/40", text: "text-red-200", iconBg: "bg-red-500/30", iconText: "text-red-300", subBg: "bg-red-500/20", subText: "text-red-300" }
@@ -282,6 +291,37 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
                   {label}
                 </span>
               ))}
+            </div>
+          </div>
+        )}
+
+        {extendedDeadlineMatches.length > 0 && (
+          <div className={`mt-2 ${banner || missedLabels.length > 0 ? "pt-2 border-t border-slate-600/30" : ""}`}>
+            <div className="flex items-center gap-2 mb-1.5">
+              <Sparkles size={14} className={accent.iconText} />
+              <span className={`text-xs font-bold ${accent.subText}`}>
+                {extendedDeadlineMatches.length} palpite{extendedDeadlineMatches.length > 1 ? "s" : ""} com prazo estendido
+              </span>
+            </div>
+            <div className={`inline-flex items-center gap-1.5 mb-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold border ${accent.subBg} ${accent.subText} border-slate-600/40`}>
+              <Hourglass size={10} />
+              Fecha em {formatCountdown(R2_EXTENDED_DEADLINE.getTime() - now)}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {extendedDeadlineMatches.map((m) => {
+                const matchDate = new Date(m.date);
+                const formattedDate = matchDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                const formattedTime = matchDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                return (
+                  <div
+                    key={m.id}
+                    className={`inline-flex items-center gap-2 px-2 py-0.5 rounded-md text-[10px] font-bold border ${accent.subBg} ${accent.subText} border-slate-600/40`}
+                  >
+                    <span>{m.homeTeam.name} vs {m.awayTeam.name}</span>
+                    <span className="opacity-75">• {formattedDate} {formattedTime}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

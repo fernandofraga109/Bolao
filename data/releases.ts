@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.2';
+export const CURRENT_VERSION = '2.0.3';
 
 export interface Release {
   version: string;
@@ -7,6 +7,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.3',
+    date: '2026-07-03',
+    changes: [
+      'Reg. 2: jogos 537381 e 537382 têm prazo estendido até 05/07 03:00 UTC (hardcoded)',
+      'Placares ocultos no "O que a galera acha" até o deadline desses jogos',
+      'Banner de palpites pendentes mostra seção específica com countdown para esses jogos',
+    ],
+  },
   {
     version: '2.0.2',
     date: '2026-07-03',

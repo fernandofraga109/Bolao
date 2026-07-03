@@ -19,6 +19,7 @@ import {
   getR1MatchScoringResult,
   getMatchDuration,
   getKnockoutAdvancingTeamId,
+  isR2ExtendedDeadlineMatch,
   POINTS_EXACT,
   POINTS_GOAL_DIFF,
   POINTS_OUTCOME,
@@ -214,7 +215,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const isLive = match.status === MatchStatus.LIVE;
   const isDelayed = match.status === MatchStatus.DELAYED;
   const isFinished = match.status === MatchStatus.FINISHED;
-  const isPhaseLocked = ruleset === "regulamento_2" && phaseLockSet?.has(getPhaseLockKey(match.stage, match.group));
+  const isR2ExtendedMatch = isR2ExtendedDeadlineMatch(match, ruleset);
+  const isPhaseLocked = ruleset === "regulamento_2" && phaseLockSet?.has(getPhaseLockKey(match.stage, match.group)) && !isR2ExtendedMatch;
   const isTeamTBD = !match.homeTeam?.id || !match.awayTeam?.id;
   const isPredictionDisabled = isFinished || isLive || isDelayed || isLocked || !!isPhaseLocked || isTeamTBD;
   const classifiesPhase = getKnockoutClassifiesPhase(match.stage, match.group);
@@ -820,7 +822,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                       ) : null;
                     })()}
                     <span className="font-mono font-black text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded-lg border border-slate-800 shrink-0 text-[10px]">
-                      {isPredictionDisabled ? `${pred.home}-${pred.away}` : <EyeOff size={10} />}
+                      {isPredictionDisabled && !isR2ExtendedMatch ? `${pred.home}-${pred.away}` : <EyeOff size={10} />}
                     </span>
                   </div>
                 </div>
