@@ -101,7 +101,7 @@ export const useMatchSystem = (
         if (!homeTeam && !isHomeTbd) return null;
         if (!awayTeam && !isAwayTbd) return null;
 
-        const TBD_TEAM = { id: "", name: "A Definir", code: "TBD", flag: "", ranking: undefined };
+        const TBD_TEAM = { id: "", name: "A Definir", code: "TBD", flag: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23475569'/%3E%3Ctext x='32' y='44' font-family='Arial' font-size='28' font-weight='bold' fill='%23ffffff' text-anchor='middle'%3E%3F%3C/text%3E%3C/svg%3E", ranking: undefined };
         const resolvedHome = homeTeam ?? TBD_TEAM;
         const resolvedAway = awayTeam ?? TBD_TEAM;
 

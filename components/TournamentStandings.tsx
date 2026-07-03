@@ -610,11 +610,15 @@ const TournamentStandings: React.FC<TournamentStandingsProps> = ({
                                 </span>
                                 <div className="flex items-center gap-2">
                                   <div className="w-6 h-6 flex items-center justify-center bg-slate-900/40 rounded border border-slate-700/30 overflow-hidden">
-                                    <img
-                                      src={stats.team.flag}
-                                      alt={stats.team.code}
-                                      className="w-4 h-4 object-contain"
-                                    />
+                                    {stats.team.flag ? (
+                                      <img
+                                        src={stats.team.flag}
+                                        alt={stats.team.code}
+                                        className="w-4 h-4 object-contain"
+                                      />
+                                    ) : (
+                                      <span className="text-slate-500 text-xs">?</span>
+                                    )}
                                   </div>
 
                                   <span

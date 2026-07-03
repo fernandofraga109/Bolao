@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.3';
+export const CURRENT_VERSION = '2.0.4';
 
 export interface Release {
   version: string;
@@ -7,6 +7,14 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.4',
+    date: '2026-07-03',
+    changes: [
+      'Ajustes de layout para palpites especiais',
+      'Correção da bandeira para times que não foram definidos ainda',
+    ],
+  },
   {
     version: '2.0.3',
     date: '2026-07-03',

@@ -160,7 +160,7 @@ export const ExtraPhasePredictionsCard: React.FC<ExtraPhasePredictionsCardProps>
   };
 
   return (
-    <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-700 relative overflow-hidden">
+    <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-700 relative">
       {/* Header - Accordion trigger */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}

@@ -270,7 +270,7 @@ export const GroupClassificationsCard: React.FC<GroupClassificationsCardProps> =
   if (groupsList.length === 0) return null;
 
   return (
-    <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-700 relative overflow-hidden">
+    <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-700 relative">
       {/* Card Header - Clickable to toggle accordion */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}

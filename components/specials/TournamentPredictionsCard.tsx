@@ -347,11 +347,17 @@ const TournamentPredictionsCard: React.FC<TournamentPredictionsCardProps> = ({
                 >
                   {selectedTeam ? (
                     <div className="flex items-center gap-2">
-                      <img
-                        src={selectedTeam.flag}
-                        alt={selectedTeam.name}
-                        className="w-5 h-3.5 object-cover rounded shadow-sm"
-                      />
+                      {selectedTeam.flag ? (
+                        <img
+                          src={selectedTeam.flag}
+                          alt={selectedTeam.name}
+                          className="w-5 h-3.5 object-cover rounded shadow-sm"
+                        />
+                      ) : (
+                        <div className="w-5 h-3.5 bg-slate-700 rounded flex items-center justify-center">
+                          <span className="text-slate-400 text-xs">?</span>
+                        </div>
+                      )}
                       <span>{selectedTeam.name}</span>
                     </div>
                   ) : (
@@ -372,11 +378,17 @@ const TournamentPredictionsCard: React.FC<TournamentPredictionsCardProps> = ({
                         }}
                         className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-3 transition-colors border-b border-slate-700/50 last:border-0"
                       >
-                        <img
-                          src={team.flag}
-                          alt={team.name}
-                          className="w-6 h-4 object-cover rounded shadow-sm"
-                        />
+                        {team.flag ? (
+                          <img
+                            src={team.flag}
+                            alt={team.name}
+                            className="w-6 h-4 object-cover rounded shadow-sm"
+                          />
+                        ) : (
+                          <div className="w-6 h-4 bg-slate-700 rounded flex items-center justify-center">
+                            <span className="text-slate-400 text-xs">?</span>
+                          </div>
+                        )}
                         <span>{team.name}</span>
                         {championId === team.id && (
                           <Check size={14} className="ml-auto text-brand-green" />
@@ -473,11 +485,17 @@ const TournamentPredictionsCard: React.FC<TournamentPredictionsCardProps> = ({
                     >
                       {selectedMostGoalsTeam ? (
                         <div className="flex items-center gap-2">
-                          <img
-                            src={selectedMostGoalsTeam.flag}
-                            alt={selectedMostGoalsTeam.name}
-                            className="w-5 h-3.5 object-cover rounded shadow-sm"
-                          />
+                          {selectedMostGoalsTeam.flag ? (
+                            <img
+                              src={selectedMostGoalsTeam.flag}
+                              alt={selectedMostGoalsTeam.name}
+                              className="w-5 h-3.5 object-cover rounded shadow-sm"
+                            />
+                          ) : (
+                            <div className="w-5 h-3.5 bg-slate-700 rounded flex items-center justify-center">
+                              <span className="text-slate-400 text-xs">?</span>
+                            </div>
+                          )}
                           <span>{selectedMostGoalsTeam.name}</span>
                         </div>
                       ) : (
@@ -499,11 +517,17 @@ const TournamentPredictionsCard: React.FC<TournamentPredictionsCardProps> = ({
                             }}
                             className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-3 transition-colors border-b border-slate-700/50 last:border-0"
                           >
-                            <img
-                              src={team.flag}
-                              alt={team.name}
-                              className="w-6 h-4 object-cover rounded shadow-sm"
-                            />
+                            {team.flag ? (
+                              <img
+                                src={team.flag}
+                                alt={team.name}
+                                className="w-6 h-4 object-cover rounded shadow-sm"
+                              />
+                            ) : (
+                              <div className="w-6 h-4 bg-slate-700 rounded flex items-center justify-center">
+                                <span className="text-slate-400 text-xs">?</span>
+                              </div>
+                            )}
                             <span>{team.name}</span>
                             {mostGoalsTeamId === team.id && (
                               <Check size={14} className="ml-auto text-brand-green" />
@@ -542,11 +566,17 @@ const TournamentPredictionsCard: React.FC<TournamentPredictionsCardProps> = ({
                     >
                       {selectedMostConcededTeam ? (
                         <div className="flex items-center gap-2">
-                          <img
-                            src={selectedMostConcededTeam.flag}
-                            alt={selectedMostConcededTeam.name}
-                            className="w-5 h-3.5 object-cover rounded shadow-sm"
-                          />
+                          {selectedMostConcededTeam.flag ? (
+                            <img
+                              src={selectedMostConcededTeam.flag}
+                              alt={selectedMostConcededTeam.name}
+                              className="w-5 h-3.5 object-cover rounded shadow-sm"
+                            />
+                          ) : (
+                            <div className="w-5 h-3.5 bg-slate-700 rounded flex items-center justify-center">
+                              <span className="text-slate-400 text-xs">?</span>
+                            </div>
+                          )}
                           <span>{selectedMostConcededTeam.name}</span>
                         </div>
                       ) : (
@@ -568,11 +598,17 @@ const TournamentPredictionsCard: React.FC<TournamentPredictionsCardProps> = ({
                             }}
                             className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-700 flex items-center gap-3 transition-colors border-b border-slate-700/50 last:border-0"
                           >
-                            <img
-                              src={team.flag}
-                              alt={team.name}
-                              className="w-6 h-4 object-cover rounded shadow-sm"
-                            />
+                            {team.flag ? (
+                              <img
+                                src={team.flag}
+                                alt={team.name}
+                                className="w-6 h-4 object-cover rounded shadow-sm"
+                              />
+                            ) : (
+                              <div className="w-6 h-4 bg-slate-700 rounded flex items-center justify-center">
+                                <span className="text-slate-400 text-xs">?</span>
+                              </div>
+                            )}
                             <span>{team.name}</span>
                             {mostConcededTeamId === team.id && (
                               <Check size={14} className="ml-auto text-brand-green" />

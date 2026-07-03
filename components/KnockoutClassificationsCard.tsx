@@ -276,7 +276,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
   );
 
   return (
-    <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-700 relative overflow-hidden">
+    <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-700 relative">
       {/* Header / Accordion Trigger */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
@@ -455,11 +455,17 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
                         >
                           <div className="relative mb-2">
                             <div className="w-10 h-7 sm:w-12 sm:h-8 flex items-center justify-center bg-slate-800 rounded shadow-inner overflow-hidden border border-slate-700/50">
-                              <img
-                                src={team.flag}
-                                alt={team.name}
-                                className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                              />
+                              {team.flag ? (
+                                <img
+                                  src={team.flag}
+                                  alt={team.name}
+                                  className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-slate-700">
+                                  <span className="text-slate-400 text-xs font-bold">?</span>
+                                </div>
+                              )}
                             </div>
                             {isSelected && (
                               <div className="absolute -top-1.5 -right-1.5 bg-brand-green text-slate-900 rounded-full p-0.5 shadow-lg border border-slate-900">

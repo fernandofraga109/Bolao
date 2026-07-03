@@ -111,11 +111,17 @@ export const ReplicatePredictionModal: React.FC<ReplicatePredictionModalProps> =
               <span className="text-xs font-bold text-slate-300 truncate max-w-[80px] sm:max-w-[110px]">
                 {match.homeTeam.name}
               </span>
-              <img
-                src={match.homeTeam.flag}
-                alt={match.homeTeam.name}
-                className="w-5 h-5 object-contain"
-              />
+              {match.homeTeam.flag ? (
+                <img
+                  src={match.homeTeam.flag}
+                  alt={match.homeTeam.name}
+                  className="w-5 h-5 object-contain"
+                />
+              ) : (
+                <div className="w-5 h-5 bg-slate-700 rounded flex items-center justify-center">
+                  <span className="text-slate-400 text-xs">?</span>
+                </div>
+              )}
             </div>
             
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800 border border-slate-700 font-mono font-black text-brand-green text-base">
@@ -125,11 +131,17 @@ export const ReplicatePredictionModal: React.FC<ReplicatePredictionModalProps> =
             </div>
 
             <div className="flex items-center gap-2 flex-1 justify-start">
-              <img
-                src={match.awayTeam.flag}
-                alt={match.awayTeam.name}
-                className="w-5 h-5 object-contain"
-              />
+              {match.awayTeam.flag ? (
+                <img
+                  src={match.awayTeam.flag}
+                  alt={match.awayTeam.name}
+                  className="w-5 h-5 object-contain"
+                />
+              ) : (
+                <div className="w-5 h-5 bg-slate-700 rounded flex items-center justify-center">
+                  <span className="text-slate-400 text-xs">?</span>
+                </div>
+              )}
               <span className="text-xs font-bold text-slate-300 truncate max-w-[80px] sm:max-w-[110px]">
                 {match.awayTeam.name}
               </span>
