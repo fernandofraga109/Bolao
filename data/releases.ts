@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.4';
+export const CURRENT_VERSION = '2.0.5';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.5',
+    date: '2026-07-04',
+    changes: [
+      'Banner de palpites pendentes agora é um acordeão: começa aberto ao abrir o app, mas pode ser fechado deixando apenas o header com o label "PALPITES PENDENTES"',
+    ],
+  },
   {
     version: '2.0.4',
     date: '2026-07-03',

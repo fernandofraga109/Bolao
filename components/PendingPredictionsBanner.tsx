@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { Match, MatchStatus, TournamentPredictions, ExtraPhasePredictionDB } from "../types";
 import { getPhaseLockKey, getKnockoutClassifiesPhase, isR2ExtendedDeadlineMatch, R2_EXTENDED_DEADLINE } from "../utils/scoring";
-import { AlertTriangle, Clock, Hourglass, Sparkles } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, Clock, Hourglass, Sparkles } from "lucide-react";
 
 interface PendingPredictionsBannerProps {
   matches: Match[];
@@ -50,6 +50,7 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
   userId,
 }) => {
   const [now, setNow] = useState(() => Date.now());
+  const [isOpen, setIsOpen] = useState(true);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60000);
@@ -230,32 +231,97 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
 
   return (
     <div
-      className={`mt-3 rounded-2xl border border-slate-700/50 ${accent.border} border-l-4 ${accent.bg} px-5 py-4 flex items-start gap-4 animate-fadeIn shadow-lg`}
+      className={`mt-3 rounded-2xl border border-slate-700/50 ${accent.border} border-l-4 ${accent.bg} animate-fadeIn shadow-lg overflow-hidden`}
     >
-      <div
-        className={`shrink-0 w-10 h-10 rounded-full ${accent.iconBg} ${accent.iconText} flex items-center justify-center animate-pulse mt-0.5`}
+      <button
+        onClick={() => setIsOpen((v) => !v)}
+        className={`w-full px-5 py-3 flex items-center gap-3 focus:outline-none`}
       >
-        {banner?.alert ? <AlertTriangle size={20} /> : <Clock size={20} />}
-      </div>
-      <div className="flex-1 min-w-0">
-        {banner && (
-          <>
-            <span className={`text-[10px] font-black uppercase tracking-widest ${accent.subText}`}>
-              {banner.alert ? "Atenção" : "Palpites Pendentes"}
-            </span>
-            <p className={`text-sm font-bold leading-snug mt-0.5 ${accent.text}`}>
-              {banner.text}
-            </p>
-            {banner.sub && (
-              <span className={`inline-flex items-center gap-1.5 mt-1.5 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${accent.subBg} ${accent.subText}`}>
-                <Hourglass size={10} />
-                {banner.sub}
-              </span>
+        <div
+          className={`shrink-0 w-8 h-8 rounded-full ${accent.iconBg} ${accent.iconText} flex items-center justify-center ${isOpen ? "animate-pulse" : ""}`}
+        >
+          {banner?.alert ? <AlertTriangle size={16} /> : <Clock size={16} />}
+        </div>
+        <span className={`flex-1 text-left text-[10px] font-black uppercase tracking-widest ${accent.subText}`}>
+          {banner?.alert ? "Atenção" : "Palpites Pendentes"}
+        </span>
+        <span className={`${accent.iconText}`}>
+          {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </span>
+      </button>
+
+      {isOpen && (
+        <div className="px-5 pb-4 flex items-start gap-4">
+          <div className="w-8 shrink-0" />
+          <div className="flex-1 min-w-0">
+            {banner && (
+              <>
+                <p className={`text-sm font-bold leading-snug ${accent.text}`}>
+                  {banner.text}
+                </p>
+                {banner.sub && (
+                  <span className={`inline-flex items-center gap-1.5 mt-1.5 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${accent.subBg} ${accent.subText}`}>
+                    <Hourglass size={10} />
+                    {banner.sub}
+                  </span>
+                )}
+                {pendingMatches.length > 0 && (
+                  <div className={`mt-2 pt-2 border-t border-slate-600/30`}>
+                    <div className="flex flex-col gap-1.5">
+                      {pendingMatches.map((m) => {
+                        const matchDate = new Date(m.date);
+                        const formattedDate = matchDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                        const formattedTime = matchDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                        return (
+                          <div
+                            key={m.id}
+                            className={`inline-flex items-center gap-2 px-2 py-0.5 rounded-md text-[10px] font-bold border ${accent.subBg} ${accent.subText} border-slate-600/40`}
+                          >
+                            <span>{m.homeTeam.name} vs {m.awayTeam.name}</span>
+                            <span className="opacity-75">• {formattedDate} {formattedTime}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
-            {pendingMatches.length > 0 && (
-              <div className={`mt-2 pt-2 border-t border-slate-600/30`}>
+            {missedLabels.length > 0 && (
+              <div className={`mt-2 ${banner ? "pt-2 border-t border-slate-600/30" : ""}`}>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Sparkles size={14} className={accent.iconText} />
+                  <span className={`text-xs font-bold ${accent.subText}`}>
+                    + {missedLabels.length} palpite{missedLabels.length > 1 ? "s" : ""} especial{missedLabels.length > 1 ? "is" : ""} pendente{missedLabels.length > 1 ? "s" : ""}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {missedLabels.map((label) => (
+                    <span
+                      key={label}
+                      className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold border ${accent.subBg} ${accent.subText} border-slate-600/40`}
+                    >
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {extendedDeadlineMatches.length > 0 && (
+              <div className={`mt-2 ${banner || missedLabels.length > 0 ? "pt-2 border-t border-slate-600/30" : ""}`}>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Sparkles size={14} className={accent.iconText} />
+                  <span className={`text-xs font-bold ${accent.subText}`}>
+                    {extendedDeadlineMatches.length} palpite{extendedDeadlineMatches.length > 1 ? "s" : ""} com prazo estendido
+                  </span>
+                </div>
+                <div className={`inline-flex items-center gap-1.5 mb-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold border ${accent.subBg} ${accent.subText} border-slate-600/40`}>
+                  <Hourglass size={10} />
+                  Fecha em {formatCountdown(R2_EXTENDED_DEADLINE.getTime() - now)}
+                </div>
                 <div className="flex flex-col gap-1.5">
-                  {pendingMatches.map((m) => {
+                  {extendedDeadlineMatches.map((m) => {
                     const matchDate = new Date(m.date);
                     const formattedDate = matchDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
                     const formattedTime = matchDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -272,60 +338,9 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
                 </div>
               </div>
             )}
-          </>
-        )}
-        {missedLabels.length > 0 && (
-          <div className={`mt-2 ${banner ? "pt-2 border-t border-slate-600/30" : ""}`}>
-            <div className="flex items-center gap-2 mb-1.5">
-              <Sparkles size={14} className={accent.iconText} />
-              <span className={`text-xs font-bold ${accent.subText}`}>
-                + {missedLabels.length} palpite{missedLabels.length > 1 ? "s" : ""} especial{missedLabels.length > 1 ? "is" : ""} pendente{missedLabels.length > 1 ? "s" : ""}
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {missedLabels.map((label) => (
-                <span
-                  key={label}
-                  className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold border ${accent.subBg} ${accent.subText} border-slate-600/40`}
-                >
-                  {label}
-                </span>
-              ))}
-            </div>
           </div>
-        )}
-
-        {extendedDeadlineMatches.length > 0 && (
-          <div className={`mt-2 ${banner || missedLabels.length > 0 ? "pt-2 border-t border-slate-600/30" : ""}`}>
-            <div className="flex items-center gap-2 mb-1.5">
-              <Sparkles size={14} className={accent.iconText} />
-              <span className={`text-xs font-bold ${accent.subText}`}>
-                {extendedDeadlineMatches.length} palpite{extendedDeadlineMatches.length > 1 ? "s" : ""} com prazo estendido
-              </span>
-            </div>
-            <div className={`inline-flex items-center gap-1.5 mb-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold border ${accent.subBg} ${accent.subText} border-slate-600/40`}>
-              <Hourglass size={10} />
-              Fecha em {formatCountdown(R2_EXTENDED_DEADLINE.getTime() - now)}
-            </div>
-            <div className="flex flex-col gap-1.5">
-              {extendedDeadlineMatches.map((m) => {
-                const matchDate = new Date(m.date);
-                const formattedDate = matchDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-                const formattedTime = matchDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                return (
-                  <div
-                    key={m.id}
-                    className={`inline-flex items-center gap-2 px-2 py-0.5 rounded-md text-[10px] font-bold border ${accent.subBg} ${accent.subText} border-slate-600/40`}
-                  >
-                    <span>{m.homeTeam.name} vs {m.awayTeam.name}</span>
-                    <span className="opacity-75">• {formattedDate} {formattedTime}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
