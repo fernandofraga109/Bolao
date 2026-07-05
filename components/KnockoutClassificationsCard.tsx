@@ -506,7 +506,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
                       phase={phase}
                       db={db}
                       config={config}
-                      isLocked={isLocked}
+                      isLocked={phase === "Quartas" ? false : isLocked}
                       tournamentResults={tournamentResults}
                     />
                   );
@@ -523,7 +523,8 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
 
             const phaseLockMap: Record<string, boolean> = {};
             visiblePhases.forEach((p) => {
-              phaseLockMap[p] = isPhaseLocked(p);
+              // Quartas: outros palpites ficam sempre ocultos (nunca revelados)
+              phaseLockMap[p] = p === "Quartas" ? false : isPhaseLocked(p);
             });
 
             return (
