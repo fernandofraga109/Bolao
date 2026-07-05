@@ -624,13 +624,17 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
                 pts: hit ? 5 : 0,
               };
             });
+            // For Quartas, only show selections that scored points (correct predictions)
+            const filteredItems = groupName === "Quartas"
+              ? knockoutItems.filter((item) => item.pts > 0)
+              : knockoutItems;
             const knockoutLabel = groupName === "DezesseisAvos" ? "16 Avos" : groupName;
             pushGroup(
               `classifications-${groupName}`,
               `Classificados ${knockoutLabel}`,
-              formatTeamList(validPreds),
+              groupName === "Quartas" ? formatTeamList(filteredItems.map(i => i.label)) : formatTeamList(validPreds),
               formatTeamList(actualTeams),
-              knockoutItems
+              filteredItems
             );
           } else {
             let pts = 0;

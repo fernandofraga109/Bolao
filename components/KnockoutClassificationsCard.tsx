@@ -269,7 +269,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
     Semis: { max: 4, label: "Semifinais" },
   };
 
-  const visiblePhases = (["Oitavas", "Quartas", "Semis"] as const);
+  const visiblePhases = (["Oitavas", "Semis"] as const);
 
   const visiblePhaseConfig = Object.fromEntries(
     visiblePhases.map((phase) => [phase, phaseConfig[phase]])
