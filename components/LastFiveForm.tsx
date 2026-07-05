@@ -37,7 +37,7 @@ const LastFiveForm: React.FC<LastFiveFormProps> = ({ entries, onClick, align = "
       onClick={onClick}
       role={onClick ? "button" : undefined}
       title={onClick ? "Ver últimos jogos" : undefined}
-      className={`flex items-center gap-1 ${ALIGN_CLASS[align]} ${
+      className={`flex flex-wrap items-center gap-1 max-w-[4.5rem] ${ALIGN_CLASS[align]} ${
         onClick ? "cursor-pointer transition-opacity hover:opacity-80" : ""
       }`}
     >
@@ -46,7 +46,7 @@ const LastFiveForm: React.FC<LastFiveFormProps> = ({ entries, onClick, align = "
         return (
           <span
             key={i}
-            className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${bg}`}
+            className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${bg} shrink-0`}
           >
             <Icon size={9} strokeWidth={3.5} />
           </span>

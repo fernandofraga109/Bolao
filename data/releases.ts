@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.6';
+export const CURRENT_VERSION = '2.0.7';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.7',
+    date: '2026-07-05',
+    changes: [
+      'Correção de layout: bolinhas de forma recente dos times agora quebram para no máximo 4 por linha em telas pequenas',
+    ],
+  },
   {
     version: '2.0.6',
     date: '2026-07-04',
