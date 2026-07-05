@@ -15,8 +15,6 @@ import {
   getKnockoutAdvancingTeamId,
   getR1MatchScoringResult,
   isKnockoutPredictionCoherent,
-  isR2ExtendedDeadlineMatch,
-  R2_EXTENDED_DEADLINE,
   POINTS_EXACT,
   POINTS_GOAL_DIFF,
   POINTS_OUTCOME,
@@ -1153,74 +1151,5 @@ describe("getExtraPhaseKey", () => {
   it("retorna groups para fase de grupos", () => {
     expect(getExtraPhaseKey("GROUP_STAGE", undefined)).toBe("groups");
     expect(getExtraPhaseKey("REGULAR_SEASON", undefined)).toBe("groups");
-  });
-});
-
-describe("isR2ExtendedDeadlineMatch", () => {
-  const beforeDeadline = new Date(R2_EXTENDED_DEADLINE.getTime() - 60 * 60 * 1000);
-  const afterDeadline = new Date(R2_EXTENDED_DEADLINE.getTime() + 60 * 60 * 1000);
-
-  it("retorna true para os IDs especiais no Regulamento 2 antes do deadline", () => {
-    expect(
-      isR2ExtendedDeadlineMatch(
-        { externalMatchId: "537381", status: "SCHEDULED", date: "2026-07-07T16:00:00Z" },
-        "regulamento_2",
-        beforeDeadline
-      )
-    ).toBe(true);
-    expect(
-      isR2ExtendedDeadlineMatch(
-        { externalMatchId: "537382", status: "SCHEDULED", date: "2026-07-07T20:00:00Z" },
-        "regulamento_2",
-        beforeDeadline
-      )
-    ).toBe(true);
-  });
-
-  it("retorna false após o deadline", () => {
-    expect(
-      isR2ExtendedDeadlineMatch(
-        { externalMatchId: "537381", status: "SCHEDULED", date: "2026-07-07T16:00:00Z" },
-        "regulamento_2",
-        afterDeadline
-      )
-    ).toBe(false);
-  });
-
-  it("retorna false para IDs que não estão na lista de exceção", () => {
-    expect(
-      isR2ExtendedDeadlineMatch(
-        { externalMatchId: "537383", status: "SCHEDULED", date: "2026-07-07T16:00:00Z" },
-        "regulamento_2",
-        beforeDeadline
-      )
-    ).toBe(false);
-  });
-
-  it("retorna false para Regulamento 1", () => {
-    expect(
-      isR2ExtendedDeadlineMatch(
-        { externalMatchId: "537381", status: "SCHEDULED", date: "2026-07-07T16:00:00Z" },
-        "regulamento_1",
-        beforeDeadline
-      )
-    ).toBe(false);
-  });
-
-  it("retorna false quando o jogo não está mais SCHEDULED", () => {
-    expect(
-      isR2ExtendedDeadlineMatch(
-        { externalMatchId: "537381", status: "FINISHED", date: "2026-07-07T16:00:00Z" },
-        "regulamento_2",
-        beforeDeadline
-      )
-    ).toBe(false);
-    expect(
-      isR2ExtendedDeadlineMatch(
-        { externalMatchId: "537381", status: "LIVE", date: "2026-07-07T16:00:00Z" },
-        "regulamento_2",
-        beforeDeadline
-      )
-    ).toBe(false);
   });
 });

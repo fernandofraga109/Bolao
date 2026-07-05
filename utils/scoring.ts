@@ -55,30 +55,6 @@ export const getMatchPhase = (stage?: string, group?: string): MatchPhase => {
 export type PhaseLockKey = 'groups' | 'round_of_32' | 'oitavas' | 'quartas' | 'semis' | 'third_place' | 'final';
 
 /**
- * Hardcoded Regulamento 2 exception: these two LAST_16 matches remain editable
- * and keep their predictions hidden in "O que a galera acha" until the deadline,
- * even if their phase would otherwise be locked.
- */
-export const R2_EXTENDED_DEADLINE_MATCH_IDS = ["537381", "537382"];
-export const R2_EXTENDED_DEADLINE = new Date("2026-07-05T03:00:00Z");
-
-/**
- * Checks whether a match is one of the special Regulamento 2 matches that
- * remain editable beyond the normal phase lock until the extended deadline.
- * Only applies when the match is still SCHEDULED (no live/finished override).
- */
-export const isR2ExtendedDeadlineMatch = (
-  match: { externalMatchId?: string | null; status?: string; date?: string },
-  ruleset?: string,
-  now = new Date()
-): boolean => {
-  if (ruleset !== "regulamento_2") return false;
-  if (match.status !== MatchStatus.SCHEDULED) return false;
-  if (!match.externalMatchId) return false;
-  return R2_EXTENDED_DEADLINE_MATCH_IDS.includes(match.externalMatchId) && now < R2_EXTENDED_DEADLINE;
-};
-
-/**
  * Maps a match stage and group to the phase-lock key used in Regulamento 2.
  * Each tournament stage gets its own key so that phases lock independently.
  */
