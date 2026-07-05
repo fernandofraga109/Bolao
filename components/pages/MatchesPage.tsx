@@ -310,9 +310,11 @@ const MatchesPage: React.FC<MatchesPageProps> = ({
     const locked = new Set<string>();
     const now = new Date();
     matches.forEach((m) => {
+      const phaseKey = getPhaseLockKey(m.stage, m.group);
+      if (phaseKey === 'oitavas') return;
       const started = m.status !== MatchStatus.SCHEDULED || now > new Date(m.date);
       if (started) {
-        locked.add(getPhaseLockKey(m.stage, m.group));
+        locked.add(phaseKey);
       }
     });
     return locked;

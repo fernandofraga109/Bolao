@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.7';
+export const CURRENT_VERSION = '2.0.8';
 
 export interface Release {
   version: string;
@@ -7,6 +7,14 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.8',
+    date: '2026-07-05',
+    changes: [
+      'Regulamento 2: oitavas de final agora bloqueiam jogo a jogo (igual ao Regulamento 1) — cada jogo trava só quando ele começa, não quando o primeiro jogo da fase começa',
+      'Palpites de amigos em "O que a galera acha" ficam ocultos até o jogo específico começar (para oitavas R2)',
+    ],
+  },
   {
     version: '2.0.7',
     date: '2026-07-05',
