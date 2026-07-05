@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.5';
+export const CURRENT_VERSION = '2.0.6';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.6',
+    date: '2026-07-04',
+    changes: [
+      'Reg. 2: banner de palpites pendentes só alerta sobre fases de mata-mata a partir de 24h antes do primeiro jogo da fase (evita alertas de jogos ainda TBD)',
+    ],
+  },
   {
     version: '2.0.5',
     date: '2026-07-04',

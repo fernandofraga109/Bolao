@@ -64,6 +64,20 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
       (m) => m.status === MatchStatus.SCHEDULED
     );
 
+    // Regulamento 2: fases de mata-mata só entram no banner a partir de 24h antes
+    // do primeiro jogo da fase (evita alertar sobre jogos ainda TBD). A fase de
+    // grupos nunca é bloqueada por esta janela.
+    const WINDOW_MS = 24 * 60 * 60 * 1000;
+    const isKoPhaseGated = (phaseKey: string): boolean => {
+      if (phaseKey === "groups") return false;
+      const phaseMatches = schedulable.filter(
+        (m) => getPhaseLockKey(m.stage, m.group) === phaseKey
+      );
+      if (phaseMatches.length === 0) return true;
+      const earliest = Math.min(...phaseMatches.map((m) => new Date(m.date).getTime()));
+      return earliest - now > WINDOW_MS;
+    };
+
     let bannerResult: { text: string; sub?: string; urgent: boolean; alert?: boolean } | null = null;
     let pendingMatchesList: Match[] = [];
     let currentPhase: string | null = null;
@@ -91,6 +105,10 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
       });
 
       currentPhase = PHASE_ORDER.find((p) => byPhase[p] && !phaseLockSet.has(p)) || null;
+
+      // Fase KO ainda a mais de 24h: não alerta nada dela (jogos, classificados,
+      // desempates ou maior diferença) até faltarem 24h para o primeiro jogo.
+      if (currentPhase && isKoPhaseGated(currentPhase)) currentPhase = null;
 
       if (currentPhase && byPhase[currentPhase]) {
         const pending = byPhase[currentPhase]
@@ -188,6 +206,7 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
         if (!knockoutDrawPhaseLabels[phaseKey]) return;
         if (phaseLockSet.has(phaseKey) && !isR2ExtendedDeadlineMatch(m, ruleset, new Date(now))) return;
         if (m.status !== MatchStatus.SCHEDULED) return;
+        if (isKoPhaseGated(phaseKey) && !isR2ExtendedDeadlineMatch(m, ruleset, new Date(now))) return;
         const classifiesPhase = getKnockoutClassifiesPhase(m.stage, m.group);
         if (!classifiesPhase) return;
         const pred = predictions[m.id];
