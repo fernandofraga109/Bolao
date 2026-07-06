@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.10';
+export const CURRENT_VERSION = '2.0.11';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.11',
+    date: '2026-07-05',
+    changes: [
+      'Auditoria: Quartas de final só mostram acertos durante a fase; revelam todos os palpites após último jogo terminar',
+    ],
+  },
   {
     version: '2.0.10',
     date: '2026-07-05',

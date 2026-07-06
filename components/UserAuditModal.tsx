@@ -346,15 +346,11 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
     return names.length > 0 ? names.join(", ") : undefined;
   };
 
-  const phaseStarted = (phaseName: string) => {
-    // eslint-disable-next-line react-hooks/purity
-    const now = Date.now();
+  const getPhaseMatches = (phaseName: string) => {
     const normalized = phaseName.toLowerCase();
-
-    const phaseMatches = auditMatches.filter((match) => {
+    return auditMatches.filter((match) => {
       const stage = (match.stage || "").toUpperCase();
       const group = (match.group || "").toUpperCase();
-
       if (normalized === "dezesseisavos" || normalized === "round_of_32" || normalized === "16avos" || normalized === "16_avos") {
         return stage.includes("ROUND_OF_32") || stage.includes("LAST_32") || group.includes("16_AVOS") || group.includes("16AVOS");
       }
@@ -373,9 +369,20 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
         group.includes("GRUPO")
       );
     });
+  };
 
+  const phaseStarted = (phaseName: string) => {
+    // eslint-disable-next-line react-hooks/purity
+    const now = Date.now();
+    const phaseMatches = getPhaseMatches(phaseName);
     if (phaseMatches.length === 0) return false;
     return Math.min(...phaseMatches.map((match) => new Date(match.date).getTime())) <= now;
+  };
+
+  const phaseFinished = (phaseName: string) => {
+    const phaseMatches = getPhaseMatches(phaseName);
+    if (phaseMatches.length === 0) return false;
+    return phaseMatches.every((match) => match.status === MatchStatus.FINISHED);
   };
 
   // Special predictions should only be visible after lock date (same rule as OtherUsersPredictions)
@@ -624,15 +631,16 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
                 pts: hit ? 5 : 0,
               };
             });
-            // Quartas: só mostrar seleções que acertaram (pontuaram)
-            const filteredItems = groupName === "Quartas"
+            // Quartas: enquanto a fase não terminar, só mostrar acertos; após último jogo, mostrar tudo
+            const quartasFinished = groupName === "Quartas" && phaseFinished("quartas");
+            const filteredItems = (groupName === "Quartas" && !quartasFinished)
               ? knockoutItems.filter((item) => item.pts > 0)
               : knockoutItems;
             const knockoutLabel = groupName === "DezesseisAvos" ? "16 Avos" : groupName;
             pushGroup(
               `classifications-${groupName}`,
               `Classificados ${knockoutLabel}`,
-              groupName === "Quartas" ? formatTeamList(filteredItems.map((i) => i.label)) : formatTeamList(validPreds),
+              groupName === "Quartas" && !quartasFinished ? formatTeamList(filteredItems.map((i) => i.label)) : formatTeamList(validPreds),
               formatTeamList(actualTeams),
               filteredItems
             );
