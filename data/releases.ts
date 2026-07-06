@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.9';
+export const CURRENT_VERSION = '2.0.10';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.10',
+    date: '2026-07-05',
+    changes: [
+      'Melhorias no layout para mata-mata',
+    ],
+  },
   {
     version: '2.0.9',
     date: '2026-07-05',
