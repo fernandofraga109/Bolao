@@ -82,11 +82,19 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
     let pendingMatchesList: Match[] = [];
     let currentPhase: string | null = null;
 
+    const byPhase: Record<string, Match[]> = {};
+    schedulable.forEach((m) => {
+      const phase = getPhaseLockKey(m.stage, m.group);
+      if (!byPhase[phase]) byPhase[phase] = [];
+      byPhase[phase].push(m);
+    });
+
+    const next24hMatches = schedulable.filter((m) => {
+      const matchTime = new Date(m.date).getTime();
+      return matchTime >= now && matchTime <= now + WINDOW_MS;
+    });
+
     if (ruleset === "regulamento_1") {
-      const next24hMatches = schedulable.filter((m) => {
-        const matchTime = new Date(m.date).getTime();
-        return matchTime >= now && matchTime <= now + 24 * 60 * 60 * 1000;
-      });
       const pending = next24hMatches.filter((m) => !predictions[m.id]);
       if (pending.length > 0) {
         pendingMatchesList = pending;
@@ -97,49 +105,50 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
       }
     } else {
       // Regulamento 2
-      const byPhase: Record<string, Match[]> = {};
-      schedulable.forEach((m) => {
-        const phase = getPhaseLockKey(m.stage, m.group);
-        if (!byPhase[phase]) byPhase[phase] = [];
-        byPhase[phase].push(m);
-      });
 
-      currentPhase = PHASE_ORDER.find((p) => byPhase[p] && !phaseLockSet.has(p)) || null;
+      // Jogos de mata-mata nas próximas 24h: aviso jogo-a-jogo (como R1)
+      const koPendingNext24h = next24hMatches
+        .filter((m) => getPhaseLockKey(m.stage, m.group) !== "groups")
+        .filter((m) => !predictions[m.id]);
+      if (koPendingNext24h.length > 0) {
+        pendingMatchesList = koPendingNext24h;
+        bannerResult = {
+          text: `Tem ${koPendingNext24h.length} jogo${koPendingNext24h.length > 1 ? "s" : ""} de mata-mata nas próximas 24h que você não palpitou`,
+          urgent: true,
+        };
+      }
 
-      // Fase KO ainda a mais de 24h: não alerta nada dela (jogos, classificados,
-      // desempates ou maior diferença) até faltarem 24h para o primeiro jogo.
-      if (currentPhase && isKoPhaseGated(currentPhase)) currentPhase = null;
-
-      if (currentPhase && byPhase[currentPhase]) {
-        const pending = byPhase[currentPhase]
-          .filter((m) => !predictions[m.id]);
+      // Fase de grupos: mantém aviso por fase
+      if (!bannerResult && byPhase["groups"] && !phaseLockSet.has("groups")) {
+        const pending = byPhase["groups"].filter((m) => !predictions[m.id]);
         pendingMatchesList = pending;
         if (pending.length > 0) {
-          const firstMatchOfPhase = byPhase[currentPhase].sort(
+          const firstMatchOfPhase = byPhase["groups"].sort(
             (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
           )[0];
           const timeLeft = new Date(firstMatchOfPhase.date).getTime() - now;
           bannerResult = {
-            text: `Faltam ${pending.length} palpite${pending.length > 1 ? "s" : ""} na ${PHASE_LABELS[currentPhase]}`,
+            text: `Faltam ${pending.length} palpite${pending.length > 1 ? "s" : ""} na Fase de Grupos`,
             sub: `Bloqueio em ${formatCountdown(timeLeft)}`,
             urgent: true,
           };
         }
       }
 
-      if (!bannerResult) {
-        const lockedPhase = PHASE_ORDER.find((p) => phaseLockSet.has(p) && byPhase[p]);
-        if (lockedPhase && byPhase[lockedPhase]) {
-          const pending = byPhase[lockedPhase]
-            .filter((m) => !predictions[m.id]);
-          pendingMatchesList = pending;
-          if (pending.length > 0) {
-            bannerResult = {
-              text: `${PHASE_LABELS[lockedPhase]} bloqueada — você deixou ${pending.length} palpite${pending.length > 1 ? "s" : ""} em branco`,
-              urgent: true,
-              alert: true,
-            };
-          }
+      // Fase KO "ativa" para avisos de fase (classificados, maior diferença, desempates)
+      // Fase ainda a mais de 24h: não alerta nada dela até faltarem 24h para o primeiro jogo.
+      currentPhase = PHASE_ORDER.find((p) => byPhase[p] && p !== "groups" && !isKoPhaseGated(p)) || null;
+
+      // Fase de grupos bloqueada: alerta retrospectivo (única fase que ainda trava por fase)
+      if (!bannerResult && phaseLockSet.has("groups") && byPhase["groups"]) {
+        const pending = byPhase["groups"].filter((m) => !predictions[m.id]);
+        pendingMatchesList = pending;
+        if (pending.length > 0) {
+          bannerResult = {
+            text: `Fase de Grupos bloqueada — você deixou ${pending.length} palpite${pending.length > 1 ? "s" : ""} em branco`,
+            urgent: true,
+            alert: true,
+          };
         }
       }
     }
@@ -179,20 +188,8 @@ const PendingPredictionsBanner: React.FC<PendingPredictionsBannerProps> = ({
         }
       }
 
-      // Knockout classifications — só para a fase que está prestes a começar
-      const gc = tp.groupClassifications || {};
-      const knockoutPhases: Record<string, { label: string; key: string; expected: number }> = {
-        round_of_32: { label: "Classificados Oitavas", key: "Oitavas", expected: 16 },
-        oitavas: { label: "Classificados Quartas", key: "Quartas", expected: 8 },
-        quartas: { label: "Classificados Semis", key: "Semis", expected: 4 },
-      };
-      if (currentPhase && knockoutPhases[currentPhase]) {
-        const { label, key, expected } = knockoutPhases[currentPhase];
-        const selected = gc[key] || [];
-        if (selected.length < expected) {
-          labels.push(`${label} (${selected.length}/${expected})`);
-        }
-      }
+      // Classificados de mata-mata não geram aviso: são preenchidos automaticamente
+      // quando o usuário palpita os jogos daquela fase.
 
       // Knockout draws without tiebreaker — palpites de empate em Oitavas/Quartas sem whoClassifiesTeamId
       const knockoutDrawPhaseLabels: Record<string, string> = {

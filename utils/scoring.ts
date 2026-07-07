@@ -92,12 +92,14 @@ export type ExtraPhaseKey = 'groups' | 'round_of_32' | 'oitavas' | 'quartas' | '
 /**
  * Maps the current match's phase to the KnockoutPhaseKey it feeds into (Regulamento 2).
  * Used to auto-fill groupClassifications when the user saves a match prediction.
- *   Oitavas match → classifies into Quartas
- *   Quartas match → classifies into Semis
- *   Semis match   → no downstream phase tracked (returns null)
+ *   16 avos match  → classifies into Oitavas
+ *   Oitavas match  → classifies into Quartas
+ *   Quartas match  → classifies into Semis
+ *   Semis match    → no downstream phase tracked (returns null)
  */
 export const getKnockoutClassifiesPhase = (stage?: string, group?: string): KnockoutPhaseKey | null => {
   const key = getPhaseLockKey(stage, group);
+  if (key === 'round_of_32') return 'Oitavas';
   if (key === 'oitavas') return 'Quartas';
   if (key === 'quartas') return 'Semis';
   return null;

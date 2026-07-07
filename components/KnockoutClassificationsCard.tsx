@@ -94,6 +94,14 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
     return { Oitavas: oitavas, Quartas: quartas, Semis: semis };
   }, [matches]);
 
+  // Determine if a phase has fully ended: all of its matches are FINISHED.
+  // Used to reveal other users' predictions only after the phase's last match ends.
+  const phaseFinished = (phase: KnockoutPhase) => {
+    const mList = phaseMatches[phase];
+    if (mList.length === 0) return false;
+    return mList.every((m) => m.status === "FINISHED");
+  };
+
   // Determine lock state per phase: locks when the SOURCE round (previous phase) starts,
   // since those matches determine who advances. Falls back to the phase's own matches.
   const isPhaseLocked = (phase: KnockoutPhase) => {
@@ -506,7 +514,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
                       phase={phase}
                       db={db}
                       config={config}
-                      isLocked={phase === "Quartas" ? false : isLocked}
+                      isLocked={phaseFinished(phase)}
                       tournamentResults={tournamentResults}
                     />
                   );
@@ -523,8 +531,8 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
 
             const phaseLockMap: Record<string, boolean> = {};
             visiblePhases.forEach((p) => {
-              // Quartas: outros palpites ficam sempre ocultos (nunca revelados)
-              phaseLockMap[p] = p === "Quartas" ? false : isPhaseLocked(p);
+              // Palpites dos outros ficam ocultos até o último jogo da fase terminar
+              phaseLockMap[p] = phaseFinished(p);
             });
 
             return (

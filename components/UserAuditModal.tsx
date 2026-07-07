@@ -631,16 +631,16 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
                 pts: hit ? 5 : 0,
               };
             });
-            // Quartas: enquanto a fase não terminar, só mostrar acertos; após último jogo, mostrar tudo
-            const quartasFinished = groupName === "Quartas" && phaseFinished("quartas");
-            const filteredItems = (groupName === "Quartas" && !quartasFinished)
-              ? knockoutItems.filter((item) => item.pts > 0)
-              : knockoutItems;
+            // Mata-mata: enquanto a fase não terminar, só mostrar acertos; após último jogo, mostrar tudo
+            const koPhaseFinished = phaseFinished(groupName);
+            const filteredItems = koPhaseFinished
+              ? knockoutItems
+              : knockoutItems.filter((item) => item.pts > 0);
             const knockoutLabel = groupName === "DezesseisAvos" ? "16 Avos" : groupName;
             pushGroup(
               `classifications-${groupName}`,
               `Classificados ${knockoutLabel}`,
-              groupName === "Quartas" && !quartasFinished ? formatTeamList(filteredItems.map((i) => i.label)) : formatTeamList(validPreds),
+              koPhaseFinished ? formatTeamList(validPreds) : formatTeamList(filteredItems.map((i) => i.label)),
               formatTeamList(actualTeams),
               filteredItems
             );

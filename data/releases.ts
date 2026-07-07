@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.11';
+export const CURRENT_VERSION = '2.0.12';
 
 export interface Release {
   version: string;
@@ -7,6 +7,17 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.12',
+    date: '2026-07-07',
+    changes: [
+      'Regulamento 2: todas as fases de mata-mata (incl. 16 avos) agora travam jogo-a-jogo, igual ao Regulamento 1',
+      'Auditoria: mata-mata mostra só acertos até a fase terminar; revela tudo após último jogo',
+      'Classificados 2ª Fase: palpites dos outros ficam ocultos até o último jogo da fase terminar',
+      'Banner R2: jogos de mata-mata avisam jogo-a-jogo (24h); fase de grupos mantém aviso por fase',
+      'Jogos de 16 avos agora preenchem automaticamente "Classificados Oitavas"',
+    ],
+  },
   {
     version: '2.0.11',
     date: '2026-07-05',

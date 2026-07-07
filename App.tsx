@@ -218,7 +218,8 @@ const App: React.FC = () => {
     const now = new Date();
     matches.forEach((m) => {
       const phaseKey = getPhaseLockKey(m.stage, m.group);
-      if (phaseKey === 'oitavas') return;
+      // Só a fase de grupos trava por fase; todas as fases de mata-mata travam jogo-a-jogo (como R1)
+      if (phaseKey !== 'groups') return;
       const started = m.status !== MatchStatus.SCHEDULED || now > new Date(m.date);
       if (started) {
         locked.add(phaseKey);
