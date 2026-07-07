@@ -385,6 +385,19 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
     return phaseMatches.every((match) => match.status === MatchStatus.FINISHED);
   };
 
+  const previousPhaseFinished = (groupName: string) => {
+    // Mapeia cada fase KO para a fase anterior que a alimenta
+    const previousPhaseMap: Record<string, string> = {
+      "DezesseisAvos": "16avos", // Classificados 16 Avos é preenchido por jogos de grupos (sempre revelado)
+      "Oitavas": "16avos",        // Classificados Oitavas é preenchido por jogos de 16 avos
+      "Quartas": "oitavas",       // Classificados Quartas é preenchido por jogos de oitavas
+      "Semis": "quartas",         // Classificados Semis é preenchido por jogos de quartas
+    };
+    const previousPhase = previousPhaseMap[groupName];
+    if (!previousPhase) return true; // Sem fase anterior, revela tudo
+    return phaseFinished(previousPhase);
+  };
+
   // Special predictions should only be visible after lock date (same rule as OtherUsersPredictions)
   const isLocked = lockDate ? new Date() >= new Date(lockDate) : false;
   const isPreCupSpecialVisible = isLocked;
@@ -631,8 +644,8 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
                 pts: hit ? 5 : 0,
               };
             });
-            // Mata-mata: enquanto a fase não terminar, só mostrar acertos; após último jogo, mostrar tudo
-            const koPhaseFinished = phaseFinished(groupName);
+            // Mata-mata: enquanto a fase anterior não terminar, só mostrar acertos; após último jogo da fase anterior, mostrar tudo
+            const koPhaseFinished = previousPhaseFinished(groupName);
             const filteredItems = koPhaseFinished
               ? knockoutItems
               : knockoutItems.filter((item) => item.pts > 0);

@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.12';
+export const CURRENT_VERSION = '2.0.13';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.13',
+    date: '2026-07-07',
+    changes: [
+      'Classificados KO: revela palpites quando fase anterior terminar (não a própria fase)',
+    ],
+  },
   {
     version: '2.0.12',
     date: '2026-07-07',
