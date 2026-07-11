@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.13';
+export const CURRENT_VERSION = '2.0.14';
 
 export interface Release {
   version: string;
@@ -7,6 +7,16 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.14',
+    date: '2026-07-11',
+    changes: [
+      'Corrigimos o problema que deixava a tela azul no iPhone/iPad após o login (não era culpa dos cookies, era a cota do localStorage no iOS!)',
+      'Agora o app não quebra mais se o armazenamento do celular estiver cheio — o cache local é opcional e o Supabase continua sendo a fonte de verdade',
+      'Adicionamos uma tela de recuperação amigável: se algo der errado, você pode recarregar ou limpar os dados locais diretamente do app',
+      'Mais tranquilidade para você acompanhar o bolão no iPhone, iPad, Mac ou qualquer navegador!',
+    ],
+  },
   {
     version: '2.0.13',
     date: '2026-07-07',

@@ -28,7 +28,7 @@ import {
 import { usePlayerSync } from "../hooks/usePlayerSync";
 import { INITIAL_DB } from "../data/initialData";
 import { supabase, isSupabaseEnabled, SUPABASE_SCHEMA } from "../services/supabase";
-import { maskValue, unmaskValue } from "../utils/storageMask";
+import { unmaskValue, safeSetMaskedItem } from "../utils/storageMask";
 
 const SYSTEM_CONFIG_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -936,65 +936,47 @@ export const DatabaseProvider: React.FC<{ children: ReactNode }> = ({
   // --- Persistence Effects (LocalStorage Fallback) ---
   useEffect(
     () =>
-      localStorage.setItem(
+      safeSetMaskedItem(
         "bolao_db_competitions",
-        maskValue(JSON.stringify(competitions)),
+        JSON.stringify(competitions),
       ),
     [competitions],
   );
   useEffect(
-    () =>
-      localStorage.setItem(
-        "bolao_db_users",
-        maskValue(JSON.stringify(users)),
-      ),
+    () => safeSetMaskedItem("bolao_db_users", JSON.stringify(users)),
     [users],
   );
   useEffect(
-    () =>
-      localStorage.setItem(
-        "bolao_db_groups",
-        maskValue(JSON.stringify(groups)),
-      ),
+    () => safeSetMaskedItem("bolao_db_groups", JSON.stringify(groups)),
     [groups],
   );
   useEffect(
     () =>
-      localStorage.setItem(
-        "bolao_db_userGroups",
-        maskValue(JSON.stringify(userGroups)),
-      ),
+      safeSetMaskedItem("bolao_db_userGroups", JSON.stringify(userGroups)),
     [userGroups],
   );
   useEffect(
-    () =>
-      localStorage.setItem(
-        "bolao_db_matches",
-        maskValue(JSON.stringify(matches)),
-      ),
+    () => safeSetMaskedItem("bolao_db_matches", JSON.stringify(matches)),
     [matches],
   );
   useEffect(
     () =>
-      localStorage.setItem(
-        "bolao_db_predictions",
-        maskValue(JSON.stringify(predictions)),
-      ),
+      safeSetMaskedItem("bolao_db_predictions", JSON.stringify(predictions)),
     [predictions],
   );
   useEffect(
     () =>
-      localStorage.setItem(
+      safeSetMaskedItem(
         "bolao_db_tournamentPredictions",
-        maskValue(JSON.stringify(tournamentPredictions)),
+        JSON.stringify(tournamentPredictions),
       ),
     [tournamentPredictions],
   );
   useEffect(
     () =>
-      localStorage.setItem(
+      safeSetMaskedItem(
         "bolao_db_extraPhasePredictions",
-        maskValue(JSON.stringify(extraPhasePredictions)),
+        JSON.stringify(extraPhasePredictions),
       ),
     [extraPhasePredictions],
   );
