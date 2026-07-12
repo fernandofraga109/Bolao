@@ -201,12 +201,16 @@ export const useMatchSystem = (
       if (comp.knockoutClassifications["Semis"]) {
         groupClassifications["Semis"] = comp.knockoutClassifications["Semis"];
       }
+      if (comp.knockoutClassifications["Final"]) {
+        groupClassifications["Final"] = comp.knockoutClassifications["Final"];
+      }
     } else {
       // Populate knockout stage actual qualifiers based on matches that are scheduled/played with real teams
       const dezesseisAvosTeams = new Set<string>();
       const oitavasTeams = new Set<string>();
       const quartasTeams = new Set<string>();
       const semisTeams = new Set<string>();
+      const finalsTeams = new Set<string>();
 
       const isPlaceholder = (id: string) => {
         if (!id) return true;
@@ -231,7 +235,13 @@ export const useMatchSystem = (
           const isDezesseisAvos = stage.includes("ROUND_OF_32") || stage.includes("LAST_32") || groupStr.includes("16_AVOS") || groupStr.includes("16AVOS");
           const isOitavas = stage.includes("ROUND_OF_16") || groupStr.includes("OITAVAS");
           const isQuartas = stage.includes("QUARTER") || groupStr.includes("QUARTAS");
-          const isSemis = stage.includes("SEMI") || groupStr.includes("SEMI");
+          const isSemis = (stage.includes("SEMI") || groupStr.includes("SEMI")) && !stage.includes("THIRD");
+          const isFinal =
+            stage.includes("FINAL") &&
+            !stage.includes("SEMI") &&
+            !stage.includes("QUARTER") &&
+            !stage.includes("ROUND_OF_16") &&
+            !stage.includes("THIRD");
 
           if (isDezesseisAvos) {
             if (m.homeTeamId && !isPlaceholder(m.homeTeamId)) dezesseisAvosTeams.add(m.homeTeamId);
@@ -245,6 +255,9 @@ export const useMatchSystem = (
           } else if (isSemis) {
             if (m.homeTeamId && !isPlaceholder(m.homeTeamId)) semisTeams.add(m.homeTeamId);
             if (m.awayTeamId && !isPlaceholder(m.awayTeamId)) semisTeams.add(m.awayTeamId);
+          } else if (isFinal) {
+            if (m.homeTeamId && !isPlaceholder(m.homeTeamId)) finalsTeams.add(m.homeTeamId);
+            if (m.awayTeamId && !isPlaceholder(m.awayTeamId)) finalsTeams.add(m.awayTeamId);
           }
         }
       });
@@ -260,6 +273,9 @@ export const useMatchSystem = (
       }
       if (semisTeams.size > 0) {
         groupClassifications["Semis"] = Array.from(semisTeams);
+      }
+      if (finalsTeams.size > 0) {
+        groupClassifications["Final"] = Array.from(finalsTeams);
       }
     }
 

@@ -102,6 +102,7 @@ export const getKnockoutClassifiesPhase = (stage?: string, group?: string): Knoc
   if (key === 'round_of_32') return 'Oitavas';
   if (key === 'oitavas') return 'Quartas';
   if (key === 'quartas') return 'Semis';
+  if (key === 'semis') return 'Final';
   return null;
 };
 
@@ -387,7 +388,7 @@ export interface TournamentPredictionContext {
   topScorerPlayerId?: string;
 }
 
-export type KnockoutPhaseKey = 'Oitavas' | 'Quartas' | 'Semis';
+export type KnockoutPhaseKey = 'Oitavas' | 'Quartas' | 'Semis' | 'Final';
 
 /**
  * Maps a knockout phase to the stage identifiers of the PREVIOUS round whose
@@ -404,6 +405,9 @@ const KNOCKOUT_FEEDER_STAGE: Record<KnockoutPhaseKey, (stage: string, group: str
     s.includes('ROUND_OF_16') || s.includes('LAST_16') || g.includes('OITAVAS'),
   Semis: (s, g) =>
     s.includes('QUARTER') || g.includes('QUARTAS'),
+  Final: (s, g) =>
+    (s.includes('SEMI') || g.includes('SEMI')) &&
+    !s.includes('THIRD'),
 };
 
 /**
@@ -536,7 +540,7 @@ export const calculateTournamentPointsRegulamento2 = (
   if (prediction.groupClassifications && actual.groupClassifications) {
     Object.entries(prediction.groupClassifications).forEach(([groupName, predTeams]) => {
       if (groupName === "DezesseisAvos") return;
-      const isKnockout = ["Oitavas", "Quartas", "Semis"].includes(groupName);
+      const isKnockout = ["Oitavas", "Quartas", "Semis", "Final"].includes(groupName);
       let actualTeams = actual.groupClassifications?.[groupName];
       // Defensive cap: group-stage entries must have at most 2 qualifiers (1st and 2nd place).
       // A 3rd-place qualifier must never score points per the regulation.

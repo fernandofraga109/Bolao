@@ -34,7 +34,7 @@ const AdminSpecialsOverrides: React.FC<AdminSpecialsOverridesProps> = ({
   // --- KNOCKOUT CLASSIFICATIONS STATE ---
   const [knockoutClassifications, setKnockoutClassifications] = useState<
     Record<string, string[]>
-  >({ DezesseisAvos: [], Oitavas: [], Quartas: [], Semis: [] });
+  >({ DezesseisAvos: [], Oitavas: [], Quartas: [], Semis: [], Final: [] });
 
   // --- BIGGEST GOAL DIFF MATCHES STATE (array per phase) ---
   const [biggestGoalDiffMatchIds, setBiggestGoalDiffMatchIds] = useState<
@@ -50,14 +50,14 @@ const AdminSpecialsOverrides: React.FC<AdminSpecialsOverridesProps> = ({
     if (comp) {
       setGroupClassifications(comp.groupClassifications || {});
       setKnockoutClassifications(
-        comp.knockoutClassifications || { DezesseisAvos: [], Oitavas: [], Quartas: [], Semis: [] }
+        comp.knockoutClassifications || { DezesseisAvos: [], Oitavas: [], Quartas: [], Semis: [], Final: [] }
       );
       setBiggestGoalDiffMatchIds(
         comp.biggestGoalDiffMatchIds || { groups: [], round_of_32: [], oitavas: [], quartas: [], semis: [] }
       );
     } else {
       setGroupClassifications({});
-      setKnockoutClassifications({ DezesseisAvos: [], Oitavas: [], Quartas: [], Semis: [] });
+      setKnockoutClassifications({ DezesseisAvos: [], Oitavas: [], Quartas: [], Semis: [], Final: [] });
       setBiggestGoalDiffMatchIds({ groups: [], round_of_32: [], oitavas: [], quartas: [], semis: [] });
     }
   }, [selectedCompetitionCode, db.competitions]);
@@ -407,7 +407,7 @@ const AdminSpecialsOverrides: React.FC<AdminSpecialsOverridesProps> = ({
             <div className="flex items-center gap-2 text-amber-400">
               <Trophy size={16} />
               <h4 className="font-bold text-sm uppercase tracking-wider">
-                Classificados 2ª Fase (16 Avos, Oitavas, Quartas, Semis)
+                Classificados 2ª Fase (16 Avos, Oitavas, Quartas, Semis, Final)
               </h4>
             </div>
             <p className="text-xs text-slate-400">
@@ -415,13 +415,14 @@ const AdminSpecialsOverrides: React.FC<AdminSpecialsOverridesProps> = ({
               Estes valores têm precedência sobre os dados da API.
             </p>
 
-            {(["DezesseisAvos", "Oitavas", "Quartas", "Semis"] as const).map((phase) => {
+            {(["DezesseisAvos", "Oitavas", "Quartas", "Semis", "Final"] as const).map((phase) => {
               const maxTeams =
-                phase === "DezesseisAvos" ? 32 : phase === "Oitavas" ? 16 : phase === "Quartas" ? 8 : 4;
+                phase === "DezesseisAvos" ? 32 : phase === "Oitavas" ? 16 : phase === "Quartas" ? 8 : phase === "Final" ? 2 : 4;
               const phaseLabel =
                 phase === "DezesseisAvos" ? "16 Avos de Final"
                 : phase === "Oitavas" ? "Oitavas de Final"
                 : phase === "Quartas" ? "Quartas de Final"
+                : phase === "Final" ? "Final"
                 : "Semifinais";
               const selected = knockoutClassifications[phase] || [];
 

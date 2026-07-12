@@ -3,7 +3,7 @@ import { Match, Team, TournamentPredictions } from "../types";
 import { Check, Lock, ChevronDown, ChevronUp, Search, Trophy, Sparkles, AlertCircle, Save, Users } from "lucide-react";
 import { useDatabase } from "../contexts/DatabaseContext";
 
-type KnockoutPhase = "Oitavas" | "Quartas" | "Semis";
+type KnockoutPhase = "Oitavas" | "Quartas" | "Semis" | "Final";
 
 interface KnockoutClassificationsCardProps {
   matches: Match[];
@@ -29,6 +29,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
   const db = useDatabase();
   const [isExpanded, setIsExpanded] = useState(false);
   const [activePhase, setActivePhase] = useState<KnockoutPhase | null>("Oitavas");
+
   const [searchQuery, setSearchQuery] = useState("");
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [, forceUpdate] = useState({});
@@ -50,6 +51,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
     const oitavas: Match[] = [];
     const quartas: Match[] = [];
     const semis: Match[] = [];
+    const finals: Match[] = [];
 
     matches.forEach((m) => {
       const stage = (m.stage || "").toUpperCase();
@@ -59,12 +61,20 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
         oitavas.push(m);
       } else if (stage.includes("QUARTER") || groupStr.includes("QUARTAS")) {
         quartas.push(m);
-      } else if (stage.includes("SEMI") || groupStr.includes("SEMI")) {
+      } else if ((stage.includes("SEMI") || groupStr.includes("SEMI")) && !stage.includes("THIRD")) {
         semis.push(m);
+      } else if (
+        stage.includes("FINAL") &&
+        !stage.includes("SEMI") &&
+        !stage.includes("QUARTER") &&
+        !stage.includes("ROUND_OF_16") &&
+        !stage.includes("THIRD")
+      ) {
+        finals.push(m);
       }
     });
 
-    return { Oitavas: oitavas, Quartas: quartas, Semis: semis };
+    return { Oitavas: oitavas, Quartas: quartas, Semis: semis, Final: finals };
   }, [matches]);
 
   // Matches that feed teams into each phase (previous round)
@@ -72,6 +82,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
     const oitavas: Match[] = [];
     const quartas: Match[] = [];
     const semis: Match[] = [];
+    const finals: Match[] = [];
 
     matches.forEach((m) => {
       const stage = (m.stage || "").toUpperCase();
@@ -89,9 +100,13 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
       if (stage.includes("QUARTER") || groupStr.includes("QUARTAS")) {
         semis.push(m);
       }
+      // Semis feeds Final
+      if ((stage.includes("SEMI") || groupStr.includes("SEMI")) && !stage.includes("THIRD")) {
+        finals.push(m);
+      }
     });
 
-    return { Oitavas: oitavas, Quartas: quartas, Semis: semis };
+    return { Oitavas: oitavas, Quartas: quartas, Semis: semis, Final: finals };
   }, [matches]);
 
   // Determine if a phase has fully ended: all of its matches are FINISHED.
@@ -133,6 +148,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
     Oitavas: [],
     Quartas: [],
     Semis: [],
+    Final: [],
   });
 
   // Track the last synced groupClassifications to avoid resetting unsaved
@@ -147,6 +163,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
         Oitavas: prediction.groupClassifications["Oitavas"] || [],
         Quartas: prediction.groupClassifications["Quartas"] || [],
         Semis: prediction.groupClassifications["Semis"] || [],
+        Final: prediction.groupClassifications["Final"] || [],
       });
       if (incoming !== lastSyncedClassificationsRef.current) {
         lastSyncedClassificationsRef.current = incoming;
@@ -154,6 +171,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
           Oitavas: prediction.groupClassifications["Oitavas"] || [],
           Quartas: prediction.groupClassifications["Quartas"] || [],
           Semis: prediction.groupClassifications["Semis"] || [],
+          Final: prediction.groupClassifications["Final"] || [],
         });
       }
     }
@@ -219,7 +237,7 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
 
     const currentSelection = selectedTeams[phase];
     const maxAllowed =
-      phase === "Oitavas" ? 16 : phase === "Quartas" ? 8 : 4;
+      phase === "Oitavas" ? 16 : phase === "Quartas" ? 8 : phase === "Final" ? 2 : 4;
 
     if (currentSelection.includes(teamId)) {
       setSelectedTeams((prev) => ({
@@ -282,12 +300,13 @@ export const KnockoutClassificationsCard: React.FC<KnockoutClassificationsCardPr
     Oitavas: { max: 16, label: "Oitavas de Final" },
     Quartas: { max: 8, label: "Quartas de Final" },
     Semis: { max: 4, label: "Semifinais" },
+    Final: { max: 2, label: "Final" },
   };
 
-  const visiblePhases = (["Oitavas", "Quartas", "Semis"] as const);
+  const visiblePhases = (["Oitavas", "Quartas", "Semis", "Final"] as const);
 
   const visiblePhaseConfig = Object.fromEntries(
-    visiblePhases.map((phase) => [phase, phaseConfig[phase]])
+    visiblePhases.map((phase) => [phase, phaseConfig[phase as KnockoutPhase]])
   );
 
   return (

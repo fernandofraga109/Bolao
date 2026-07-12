@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.14';
+export const CURRENT_VERSION = '2.0.15';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.15',
+    date: '2026-07-12',
+    changes: [
+      'Ajuste no Regulamento 2 para jogos de semi-finais com pontos adicionais para quem se classifica. (5 pts)',
+    ],
+  },
   {
     version: '2.0.14',
     date: '2026-07-11',
