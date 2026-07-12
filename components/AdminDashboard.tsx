@@ -38,6 +38,7 @@ import { isSupabaseEnabled, supabase } from "../services/supabase";
 import { PlayerWithContextDB } from "../types";
 import { fetchExternalCompetitions } from "../services/liveScoreService";
 import type { CompetitionSyncStatus } from "../hooks/useMatchSystem";
+import { getKnockoutClassifiesPhase } from "../utils/scoring";
 import TeamMultiSelect from "./ui/TeamMultiSelect";
 import ModalShell from "./ui/ModalShell";
 import UserIdentity from "./ui/UserIdentity";
@@ -109,6 +110,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   >(null);
   const [isSyncingCatalog, setIsSyncingCatalog] = useState(false);
   const [playerSyncResult, setPlayerSyncResult] = useState<{ synced: number; errors: string[] } | null>(null);
+  const [isSyncingFinal, setIsSyncingFinal] = useState(false);
 
   // Import Predictions Modal States
   const [addUserModal, setAddUserModal] = useState<{
@@ -523,6 +525,84 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       alert("Erro ao sincronizar rankings");
     } finally {
       setSyncingRankings(false);
+    }
+  };
+
+  const handleSyncFinalFromSemis = async (groupId: string) => {
+    setIsSyncingFinal(true);
+    try {
+      const group = groups.find((g) => g.id === groupId);
+      if (!group || group.ruleset !== "regulamento_2") {
+        throw new Error("Apenas grupos do Regulamento 2 podem ser sincronizados.");
+      }
+
+      const semiMatches = db.matches.filter((m) => {
+        const stage = (m.stage || "").toUpperCase();
+        const groupStr = (m.group || "").toUpperCase();
+        return (stage.includes("SEMI") || groupStr.includes("SEMI")) && !stage.includes("THIRD");
+      });
+      if (semiMatches.length === 0) {
+        throw new Error("Nenhum jogo de semifinal encontrado para esta competição.");
+      }
+
+      const groupMembers = users.filter((u) => u.groupIds.includes(groupId));
+      let updatedCount = 0;
+
+      for (const member of groupMembers) {
+        const userPreds = db.predictions.filter(
+          (p) => p.userId === member.id && p.groupId === groupId
+        );
+        const existingTp = db.tournamentPredictions.find(
+          (tp) => tp.userId === member.id && tp.groupId === groupId
+        );
+        const classifications: Record<string, string[]> = {
+          ...(existingTp?.groupClassifications ?? {}),
+        };
+        let changed = false;
+
+        for (const match of semiMatches) {
+          const pred = userPreds.find((p) => p.matchId === match.id);
+          if (!pred) continue;
+
+          const classifiesPhase = getKnockoutClassifiesPhase(match.stage, match.group);
+          if (!classifiesPhase) continue;
+
+          const homeId = match.homeTeamId;
+          const awayId = match.awayTeamId;
+          if (!homeId || !awayId) continue;
+
+          let winnerId: string | null = null;
+          if (pred.homeScore > pred.awayScore) {
+            winnerId = homeId;
+          } else if (pred.awayScore > pred.homeScore) {
+            winnerId = awayId;
+          } else if (pred.tieWinnerTeamId) {
+            winnerId = pred.tieWinnerTeamId;
+          }
+          if (!winnerId) continue;
+
+          const current = classifications[classifiesPhase] ?? [];
+          const updated = [...current.filter((id) => id !== homeId && id !== awayId), winnerId];
+          if (JSON.stringify(classifications[classifiesPhase] || []) !== JSON.stringify(updated)) {
+            classifications[classifiesPhase] = updated;
+            changed = true;
+          }
+        }
+
+        if (changed) {
+          await db.upsertTournamentPrediction({
+            ...(existingTp ?? { userId: member.id, groupId }),
+            groupClassifications: classifications,
+          });
+          updatedCount++;
+        }
+      }
+
+      alert(`Final sincronizada para ${updatedCount} usuário(s).`);
+    } catch (err: any) {
+      alert(err?.message || "Erro ao sincronizar finalistas.");
+    } finally {
+      setIsSyncingFinal(false);
     }
   };
 
@@ -2034,6 +2114,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               )}
             </div>
           </div>
+
+          {/* SYNC FINALISTS FROM SEMI PREDICTIONS (Regulamento 2 only) */}
+          {group.ruleset === "regulamento_2" && (
+            <div className="mt-6 pt-6 border-t border-slate-700">
+              <h3 className="text-brand-green font-bold mb-3 flex items-center gap-2 text-sm uppercase tracking-wider">
+                <RefreshCw size={16} className="text-brand-green" /> Sincronizar Finalistas
+              </h3>
+              <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h4 className="text-white font-bold text-sm">
+                    Preencher Final a partir dos palpites de Semi
+                  </h4>
+                  <p className="text-slate-400 text-xs mt-1">
+                    Percorre os palpites de semifinais de todos os membros do grupo e popula a coluna{" "}
+                    <code className="text-brand-green">groupClassifications</code> com os finalistas.
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleSyncFinalFromSemis(group.id)}
+                  disabled={isSyncingFinal}
+                  className="bg-brand-green hover:bg-brand-green/90 text-brand-dark px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RefreshCw size={16} className={isSyncingFinal ? "animate-spin" : ""} />
+                  {isSyncingFinal ? "Sincronizando..." : "Sincronizar"}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Zebra Bonus Override */}
           <div className="mt-6 pt-6 border-t border-slate-700">

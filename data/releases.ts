@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.15';
+export const CURRENT_VERSION = '2.0.16';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.16',
+    date: '2026-07-12',
+    changes: [
+      'Admin: novo botão "Sincronizar Finalistas" para grupos do Regulamento 2, que preenche a coluna de classificados da Final a partir dos palpites de semifinais de todos os membros do grupo',
+    ],
+  },
   {
     version: '2.0.15',
     date: '2026-07-12',
