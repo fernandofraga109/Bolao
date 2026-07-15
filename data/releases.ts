@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.16';
+export const CURRENT_VERSION = '2.0.17';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.17',
+    date: '2026-07-15',
+    changes: [
+      'Auditoria R2: Classificados Final agora exibe palpites incorretos após todas as semifinais terminarem (igual às outras fases KO)',
+    ],
+  },
   {
     version: '2.0.16',
     date: '2026-07-12',

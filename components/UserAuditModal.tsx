@@ -152,6 +152,11 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
     return byId;
   }, [auditMatches]);
 
+  const canonicalAuditMatches = useMemo(
+    () => Array.from(new Set(canonicalMatchById.values())),
+    [canonicalMatchById]
+  );
+
   const matchAudit = useMemo((): MatchAuditRow[] => {
     const rows: MatchAuditRow[] = [];
 
@@ -348,7 +353,8 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
 
   const getPhaseMatches = (phaseName: string) => {
     const normalized = phaseName.toLowerCase();
-    return auditMatches.filter((match) => {
+    return canonicalAuditMatches.filter((match) => {
+      if ((match.competitionCode || "WC").toUpperCase() !== activeCompCode) return false;
       const stage = (match.stage || "").toUpperCase();
       const group = (match.group || "").toUpperCase();
       if (normalized === "dezesseisavos" || normalized === "round_of_32" || normalized === "16avos" || normalized === "16_avos") {
@@ -392,6 +398,7 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
       "Oitavas": "16avos",        // Classificados Oitavas é preenchido por jogos de 16 avos
       "Quartas": "oitavas",       // Classificados Quartas é preenchido por jogos de oitavas
       "Semis": "quartas",         // Classificados Semis é preenchido por jogos de quartas
+      "Final": "semis",
     };
     const previousPhase = previousPhaseMap[groupName];
     if (!previousPhase) return true; // Sem fase anterior, revela tudo
@@ -627,12 +634,12 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
       if (pred.groupClassifications && actual.groupClassifications) {
         const groupStageItems: SpecialAuditItem[] = [];
         Object.entries(pred.groupClassifications).forEach(([groupName, predTeams]) => {
-          if (!phaseStarted(groupName)) return;
+          if (!phaseStarted(groupName === "Final" ? "semis" : groupName)) return;
           const actualTeams = actual.groupClassifications?.[groupName];
           if (!actualTeams || !Array.isArray(predTeams)) return;
           const validPreds = predTeams.filter(Boolean);
           if (validPreds.length === 0) return;
-          const isKnockout = ["DezesseisAvos", "Oitavas", "Quartas", "Semis"].includes(groupName);
+          const isKnockout = ["DezesseisAvos", "Oitavas", "Quartas", "Semis", "Final"].includes(groupName);
           if (isKnockout) {
             // Each predicted team is a separate child item
             const knockoutItems: SpecialAuditItem[] = validPreds.map((teamId) => {

@@ -214,6 +214,7 @@ describe("UserAuditModal - Regulamento 2 special predictions accordion", () => {
     const user = userEvent.setup();
 
     fakeDb.matches = [
+      makeMatch({ id: "m_16avos", date: "2025-06-20T18:00:00Z", stage: "ROUND_OF_32", group: "16 Avos", resultHome: 1, resultAway: 0, status: MatchStatus.FINISHED }),
       makeMatch({ id: "m_oitavas", date: "2025-06-22T18:00:00Z", stage: "ROUND_OF_16", group: "Oitavas", resultHome: 1, resultAway: 0, status: MatchStatus.FINISHED }),
     ];
 
@@ -244,6 +245,136 @@ describe("UserAuditModal - Regulamento 2 special predictions accordion", () => {
     // Child items visible after expand
     expect(screen.getByText("Brasil")).toBeInTheDocument();
     expect(screen.getByText(/Resultado: Classificado/)).toBeInTheDocument();
+    expect(screen.getByText("França")).toBeInTheDocument();
+    expect(screen.getByText(/Resultado: Não classificado/)).toBeInTheDocument();
+  });
+
+  it("shows only correct Final qualifiers while semifinals are still in progress", async () => {
+    const user = userEvent.setup();
+
+    fakeDb.matches = [
+      makeMatch({ id: "m_semi_1", homeTeamId: "t1", awayTeamId: "t2", date: "2025-07-08T18:00:00Z", stage: "SEMI_FINAL", group: "Semis", resultHome: 2, resultAway: 0, status: MatchStatus.FINISHED }),
+      makeMatch({ id: "m_semi_2", homeTeamId: "t3", awayTeamId: "t4", date: "2025-07-09T18:00:00Z", stage: "SEMI_FINAL", group: "Semis", status: MatchStatus.SCHEDULED }),
+    ];
+
+    const auditUser = makeUser({
+      tournamentPredictions: {
+        groupClassifications: {
+          Final: ["t1", "t3"],
+        },
+      },
+    });
+    const tournamentResults = {
+      groupClassifications: {
+        Final: ["t1", "t4"],
+      },
+    };
+
+    renderAuditModal({ user: auditUser, allUsers: [auditUser], tournamentResults });
+
+    await user.click(screen.getByText(/Palpites Especiais/));
+
+    expect(screen.getByText("Classificados Final")).toBeInTheDocument();
+    expect(screen.getAllByText("+5").length).toBeGreaterThan(0);
+
+    await user.click(screen.getByTestId("special-group-classifications-Final"));
+
+    expect(screen.getByText("Brasil")).toBeInTheDocument();
+    expect(screen.getByText(/Resultado: Classificado/)).toBeInTheDocument();
+    expect(screen.queryByText("França")).not.toBeInTheDocument();
+  });
+
+  it("shows all Final qualifiers after semifinals finish", async () => {
+    const user = userEvent.setup();
+
+    fakeDb.matches = [
+      makeMatch({ id: "m_semi_1", homeTeamId: "t1", awayTeamId: "t2", date: "2025-07-08T18:00:00Z", stage: "SEMI_FINAL", group: "Semis", resultHome: 2, resultAway: 0, status: MatchStatus.FINISHED }),
+      makeMatch({ id: "m_semi_2", homeTeamId: "t3", awayTeamId: "t4", date: "2025-07-09T18:00:00Z", stage: "SEMI_FINAL", group: "Semis", resultHome: 0, resultAway: 1, status: MatchStatus.FINISHED }),
+    ];
+
+    const auditUser = makeUser({
+      tournamentPredictions: {
+        groupClassifications: {
+          Final: ["t1", "t3"],
+        },
+      },
+    });
+    const tournamentResults = {
+      groupClassifications: {
+        Final: ["t1", "t4"],
+      },
+    };
+
+    renderAuditModal({ user: auditUser, allUsers: [auditUser], tournamentResults });
+
+    await user.click(screen.getByText(/Palpites Especiais/));
+    await user.click(screen.getByTestId("special-group-classifications-Final"));
+
+    expect(screen.getByText("Brasil")).toBeInTheDocument();
+    expect(screen.getByText(/Resultado: Classificado/)).toBeInTheDocument();
+    expect(screen.getByText("França")).toBeInTheDocument();
+    expect(screen.getByText(/Resultado: Não classificado/)).toBeInTheDocument();
+    expect(screen.getAllByText("+5").length).toBeGreaterThan(0);
+  });
+
+  it("ignores unfinished semifinals from another competition when revealing Final qualifiers", async () => {
+    const user = userEvent.setup();
+
+    fakeDb.matches = [
+      makeMatch({ id: "m_semi_1", homeTeamId: "t1", awayTeamId: "t2", date: "2025-07-08T18:00:00Z", stage: "SEMI_FINAL", group: "Semis", resultHome: 2, resultAway: 0, status: MatchStatus.FINISHED }),
+      makeMatch({ id: "m_semi_2", homeTeamId: "t3", awayTeamId: "t4", date: "2025-07-09T18:00:00Z", stage: "SEMI_FINAL", group: "Semis", resultHome: 0, resultAway: 1, status: MatchStatus.FINISHED }),
+      makeMatch({ id: "m_other_comp_semi", homeTeamId: "t1", awayTeamId: "t2", date: "2025-07-10T18:00:00Z", stage: "SEMI_FINAL", group: "Semis", competitionCode: "EC", status: MatchStatus.SCHEDULED }),
+    ];
+
+    const auditUser = makeUser({
+      tournamentPredictions: {
+        groupClassifications: {
+          Final: ["t1", "t3"],
+        },
+      },
+    });
+    const tournamentResults = {
+      groupClassifications: {
+        Final: ["t1", "t4"],
+      },
+    };
+
+    renderAuditModal({ user: auditUser, allUsers: [auditUser], tournamentResults });
+
+    await user.click(screen.getByText(/Palpites Especiais/));
+    await user.click(screen.getByTestId("special-group-classifications-Final"));
+
+    expect(screen.getByText("França")).toBeInTheDocument();
+    expect(screen.getByText(/Resultado: Não classificado/)).toBeInTheDocument();
+  });
+
+  it("ignores stale scheduled duplicates of finished semifinals when revealing Final qualifiers", async () => {
+    const user = userEvent.setup();
+
+    fakeDb.matches = [
+      makeMatch({ id: "m_semi_1_stale", externalMatchId: undefined, homeTeamId: "t1", awayTeamId: "t2", date: "2025-07-08T18:00:00Z", stage: "SEMI_FINAL", group: "Semis", status: MatchStatus.SCHEDULED }),
+      makeMatch({ id: "m_semi_1", externalMatchId: "semi-1", homeTeamId: "t1", awayTeamId: "t2", date: "2025-07-08T18:00:00Z", stage: "SEMI_FINAL", group: "Semis", resultHome: 2, resultAway: 0, status: MatchStatus.FINISHED }),
+      makeMatch({ id: "m_semi_2", externalMatchId: "semi-2", homeTeamId: "t3", awayTeamId: "t4", date: "2025-07-09T18:00:00Z", stage: "SEMI_FINAL", group: "Semis", resultHome: 0, resultAway: 1, status: MatchStatus.FINISHED }),
+    ];
+
+    const auditUser = makeUser({
+      tournamentPredictions: {
+        groupClassifications: {
+          Final: ["t1", "t3"],
+        },
+      },
+    });
+    const tournamentResults = {
+      groupClassifications: {
+        Final: ["t1", "t4"],
+      },
+    };
+
+    renderAuditModal({ user: auditUser, allUsers: [auditUser], tournamentResults });
+
+    await user.click(screen.getByText(/Palpites Especiais/));
+    await user.click(screen.getByTestId("special-group-classifications-Final"));
+
     expect(screen.getByText("França")).toBeInTheDocument();
     expect(screen.getByText(/Resultado: Não classificado/)).toBeInTheDocument();
   });
