@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.20';
+export const CURRENT_VERSION = '2.0.21';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.21',
+    date: '2026-07-15',
+    changes: [
+      'Ajuste no layout do componente de Rank e detalhes de pontos',
+    ],
+  },
   {
     version: '2.0.20',
     date: '2026-07-15',
