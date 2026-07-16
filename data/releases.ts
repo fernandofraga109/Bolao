@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.18';
+export const CURRENT_VERSION = '2.0.19';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.19',
+    date: '2026-07-15',
+    changes: [
+      'Correção no relatório de exportação: resultados de jogos só aparecem se a partida estiver finalizada (jogos ao vivo não mostram placar no Excel)',
+    ],
+  },
   {
     version: '2.0.18',
     date: '2026-07-15',
