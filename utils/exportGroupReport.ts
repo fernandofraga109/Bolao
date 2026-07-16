@@ -98,15 +98,6 @@ function formatPlayerName(playerId: string | undefined, players: { id: string; n
   return players.find((p) => p.id === playerId)?.name || playerId;
 }
 
-function isMatchFinishedOrLive(match: Match): boolean {
-  return (
-    match.status === MatchStatus.FINISHED ||
-    match.status === MatchStatus.LIVE ||
-    match.status === MatchStatus.IN_PLAY ||
-    match.status === MatchStatus.PAUSED
-  );
-}
-
 function getMatchResultLabel(
   isExact: boolean,
   isOutcomeCorrect: boolean,
@@ -540,7 +531,7 @@ function buildMatchRows(
   return sortedMatches.map((match) => {
     const pred = user.predictions?.[match.id];
     const hasResult = !!match.result;
-    const finishedOrLive = isMatchFinishedOrLive(match);
+    const isFinished = match.status === "FINISHED";
 
     const row: MatchRow = {
       date: formatDate(match.date),
@@ -548,8 +539,8 @@ function buildMatchRows(
       groupName: match.group || "–",
       homeTeam: match.homeTeam.name,
       awayTeam: match.awayTeam.name,
-      realHome: hasResult ? match.result!.home : "–",
-      realAway: hasResult ? match.result!.away : "–",
+      realHome: isFinished && hasResult ? match.result!.home : "–",
+      realAway: isFinished && hasResult ? match.result!.away : "–",
       predHome: pred ? pred.home : "–",
       predAway: pred ? pred.away : "–",
       resultLabel: "–",
@@ -559,7 +550,7 @@ function buildMatchRows(
       classifiesBonus: 0,
     };
 
-    if (!pred || !finishedOrLive || !hasResult) {
+    if (!pred || !isFinished || !hasResult) {
       return row;
     }
 
