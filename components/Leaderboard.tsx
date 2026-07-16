@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Friend } from "../types";
-import { Trophy, Medal, TrendingUp, TrendingDown, Minus, Search, BarChart3, Info, ChevronDown, ChevronUp } from "lucide-react";
+import { Trophy, Medal, TrendingUp, TrendingDown, Minus, Search, BarChart3, Info, ChevronDown, ChevronUp, FileSpreadsheet, Download } from "lucide-react";
 import AvatarWithFallback from "./ui/AvatarWithFallback";
 import LeaderboardDetails from "./LeaderboardDetails";
 
@@ -13,11 +13,13 @@ interface LeaderboardProps {
   }[];
   ruleset?: "regulamento_1" | "regulamento_2";
   onUserClick?: (user: Friend) => void;
+  onExportGroupReport?: () => void;
 }
 
-const Leaderboard: React.FC<LeaderboardProps> = ({ sections, ruleset = "regulamento_1", onUserClick }) => {
+const Leaderboard: React.FC<LeaderboardProps> = ({ sections, ruleset = "regulamento_1", onUserClick, onExportGroupReport }) => {
   const [activeView, setActiveView] = useState<"ranking" | "details">("ranking");
   const [showTieBreakerInfo, setShowTieBreakerInfo] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const sectionsWithSortedUsers = sections.map((section) => {
     const sorted = [...section.users].sort((a, b) => {
       if (b.totalPoints !== a.totalPoints) {
@@ -44,8 +46,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, ruleset = "regulame
     });
 
     let currentRank = 0;
-    let lastPoints = -1;
-    let lastTieStats: any = null;
 
     const usersWithRanks = sorted.map((user, index) => {
       // Standard competition ranking ("1224"): empatados dividem a mesma
@@ -115,7 +115,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, ruleset = "regulame
 
   // Mock variation based on userId to demonstrate UI
   // In a real app, this would come from a 'previous_rank' field in user_groups
-  const getVariation = (userId: string, index: number) => {
+  const getVariation = (userId: string, _index: number) => {
     const charCodeSum = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const mod = charCodeSum % 10;
     
@@ -162,6 +162,40 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ sections, ruleset = "regulame
               ? "Acompanhe a disputa em tempo real"
               : "Detalhamento de acertos por jogador"}
           </p>
+
+          {onExportGroupReport && (
+            <div className="mt-4 pt-4 border-t border-slate-700/50">
+              <button
+                onClick={() => setShowExport(!showExport)}
+                className="flex items-center gap-2 text-[10px] font-bold text-slate-400 hover:text-white transition-colors uppercase tracking-widest px-1 w-full justify-between"
+              >
+                <span className="flex items-center gap-2">
+                  <FileSpreadsheet size={12} className="text-brand-green" />
+                  Exportar dados do grupo
+                </span>
+                {showExport ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              </button>
+
+              {showExport && (
+                <div className="mt-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <button
+                    onClick={() => {
+                      onExportGroupReport();
+                      setShowExport(false);
+                    }}
+                    className="w-full py-3 rounded-xl font-black text-xs uppercase tracking-widest bg-brand-blue text-white hover:bg-brand-blue/90 active:scale-95 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Download size={14} />
+                    Baixar relatório (.xlsx)
+                  </button>
+                  <p className="text-[10px] text-slate-500 font-bold mt-2 text-center">
+                    Planilha com ranking e palpites de cada participante.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeView === "ranking" && (
             <div className="mt-4 flex flex-col gap-3">
               <div className="flex items-center gap-2">

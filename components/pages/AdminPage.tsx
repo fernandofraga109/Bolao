@@ -19,6 +19,7 @@ interface AdminPageProps {
   toggleAutoSync: () => void;
   syncStatusByCompetition: Record<string, CompetitionSyncStatus>;
   onManualSync?: (competitionCode: string) => Promise<void>;
+  onExportGroupReport?: (groupId: string) => void;
 }
 
 const AdminPage: React.FC<AdminPageProps> = (props) => {

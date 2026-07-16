@@ -41,6 +41,7 @@ import SpecialsPage from "./components/pages/SpecialsPage";
 
 import { DEFAULT_COMPETITION_CODE, getCompetitionByCode } from "./data/competitions";
 import { CURRENT_VERSION } from "./data/releases";
+import { downloadGroupReport } from "./utils/exportGroupReport";
 import WhatsNewModal from "./components/ui/WhatsNewModal";
 import UpdateAvailableModal from "./components/ui/UpdateAvailableModal";
 import {
@@ -285,6 +286,37 @@ const App: React.FC = () => {
     if (currentGroup?.ruleset === "regulamento_2") {
       backfillKnockoutClassifications();
     }
+  };
+
+  const handleExportGroupReport = (groupId?: string) => {
+    const targetGroupId = groupId || currentGroup?.id;
+    if (!targetGroupId) return;
+
+    const group = groups.find((g) => g.id === targetGroupId);
+    if (!group) return;
+
+    const groupUsers = usersWithCalculatedPoints.filter((u) =>
+      u.groupIds.includes(targetGroupId)
+    );
+    if (groupUsers.length === 0) return;
+
+    const activeCompCode = (group.competitionCode || DEFAULT_COMPETITION_CODE).toUpperCase();
+    const groupMatches = matches.filter(
+      (m) => (m.competitionCode || "WC").toUpperCase() === activeCompCode
+    );
+
+    downloadGroupReport({
+      group,
+      users: groupUsers,
+      matches: groupMatches,
+      tournamentResults,
+      dbPredictions: db.predictions,
+      extraPhasePredictions: db.extraPhasePredictions || [],
+      competitions: db.competitions || [],
+      teams: db.teams,
+      players: db.players,
+      lockDate,
+    });
   };
 
   const handleManualMatchesSync = async () => {
@@ -742,6 +774,7 @@ const App: React.FC = () => {
             currentUserId={currentUser.id}
             rawPredictions={db.predictions}
             lockDate={lockDate}
+            onExportGroupReport={handleExportGroupReport}
           />
         )}
 
@@ -786,6 +819,7 @@ const App: React.FC = () => {
             toggleAutoSync={toggleAutoSync}
             syncStatusByCompetition={syncStatusByCompetition}
             onManualSync={handleAdminSyncCompetition}
+            onExportGroupReport={handleExportGroupReport}
           />
         )}
 

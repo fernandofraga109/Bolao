@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.17';
+export const CURRENT_VERSION = '2.0.18';
 
 export interface Release {
   version: string;
@@ -7,6 +7,16 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.18',
+    date: '2026-07-15',
+    changes: [
+      'Nova funcionalidade de exportação: baixe relatório completo do grupo em Excel (.xlsx) com ranking e palpites de cada participante',
+      'Botão de exportação disponível no card CLASSIFICAÇÃO para todos os usuários (accordion "Exportar dados do grupo")',
+      'Admins podem exportar relatório de qualquer grupo diretamente no painel de gerenciamento',
+      'O arquivo gerado contém uma aba de ranking e uma aba por usuário com palpites especiais e jogos',
+    ],
+  },
   {
     version: '2.0.17',
     date: '2026-07-15',

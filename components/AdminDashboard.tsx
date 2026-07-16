@@ -67,6 +67,7 @@ interface AdminDashboardProps {
   toggleAutoSync: () => void;
   syncStatusByCompetition: Record<string, CompetitionSyncStatus>;
   onManualSync?: (competitionCode: string) => Promise<void>;
+  onExportGroupReport?: (groupId: string) => void;
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -84,6 +85,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   toggleAutoSync,
   syncStatusByCompetition,
   onManualSync,
+  onExportGroupReport,
 }) => {
   const db = useDatabase(); // Access raw DB tables and config
 
@@ -1749,6 +1751,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {group.name}
                   </span>
                   <div className="flex gap-1">
+                    <button
+                      onClick={() => onExportGroupReport?.(group.id)}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded transition-colors text-xs font-bold flex items-center gap-1"
+                      title="Exportar relatório do grupo"
+                    >
+                      <Download size={14} />
+                      Exportar
+                    </button>
                     <button
                       onClick={() => setSelectedGroupId(group.id)}
                       className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded transition-colors text-xs font-bold flex items-center gap-1"
