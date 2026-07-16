@@ -20,7 +20,6 @@ interface LeaderboardPageProps {
   currentUserId: string;
   rawPredictions: PredictionDB[];
   lockDate: string | null;
-  onExportGroupReport?: () => void;
 }
 
 const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
@@ -32,7 +31,6 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   currentUserId,
   rawPredictions,
   lockDate,
-  onExportGroupReport,
 }) => {
   const [auditUser, setAuditUser] = useState<User | null>(null);
   const db = useDatabase();
@@ -55,7 +53,6 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
         sections={sections}
         ruleset={ruleset}
         onUserClick={(u) => setAuditUser(u as User)}
-        onExportGroupReport={onExportGroupReport}
       />
       {auditUser && (
         <UserAuditModal

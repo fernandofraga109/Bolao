@@ -774,7 +774,6 @@ const App: React.FC = () => {
             currentUserId={currentUser.id}
             rawPredictions={db.predictions}
             lockDate={lockDate}
-            onExportGroupReport={handleExportGroupReport}
           />
         )}
 

@@ -1,4 +1,4 @@
-export const CURRENT_VERSION = '2.0.19';
+export const CURRENT_VERSION = '2.0.20';
 
 export interface Release {
   version: string;
@@ -7,6 +7,13 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    version: '2.0.20',
+    date: '2026-07-15',
+    changes: [
+      'Exportação de relatório temporariamente desabilitada para usuários normais (disponível apenas para admins)',
+    ],
+  },
   {
     version: '2.0.19',
     date: '2026-07-15',
