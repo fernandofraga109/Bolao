@@ -97,8 +97,9 @@ describe("exportGroupReport", () => {
     const rankingSheet = workbook.Sheets["Ranking"];
     const rankingData = XLSX.utils.sheet_to_json(rankingSheet);
     expect(rankingData).toHaveLength(2);
-    expect(rankingData[0]).toMatchObject({ Nome: "Alice", "Pontos Totais": 15 });
-    expect(rankingData[1]).toMatchObject({ Nome: "Bob", "Pontos Totais": 5 });
+    // Points are recalculated from match rows: Alice has exact match (10pts), Bob has no predictions (0pts)
+    expect(rankingData[0]).toMatchObject({ Nome: "Alice", "Pontos Totais": 10 });
+    expect(rankingData[1]).toMatchObject({ Nome: "Bob", "Pontos Totais": 0 });
   });
 
   it("should handle empty group without throwing", () => {
@@ -126,6 +127,95 @@ describe("exportGroupReport", () => {
 
     const workbook = XLSX.read(data, { type: "array" });
     expect(workbook.SheetNames).toEqual(["Ranking"]);
+  });
+
+  it("should recalculate points using the target group's ruleset, ignoring user.totalPoints", () => {
+    // Scenario: user.totalPoints was calculated for regulamento_1 (10pts exact),
+    // but the target group uses regulamento_2 which gives 15pts exact in groups phase.
+    // The report must use the TARGET GROUP's ruleset, not the pre-calculated user.totalPoints.
+    const group: Group = {
+      id: "g2",
+      name: "Grupo R2",
+      code: "GR2",
+      adminId: "admin-1",
+      createdAt: "2026-01-01",
+      competitionCode: "WC",
+      ruleset: "regulamento_2",
+    };
+
+    const users: User[] = [
+      {
+        id: "u1",
+        name: "Alice",
+        email: "alice@example.com",
+        avatar: "",
+        role: "USER",
+        status: "ACTIVE",
+        groupIds: ["g2"],
+        activeGroupId: "g2",
+        totalPoints: 10, // Wrong! This was calculated for R1
+        predictions: {
+          "m1": { home: 2, away: 1 },
+        },
+        scoreBreakdown: {
+          exactCount: 1,
+          diffCount: 0,
+          outcomeCount: 0,
+          wrongCount: 0,
+        },
+      },
+      {
+        id: "u2",
+        name: "Bob",
+        email: "bob@example.com",
+        avatar: "",
+        role: "USER",
+        status: "ACTIVE",
+        groupIds: ["g2"],
+        activeGroupId: "g2",
+        totalPoints: 5, // Wrong! This was calculated for R1
+        predictions: {
+          "m1": { home: 3, away: 1 },
+        },
+      },
+    ];
+
+    const matches: Match[] = [
+      {
+        id: "m1",
+        homeTeam: teamA,
+        awayTeam: teamB,
+        date: "2026-06-15T16:00:00.000Z",
+        group: "Grupo A",
+        competitionCode: "WC",
+        status: MatchStatus.FINISHED,
+        result: { home: 2, away: 1 },
+        stage: "GROUP_STAGE",
+      },
+    ];
+
+    const data = exportGroupReport({
+      group,
+      users,
+      matches,
+      tournamentResults: null,
+      dbPredictions: [],
+      extraPhasePredictions: [],
+      competitions: [],
+      teams: [teamA, teamB],
+      players: [],
+      lockDate: null,
+    });
+
+    const workbook = XLSX.read(data, { type: "array" });
+    const rankingSheet = workbook.Sheets["Ranking"];
+    const rankingData = XLSX.utils.sheet_to_json(rankingSheet);
+
+    // Alice has exact match in R2 groups phase = 15pts + 5pts alone bonus = 20 (not 10 from R1)
+    // The report must NOT use user.totalPoints (which was 10)
+    expect(rankingData[0]).toMatchObject({ Nome: "Alice", "Pontos Totais": 20 });
+    // Bob has outcome correct (2-1 vs 3-1, home wins) in R2 groups = 10pts
+    expect(rankingData[1]).toMatchObject({ Nome: "Bob", "Pontos Totais": 10 });
   });
 
   it("should sanitize long sheet names", () => {

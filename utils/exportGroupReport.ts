@@ -110,67 +110,71 @@ function getMatchResultLabel(
   return "Errou";
 }
 
-function buildRankingRows(users: User[], ruleset: "regulamento_1" | "regulamento_2") {
-  const sorted = [...users].sort((a, b) => {
+interface UserReportStats {
+  userId: string;
+  name: string;
+  totalPoints: number;
+  matchPoints: number;
+  specialPoints: number;
+  exactCount: number;
+  diffCount: number;
+  outcomeCount: number;
+  wrongCount: number;
+  underdogBonusTotal: number;
+  aloneBonusTotal: number;
+  championHit: number;
+}
+
+function buildRankingRows(stats: UserReportStats[], ruleset: "regulamento_1" | "regulamento_2") {
+  const sorted = [...stats].sort((a, b) => {
     if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
-    if (ruleset === "regulamento_2" && a.tieBreakStats && b.tieBreakStats) {
-      if (b.tieBreakStats.championHit !== a.tieBreakStats.championHit)
-        return b.tieBreakStats.championHit - a.tieBreakStats.championHit;
-      if (b.tieBreakStats.exactHits !== a.tieBreakStats.exactHits)
-        return b.tieBreakStats.exactHits - a.tieBreakStats.exactHits;
-      if (b.tieBreakStats.resultHits !== a.tieBreakStats.resultHits)
-        return b.tieBreakStats.resultHits - a.tieBreakStats.resultHits;
-      if (b.tieBreakStats.diffHits !== a.tieBreakStats.diffHits)
-        return b.tieBreakStats.diffHits - a.tieBreakStats.diffHits;
+    if (ruleset === "regulamento_2") {
+      if (b.championHit !== a.championHit)
+        return b.championHit - a.championHit;
+      if (b.exactCount !== a.exactCount)
+        return b.exactCount - a.exactCount;
+      // resultHits = exact + diff + outcome
+      const bResultHits = b.exactCount + b.diffCount + b.outcomeCount;
+      const aResultHits = a.exactCount + a.diffCount + a.outcomeCount;
+      if (bResultHits !== aResultHits) return bResultHits - aResultHits;
+      // diffHits = exact + diff
+      const bDiffHits = b.exactCount + b.diffCount;
+      const aDiffHits = a.exactCount + a.diffCount;
+      if (bDiffHits !== aDiffHits) return bDiffHits - aDiffHits;
     }
     return 0;
   });
 
   let currentRank = 0;
 
-  return sorted.map((user, index) => {
+  return sorted.map((s, index) => {
     const isSameAsPrevious =
       index > 0 &&
-      user.totalPoints === sorted[index - 1].totalPoints &&
+      s.totalPoints === sorted[index - 1].totalPoints &&
       (ruleset !== "regulamento_2" ||
-        !user.tieBreakStats ||
-        !sorted[index - 1].tieBreakStats ||
-        (user.tieBreakStats.championHit ===
-          sorted[index - 1].tieBreakStats!.championHit &&
-          user.tieBreakStats.exactHits ===
-            sorted[index - 1].tieBreakStats!.exactHits &&
-          user.tieBreakStats.resultHits ===
-            sorted[index - 1].tieBreakStats!.resultHits &&
-          user.tieBreakStats.diffHits ===
-            sorted[index - 1].tieBreakStats!.diffHits));
+        (s.championHit === sorted[index - 1].championHit &&
+          s.exactCount === sorted[index - 1].exactCount &&
+          s.exactCount + s.diffCount + s.outcomeCount ===
+            sorted[index - 1].exactCount + sorted[index - 1].diffCount + sorted[index - 1].outcomeCount &&
+          s.exactCount + s.diffCount ===
+            sorted[index - 1].exactCount + sorted[index - 1].diffCount));
 
     if (!isSameAsPrevious) {
       currentRank = index + 1;
     }
 
-    const breakdown = user.scoreBreakdown || {
-      exactCount: 0,
-      diffCount: 0,
-      outcomeCount: 0,
-      wrongCount: 0,
-      underdogBonusCount: 0,
-      underdogBonusTotal: 0,
-      aloneBonusCount: 0,
-      aloneBonusTotal: 0,
-    };
-
     return {
       Posição: currentRank,
-      Nome: user.name,
-      "Pontos Totais": user.totalPoints,
-      "Pontos de Jogos": ruleset === "regulamento_2" ? (user.matchPoints ?? 0) : null,
-      "Pontos Especiais": ruleset === "regulamento_2" ? (user.specialPoints ?? 0) : null,
-      "Acertos Exatos": breakdown.exactCount,
-      "Diferença de Gols": breakdown.diffCount,
-      "Resultados Certos": breakdown.outcomeCount,
-      Erros: breakdown.wrongCount,
-      "Bônus Zebra (R1)": breakdown.underdogBonusTotal ?? 0,
-      "Bônus Placar Isolado (R2)": breakdown.aloneBonusTotal ?? 0,
+      Nome: s.name,
+      "Pontos Totais": s.totalPoints,
+      "Pontos de Jogos": ruleset === "regulamento_2" ? s.matchPoints : null,
+      "Pontos Especiais": ruleset === "regulamento_2" ? s.specialPoints : null,
+      "Acertos Exatos": s.exactCount,
+      "Diferença de Gols": s.diffCount,
+      "Resultados Certos": s.outcomeCount,
+      Erros: s.wrongCount,
+      "Bônus Zebra (R1)": s.underdogBonusTotal,
+      "Bônus Placar Isolado (R2)": s.aloneBonusTotal,
     };
   });
 }
@@ -666,13 +670,13 @@ export function exportGroupReport(input: ExportGroupReportInput): ArrayBuffer {
     CreatedDate: new Date(),
   };
 
-  // 1. Ranking sheet
-  const rankingRows = buildRankingRows(users, ruleset);
-  const rankingSheet = XLSX.utils.json_to_sheet(rankingRows);
-  XLSX.utils.book_append_sheet(wb, rankingSheet, "Ranking");
-
-  // 2. One sheet per user
-  users.forEach((user) => {
+  // 1. Pre-calculate per-user data using the TARGET GROUP's ruleset
+  const userSheetData: {
+    user: User;
+    matchRows: MatchRow[];
+    specialRows: SpecialRow[];
+    stats: UserReportStats;
+  }[] = users.map((user) => {
     const specialRows: SpecialRow[] =
       ruleset === "regulamento_2"
         ? buildSpecialRowsR2(
@@ -691,6 +695,67 @@ export function exportGroupReport(input: ExportGroupReportInput): ArrayBuffer {
 
     const matchRows = buildMatchRows(user, users, group, matches, minRankDiff);
 
+    const matchPointsTotal = matchRows.reduce(
+      (sum, r) => sum + r.points,
+      0
+    );
+    const specialPointsTotal = specialRows.reduce((sum, r) => sum + r.points, 0);
+
+    let exactCount = 0;
+    let diffCount = 0;
+    let outcomeCount = 0;
+    let wrongCount = 0;
+    let underdogBonusTotal = 0;
+    let aloneBonusTotal = 0;
+
+    matchRows.forEach((r) => {
+      if (r.resultLabel === "–") return;
+      if (r.resultLabel.startsWith("Placar exato")) exactCount++;
+      else if (r.resultLabel === "Diferença certa") diffCount++;
+      else if (r.resultLabel === "Resultado certo") outcomeCount++;
+      else if (r.resultLabel === "Errou") wrongCount++;
+      underdogBonusTotal += r.underdogBonus;
+      aloneBonusTotal += r.aloneBonus;
+    });
+
+    const championHit =
+      user.tournamentPredictions?.championTeamId &&
+      tournamentResults?.championTeamId &&
+      user.tournamentPredictions.championTeamId === tournamentResults.championTeamId
+        ? 1
+        : 0;
+
+    return {
+      user,
+      matchRows,
+      specialRows,
+      stats: {
+        userId: user.id,
+        name: user.name,
+        totalPoints: matchPointsTotal + specialPointsTotal,
+        matchPoints: matchPointsTotal,
+        specialPoints: specialPointsTotal,
+        exactCount,
+        diffCount,
+        outcomeCount,
+        wrongCount,
+        underdogBonusTotal,
+        aloneBonusTotal,
+        championHit,
+      },
+    };
+  });
+
+  // 2. Ranking sheet (uses recalculated stats, NOT pre-calculated user.totalPoints)
+  const rankingRows = buildRankingRows(
+    userSheetData.map((d) => d.stats),
+    ruleset
+  );
+  const rankingSheet = XLSX.utils.json_to_sheet(rankingRows);
+  XLSX.utils.book_append_sheet(wb, rankingSheet, "Ranking");
+
+  // 3. One sheet per user
+  userSheetData.forEach(({ user, matchRows, specialRows }) => {
     const sheetData: unknown[] = [
       { section: "PALPITES ESPECIAIS" },
       ...specialRows.map((r) => ({
