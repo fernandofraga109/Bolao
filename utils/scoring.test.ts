@@ -241,6 +241,20 @@ describe("calculateTournamentPoints", () => {
     );
     expect(pts).toBe(100);
   });
+
+  it("pontua artilheiro pelo UUID quando topScorerName não bate", () => {
+    const pts = calculateTournamentPoints(
+      {
+        topScorerPlayerId: "neymar-uuid",
+        topScorer: { player: "Neymar", goals: 6 },
+      },
+      {
+        topScorerPlayerIds: ["neymar-uuid"],
+        topScorer: { player: "-", goals: 6 },
+      }
+    );
+    expect(pts).toBe(200); // nome + gols
+  });
 });
 
 describe("calculatePointsRegulamento2", () => {

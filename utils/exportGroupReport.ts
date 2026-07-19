@@ -192,14 +192,20 @@ function buildSpecialRowsR1(
   const rows: SpecialRow[] = [];
 
   if (pred.topScorer?.player) {
+    const topScorerMatchById =
+      pred.topScorerPlayerId &&
+      actual.topScorerPlayerIds &&
+      actual.topScorerPlayerIds.length > 0 &&
+      actual.topScorerPlayerIds.includes(pred.topScorerPlayerId);
     rows.push({
       category: "Artilheiro (nome)",
       prediction: pred.topScorer.player,
       actual: actual.topScorer?.player || "–",
       points:
-        actual.topScorer?.player &&
-        pred.topScorer.player.trim().toLowerCase() ===
-          actual.topScorer.player.trim().toLowerCase()
+        topScorerMatchById ||
+        (actual.topScorer?.player &&
+          pred.topScorer.player.trim().toLowerCase() ===
+            actual.topScorer.player.trim().toLowerCase())
           ? POINTS_TOP_SCORER_NAME
           : 0,
     });

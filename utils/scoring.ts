@@ -349,7 +349,16 @@ export const calculateTournamentPoints = (
 
   let points = 0;
 
-  if (prediction.topScorer?.player && actual.topScorer?.player) {
+  // Artilheiro: preferir comparação por UUID; cair para nome quando não houver IDs
+  const topScorerMatchById =
+    prediction.topScorerPlayerId &&
+    actual.topScorerPlayerIds &&
+    actual.topScorerPlayerIds.length > 0 &&
+    actual.topScorerPlayerIds.includes(prediction.topScorerPlayerId);
+
+  if (topScorerMatchById) {
+    points += POINTS_TOP_SCORER_NAME;
+  } else if (prediction.topScorer?.player && actual.topScorer?.player) {
     if (prediction.topScorer.player.trim().toLowerCase() === actual.topScorer.player.trim().toLowerCase()) {
       points += POINTS_TOP_SCORER_NAME;
     }

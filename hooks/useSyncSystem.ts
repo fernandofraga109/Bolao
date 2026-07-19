@@ -16,6 +16,7 @@ import {
   shouldUpdateByLastUpdated,
   isStaleApiData,
   type ExternalTeam,
+  type ExternalScorer,
 } from "../services/liveScoreService";
 import { supabase, isSupabaseEnabled } from "../services/supabase";
 import { persistScorers } from "./usePlayerSync";
@@ -381,13 +382,21 @@ export const useSyncSystem = (
           (standingsData as any)?.competition;
         
         // Extrair artilheiro dos dados da API
-        // Hardcoded para Regulamento 1 até definirmos o fluxo real
-        const topScorerName = '-';
-        const topScorerGoals = scorersData?.scorers?.[0]?.goals;
-        
+        const scorers = (scorersData?.scorers ?? []) as ExternalScorer[];
+        const topScorerGoals = scorers.length
+          ? Math.max(...scorers.map((s) => s.goals ?? 0))
+          : undefined;
+        const topScorerName = topScorerGoals !== undefined
+          ? scorers
+              .filter((s) => (s.goals ?? 0) === topScorerGoals)
+              .map((s) => s.player.name)
+              .filter(Boolean)
+              .join(", ") || undefined
+          : undefined;
+
         // Extrair campeão dos dados da API (season.winner)
         const seasonWinnerExternalId = (externalMatches[0] as any)?.season?.winner;
-        
+
         if (topScorerName) {
           console.log(`[SYNC] Artilheiro encontrado: ${topScorerName} (${topScorerGoals} gols)`);
         }

@@ -215,11 +215,11 @@ const TournamentPredictionsCard: React.FC<TournamentPredictionsCardProps> = ({
     finalResult?.topScorer?.goals && parseInt(tsGoals) === finalResult.topScorer.goals;
   const isTsCorrect = useMemo(() => {
     if (!finalResult) return false;
-    if (ruleset === 'regulamento_2' && finalResult.topScorerPlayerIds && finalResult.topScorerPlayerIds.length > 0) {
+    if (finalResult.topScorerPlayerIds && finalResult.topScorerPlayerIds.length > 0) {
       return !!(tsPlayerId && finalResult.topScorerPlayerIds.includes(tsPlayerId));
     }
     return isTsNameCorrect;
-  }, [finalResult, ruleset, tsPlayerId, isTsNameCorrect]);
+  }, [finalResult, tsPlayerId, isTsNameCorrect]);
   const isBestPlayerCorrect =
     ruleset !== 'regulamento_2' && finalResult?.bestPlayer && bestPlayerName
       ? bestPlayerName.trim().toLowerCase() === finalResult.bestPlayer.trim().toLowerCase()

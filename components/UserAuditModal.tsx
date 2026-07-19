@@ -74,11 +74,8 @@ interface MatchAuditRow {
 const UserAuditModal: React.FC<UserAuditModalProps> = ({
   user,
   allUsers,
-  _matches,
   groups,
   tournamentResults,
-  _currentUserId,
-  _rawPredictions,
   viewingGroupId,
   lockDate,
   onClose,
@@ -694,12 +691,18 @@ const UserAuditModal: React.FC<UserAuditModalProps> = ({
       const r1Items: SpecialAuditItem[] = [];
       if (isFinalFinished) {
         if (isPreCupSpecialVisible && pred.topScorer?.player) {
-          const pts =
-            actual.topScorer?.player &&
-            pred.topScorer.player.trim().toLowerCase() ===
-              actual.topScorer.player.trim().toLowerCase()
-              ? POINTS_TOP_SCORER_NAME
-              : 0;
+          const topScorerMatchById =
+            pred.topScorerPlayerId &&
+            actual.topScorerPlayerIds &&
+            actual.topScorerPlayerIds.length > 0 &&
+            actual.topScorerPlayerIds.includes(pred.topScorerPlayerId);
+          const pts = topScorerMatchById
+            ? POINTS_TOP_SCORER_NAME
+            : actual.topScorer?.player &&
+              pred.topScorer.player.trim().toLowerCase() ===
+                actual.topScorer.player.trim().toLowerCase()
+            ? POINTS_TOP_SCORER_NAME
+            : 0;
           r1Items.push({
             label: "Artilheiro (nome)",
             predicted: pred.topScorer.player,

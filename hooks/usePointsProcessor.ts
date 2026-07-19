@@ -434,6 +434,7 @@ export const usePointsProcessor = (dbRef: any) => {
                   : undefined;
                 const predTourn: TournamentPredictions = {
                   championTeamId: tp.championTeamId || undefined,
+                  topScorerPlayerId: tp.topScorerPlayerId || undefined,
                   topScorer: tsName ? { player: tsName, goals: tp.topScorerGoals || 0 } : undefined,
                   bestPlayer: tp.bestPlayerId ? playerNameById.get(tp.bestPlayerId) : undefined,
                   bestGoalkeeper: tp.bestGoalkeeperId
